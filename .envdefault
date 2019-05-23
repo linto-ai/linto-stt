@@ -1,0 +1,7 @@
+AM_PATH=/path/to/acoustic/models/dir
+LM_PATH=/path/to/language/models/dir
+WORKER_PORT=8888
+SERVICE_PORT=2000
+
+SWAGGER_PATH=./document
+SWAGGER_JSON=/app/swagger/swagger.yml

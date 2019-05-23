@@ -1,0 +1,33 @@
+swagger: "2.0"
+
+info:
+  version: 1.0.0
+  title: LinSTT
+  description: A simple way to test LinSTT API, and to learn how to use API
+
+schemes:
+  - http
+host: localhost:8888
+basePath: /
+
+paths:
+  /transcribe:
+    post:
+      tags:
+        - "Speech-To-Text API"
+      summary: Perform Speech-to-Text
+      consumes:
+      - "multipart/form-data"
+      produces:
+      - "application/json"
+      parameters: 
+      - name: "wavFile"
+        in: "formData"
+        description: "Wave File"
+        required: true
+        type: "file"
+      responses:
+        200:
+          description: Successfully transcribe the audio
+          schema:
+            type: "string"
