@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify
 import uuid, os
 import configparser
 import subprocess
@@ -64,14 +64,16 @@ def decode(wav_file,wav_name):
     else:
         b=False
         o='KaldiFatalError decode param is not recognized'
+
+    if not b or 'KaldiFatalError' in o:
+        print(o)
+        return False, ''
+
     hypothesis = re.findall('\n'+wav_name+'.*',o)
     #app.logger.info(hypothesis)
     o=re.sub(wav_name,'',hypothesis[0]).strip()
     o=re.sub(r"#nonterm:[^ ]* ", "", o)
 
-    if not b or 'KaldiFatalError' in o:
-        print(o)
-        return False, ''
     return True, o
 
 @app.route('/transcribe', methods=['POST'])
@@ -95,7 +97,7 @@ def transcribe():
     for file in os.listdir(TEMP_FILE_PATH):
         os.remove(TEMP_FILE_PATH+"/"+file)
     busy=0
-    return out, 200
+    return jsonify({'transcript':{'transcription':out}}), 200
 
 @app.route('/check', methods=['GET'])
 def check():
