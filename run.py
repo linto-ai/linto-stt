@@ -1,12 +1,11 @@
 #!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 
-from flask import Flask, request, abort, jsonify
+from flask import Flask, request, abort, Response, json
 import uuid, os
 import configparser
 import subprocess
 import shlex
-import requests
-import json
 import re
 
 app = Flask(__name__)
@@ -97,7 +96,8 @@ def transcribe():
     for file in os.listdir(TEMP_FILE_PATH):
         os.remove(TEMP_FILE_PATH+"/"+file)
     busy=0
-    return jsonify({'transcript':{'transcription':out}}), 200
+    json_string = json.dumps(out, ensure_ascii=False)
+    return Response(json_string,content_type="application/json; charset=utf-8" ), 200
 
 @app.route('/check', methods=['GET'])
 def check():
