@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from flask import Flask, request, abort, Response, json
+from flask_cors import CORS
 import uuid, os
 import configparser
 import subprocess
@@ -9,6 +10,7 @@ import shlex
 import re
 
 app = Flask(__name__)
+CORS(app)
 
 global busy
 busy=0

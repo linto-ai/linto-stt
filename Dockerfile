@@ -51,12 +51,12 @@ RUN cd /opt/kaldi/src && \
     ./configure --shared && make depend -j$(nproc) && make -j$(nproc) && rm */*{.a,.o}
 
 RUN apt install -y libatlas-dev
-RUN pip2 install flask configparser requests
+RUN pip2 install flask configparser requests flask-cors
 
 RUN echo "/opt/kaldi/src/lib/" > /etc/ld.so.conf.d/kaldi.conf && \
     echo "/opt/kaldi/tools/openfst/lib/" >> /etc/ld.so.conf.d/kaldi.conf && \
     ldconfig
-    
+
 COPY Makefile /opt
 RUN cd /opt && ./Makefile
 
