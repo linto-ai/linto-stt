@@ -30,7 +30,8 @@ RUN apt-get update &&\
     zlib1g-dev &&\
     apt-get clean autoclean && \
     apt-get autoremove -y && \
-    ln -s /usr/bin/python2.7 /usr/bin/python ; ln -s -f bash /bin/sh
+    ln -s /usr/bin/python2.7 /usr/bin/python ; ln -s -f bash /bin/sh && \
+    apt-get install gfortran -y
 
 ENV BASE_DIR /opt/speech-to-text
 
