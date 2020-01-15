@@ -74,8 +74,9 @@ def decode(wav_file,wav_name):
     #app.logger.info(hypothesis)
     o=re.sub(wav_name,'',hypothesis[0]).strip()
     o=re.sub(r"#nonterm:[^ ]* ", "", o)
+    o=re.sub(r" <unk> ", " ", " "+o+" ")
 
-    return True, o
+    return True, o.strip()
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
