@@ -1,70 +1,118 @@
-> Server stt-standalone-worker Endpoints
->  -
-* '/transcribe': 
-	* methods='POST'
-	* inputs='wavFile'
-	* output=audio transcription
-* '/check':
-	* methods='GET'
-	* inputs=None
-	* output=1 if the service is on
-* '/stop':
-	* methods='POST'
-	* inputs=None
-	* output=None
-
-> Config:
->  -
-* Environment variables:
-	* SERVICE_PORT
-* Volumes:
-	* /path/to/the/AM/directory:/opt/models/AM
-	* /path/to/the/LM/directory:/opt/models/LM
+# Automatic Speech Recognition - LinSTT: Introduction
 
 
-> Parameters
-> -
-AM config file (decode.cfg)
-* decoder: Acoustic model used for decoding (dnn2, dnn3)
-* ampath: Path to the AM directory
-* lmPath: Path to the language model generation directory (this option is only required by the model service)
-* lmOrder: Ngrams used to generate the language model (this option is only required by the model service)
-* min_active: Min active tokens
-* max_active: Max active tokens
-* beam: Decoding beam
-* lattice_beam: Beam used in lattice generation
-* acwt: Acoustic likelihoods scale
-* frame_subsampling_factor : related to chain models (dnn3)
+## LinSTT
+Generally, Automatic Speech Recognition (ASR) is the task of recognition and translation of spoken language into text. Our ASR system takes advantages from the recent advances in machine learning technologies and in particular deep learning ones (TDNN, LSTM, attentation-based architecture). The core of our system consists of two main components: an acoustic model and a decoding graph. A high-performance ASR system relies on an accurate acoustic model as well as a perfect decoding graph.
 
-AM directory:
-*	final.mdl
-*	conf
-	*	ivector_extractor.conf
-	*	mfcc.conf
-	*	online_cmvn.conf
-	*	splice.conf
-	*	online.conf
-*	ivector_extractor
-	*	final.dubm
-	*	final.ie
-	*	final.mat
-	*	global_cmvn.stats
-	*	online_cmvn.conf
-	*	splice_opts
 
-> Nb:  use relative path in config files
-> example: decode.cfg
-	>ampath: online/
-	>lmPath: online/LM_gen/
+## Installation
 
-> Nb: ivector_extractor.conf must include only the extraction parameters without the file dependecies
-	> - --num-gselect=5
-	>- --min-post=0.025
-	>- --posterior-scale=0.1
-	>- --max-remembered-frames=1000
-	>- --max-count=100
-	
-LM directory:
-*	HCLG.fst
-*	words.txt
+### Packaged in Docker
+To start the LinSTT service on your local machine or your cloud, you need first to download the source code and set the environment file, as follows:
+
+```bash
+git clone https://github.com/linto-ai/linto-platform-stt-standalone-worker
+cd linto-platform-stt-standalone-worker
+mv .envdefault .env
+```
+
+Then, to build the docker image, execute:
+
+```bash
+docker build -t lintoai/linto-platform-stt-standalone-worker .
+```
+
+Or by docker-compose, by using:
+```bash
+docker-compose build
+```
+
+
+Or, download the pre-built image from docker-hub:
+
+```bash
+docker pull lintoai/linto-platform-stt-standalone-worker:latest
+```
+
+NB: You must install docker on your machine.
+
+## Configuration
+The LinSTT service that will be set-up here require KALDI models, the acoustic model and the decoding graph. Indeed, these models are not included in the repository; you must download them in order to run LinSTT. You can use our pre-trained models from here: [Downloads](https://doc.linto.ai/#/services/linstt_download).
+
+### Outside LinTO-Platform-STT-Service-Manager
+
+If you want to use our service alone without LinTO-Platform-STT-Service-Manager, you must `unzip` the files and put the extracted ones in the [shared storage](https://doc.linto.ai/#/infra?id=shared-storage). For example,
+
+1- Download the French acoustic model and the small decoding graph
+
+```bash
+wget https://dl.linto.ai/downloads/model-distribution/acoustic-models/fr-FR/linSTT_AM_fr-FR_v1.0.0.zip
+wget https://dl.linto.ai/downloads/model-distribution/decoding-graphs/LVCSR/fr-FR/decoding_graph_fr-FR_Small_v1.0.0.zip
+```
+
+2- Uncompress both files
+
+```bash
+unzip linSTT_AM_fr-FR_v1.0.0.zip -d AM_fr-FR
+unzip decoding_graph_fr-FR_Small_v1.0.0.zip -d DG_fr-FR_Small
+```
+
+3- Move the uncompressed files into the shared storage directory
+
+```bash
+mv AM_fr-FR ~/linto_shared/data
+mv DG_fr-FR_Small ~/linto_shared/data
+```
+
+4- Configure the environment file `.env` included in this repository
+
+    AM_PATH=/full/path/to/linto_shared/data/AM_fr-FR
+    LM_PATH=/full/path/to/linto_shared/data/DG_fr-FR_Small
+
+
+NB: if you want to use the visual user interface of the service, you need also to configure the swagger file `document/swagger.yml` included in this repository. Specifically, in the section `host`, specify the adress of the machine in which the service is deployed.
+
+### Using LinTO-Platform-STT-Service-Manager
+In case you want to use `LinTO-Platform-STT-Service-Manager`, you need to:
+
+1- Create an acoustic model and upload the approriate file
+
+2- Create a language model and upload the corresponding decoding graph
+
+3- Configure the environmenet file of this service.
+
+For more details, see configuration instruction in [LinTO - STT-Manager](https://doc.linto.ai/#/manager)
+
+## Execute
+In order to run the service alone, you have only to execute:
+
+```bash
+cd linto-platform-stt-standalone-worker
+docker-compose up
+```
+
+To run and manager LinSTT under `LinTO-Platform-STT-Service-Manager` service, you need to create a service first and then to start it. See [LinTO - STT-Manager](services/manager?id=execute)
+
+Our service requires an audio file in `Waveform format`. It should has the following parameters:
+
+    - sample rate: 16000 Hz
+    - number of bits per sample: 16 bits
+    - number of channels: 1 channel
+    - microphone: any type
+    - duration: <30 minutes
+
+### Run Example Applications
+To run an automated test go to the test folder
+
+```bash
+cd linto-platform-stt-standalone-worker/test
+```
+
+And run the test script:
+
+```bash
+./test_deployment.sh
+```
+
+Or use swagger interface to perform your personal test
 
