@@ -1,4 +1,4 @@
-# Automatic Speech Recognition - LinSTT: Introduction
+# Automatic Speech Recognition - LinSTT
 
 
 ## LinSTT
