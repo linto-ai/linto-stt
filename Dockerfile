@@ -23,6 +23,7 @@ RUN apt-get update &&\
     libtool-bin \
     make \
     sox \
+    libsox-fmt-all \
     libav-tools \
     subversion \
     vorbis-tools \

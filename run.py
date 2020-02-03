@@ -45,14 +45,14 @@ def run_shell_command(command_line):
         return False, ''
 
 def decode(wav_file,wav_name):
-    b,o=run_shell_command("sox "+wav_file+".wav -t wav -b 16 -r 16000 -c 1 "+wav_file+"_tmp.wav")
-    if not b:
-        return False, ''
+    b,o=run_shell_command("sox "+wav_file+" -t wav -b 16 -r 16000 -c 1 "+wav_file+"_tmp.wav")
+    if not b or 'error' in o or 'FAIL' in o:
+        return False, 'Audio file format is not supported!!! Supported formats are wav, mp3, aiff, flac, and ogg.'
     b,o=run_shell_command("mv "+wav_file+"_tmp.wav "+wav_file+".wav")
     if not b:
         return False, ''
 
-
+    wav_file = wav_file+".wav"
     decode_conf  = TEMP_FILE_PATH1+"/online.conf"
     decode_mdl   = AM_PATH+"/"+AM_FILE_PATH+"/final.mdl"
     decode_graph = LM_PATH+"/HCLG.fst"
@@ -64,12 +64,9 @@ def decode(wav_file,wav_name):
         b,o=run_shell_command("kaldi-nnet2-latgen-faster --do-endpointing=false --online=false --config="+decode_conf+" --min-active="+DECODER_MINACT+" --max-active="+DECODER_MAXACT+" --beam="+DECODER_BEAM+" --lattice-beam="+DECODER_LATBEAM+" --acoustic-scale="+DECODER_ACWT+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+wav_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
     else:
         b=False
-        o='KaldiFatalError decode param is not recognized'
 
     if not b or 'KaldiFatalError' in o:
-        print(o)
-        return False, ''
-
+        return False, 'The decoder params of the acoustic model in "decode.cfg" file are not correct!!'
     hypothesis = re.findall('\n'+wav_name+'.*',o)
     #app.logger.info(hypothesis)
     o=re.sub(wav_name,'',hypothesis[0]).strip()
@@ -83,17 +80,23 @@ def transcribe():
     global busy
     busy=1
     fileid = str(uuid.uuid4())
-    if 'wavFile' in request.files.keys():
-        file = request.files['wavFile']
-        filename = TEMP_FILE_PATH+'/'+fileid+'.wav'
-        file.save(filename)
-        b, out = decode(filename,fileid)
-        if not b:
+    if 'file' in request.files.keys():
+        file = request.files['file']
+        file_ext = file.filename.rsplit('.', 1)[-1].lower()
+        file_type = file.content_type.rsplit('/', 1)[0]
+        if file_type == "audio":
+            filename = TEMP_FILE_PATH+'/'+fileid+'.'+file_ext
+            file.save(filename)
+            b, out = decode(filename,fileid)
+            if not b:
+                busy=0
+                return 'Error while file transcription: '+out, 400
+        else:
             busy=0
-            abort(403)
+            return 'Error while file transcription: The uploaded file format is not supported!!! Supported formats are wav, mp3, aiff, flac, and ogg.', 400
     else:
         busy=0
-        return 'No wave file was uploaded', 404
+        return 'No audio file was uploaded', 400
 
     # Delete temporary files
     for file in os.listdir(TEMP_FILE_PATH):

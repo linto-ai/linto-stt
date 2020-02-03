@@ -21,7 +21,7 @@ paths:
       produces:
       - "application/json"
       parameters: 
-      - name: "wavFile"
+      - name: "file"
         in: "formData"
         description: "Wave File"
         required: true
