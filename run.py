@@ -3,6 +3,7 @@
 
 from flask import Flask, request, abort, Response, json
 from flask_cors import CORS
+from os import path
 import uuid, os
 import configparser
 import subprocess
@@ -33,53 +34,91 @@ def run_shell_command(command_line):
         command_line_args = shlex.split(command_line)
         process = subprocess.Popen(command_line_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, error = process.communicate()
-        return True, output
+        return False, output
     except OSError as err:
         print("OS error: {0}".format(err))
-        return False, ''
+        return True, ''
     except ValueError:
         print("data error.")
-        return False, ''
+        return True, ''
     except:
         print("Unexpected error:", sys.exc_info()[0])
-        return False, ''
+        return True, ''
 
-def decode(wav_file,wav_name):
-    b,o=run_shell_command("sox "+wav_file+" -t wav -b 16 -r 16000 -c 1 "+wav_file+"_tmp.wav")
-    if not b or 'error' in o or 'FAIL' in o:
-        return False, 'Audio file format is not supported!!! Supported formats are wav, mp3, aiff, flac, and ogg.'
-    b,o=run_shell_command("mv "+wav_file+"_tmp.wav "+wav_file+".wav")
-    if not b:
-        return False, ''
+def decode(audio_file,wav_name,do_word_tStamp):
+    # Normalize audio file and convert it to wave format
+    error, output = run_shell_command("sox "+audio_file+" -t wav -b 16 -r 16000 -c 1 "+audio_file+".wav")
+    if not path.exists(audio_file+".wav"):
+        app.logger.info(output)
+        return False, 'Error during audio file conversion!!! Supported formats are wav, mp3, aiff, flac, and ogg.'
 
-    wav_file = wav_file+".wav"
+
+    decode_file  = audio_file+".wav"
     decode_conf  = TEMP_FILE_PATH1+"/online.conf"
     decode_mdl   = AM_PATH+"/"+AM_FILE_PATH+"/final.mdl"
     decode_graph = LM_PATH+"/HCLG.fst"
     decode_words = LM_PATH+"/words.txt"
+    decode_words_boundary = LM_PATH+"/word_boundary.int"
 
+
+    # Decode the audio file
     if DECODER_SYS == 'dnn3':
-        b,o=run_shell_command("kaldi-nnet3-latgen-faster --do-endpointing=false --frame-subsampling-factor="+DECODER_FSF+" --frames-per-chunk=20 --online=false --config="+decode_conf+" --minimize=false --min-active="+DECODER_MINACT+" --max-active="+DECODER_MAXACT+" --beam="+DECODER_BEAM+" --lattice-beam="+DECODER_LATBEAM+" --acoustic-scale="+DECODER_ACWT+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+wav_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
+        error, output = run_shell_command("kaldi-nnet3-latgen-faster --do-endpointing=false --frame-subsampling-factor="+DECODER_FSF+" --frames-per-chunk=20 --online=false --config="+decode_conf+" --minimize=false --min-active="+DECODER_MINACT+" --max-active="+DECODER_MAXACT+" --beam="+DECODER_BEAM+" --lattice-beam="+DECODER_LATBEAM+" --acoustic-scale="+DECODER_ACWT+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+decode_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
     elif DECODER_SYS == 'dnn2' or DECODER_SYS == 'dnn':
-        b,o=run_shell_command("kaldi-nnet2-latgen-faster --do-endpointing=false --online=false --config="+decode_conf+" --min-active="+DECODER_MINACT+" --max-active="+DECODER_MAXACT+" --beam="+DECODER_BEAM+" --lattice-beam="+DECODER_LATBEAM+" --acoustic-scale="+DECODER_ACWT+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+wav_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
+        error, output = run_shell_command("kaldi-nnet2-latgen-faster --do-endpointing=false --online=false --config="+decode_conf+" --min-active="+DECODER_MINACT+" --max-active="+DECODER_MAXACT+" --beam="+DECODER_BEAM+" --lattice-beam="+DECODER_LATBEAM+" --acoustic-scale="+DECODER_ACWT+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+decode_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
     else:
-        b=False
+        return False, 'The "decoder" parameter of the acoustic model is not supported!!!'
 
-    if not b or 'KaldiFatalError' in o:
-        return False, 'The decoder params of the acoustic model in "decode.cfg" file are not correct!!'
-    hypothesis = re.findall('\n'+wav_name+'.*',o)
-    #app.logger.info(hypothesis)
-    o=re.sub(wav_name,'',hypothesis[0]).strip()
-    o=re.sub(r"#nonterm:[^ ]* ", "", o)
-    o=re.sub(r" <unk> ", " ", " "+o+" ")
+    if not path.exists(TEMP_FILE_PATH+"/"+wav_name+".lat"):
+        app.logger.info(output)
+        return False, 'One or multiple parameters of the acoustic model are not correct!!!'
 
-    return True, o.strip()
+
+    # Normalize the obtained transcription
+    hypothesis = re.findall('\n'+wav_name+'.*',output)
+    trans=re.sub(wav_name,'',hypothesis[0]).strip()
+    trans=re.sub(r"#nonterm:[^ ]* ", "", trans)
+    trans=re.sub(r" <unk> ", " ", " "+trans+" ")
+
+
+    # Get the begin and end time stamp from the decoder output
+    if do_word_tStamp:
+        error, output = run_shell_command("kaldi-lattice-1best --acoustic-scale="+DECODER_ACWT+" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat ark:"+TEMP_FILE_PATH+"/"+wav_name+".1best")
+        error, output = run_shell_command("kaldi-lattice-align-words "+decode_words_boundary+" "+decode_mdl+" ark:"+TEMP_FILE_PATH+"/"+wav_name+".1best ark:"+TEMP_FILE_PATH+"/"+wav_name+".words") 
+        error, output = run_shell_command("kaldi-nbest-to-ctm ark:"+TEMP_FILE_PATH+"/"+wav_name+".words "+TEMP_FILE_PATH+"/"+wav_name+".ctm")
+        error, output = run_shell_command("int2sym.pl -f 5 "+decode_words+" "+TEMP_FILE_PATH+"/"+wav_name+".ctm")
+        if not error and output != "":
+            words = output.split("\n")
+            trans = ""
+            data = {}
+            data["words"] = []
+            for word in words:
+                _word = word.strip().split(' ')
+                if len(_word) == 5:
+                    meta = {}
+                    word = re.sub("<unk>","",_word[4])
+                    word = re.sub("<unk>","",_word[4])
+                    if word != "":
+                        trans = trans+" "+word
+                        meta["word"] = word
+                        meta["stime"] = float(_word[2])
+                        meta["etime"] = (float(_word[2]) + float(_word[3]))
+                        meta["score"] = float(_word[1])
+                        data["words"].append(meta)
+            data["transcription"] = trans.strip()
+            return True, data
+        else:
+            app.logger.info("error during word time stamp generation")
+
+    return True, trans.strip()
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     global busy
     busy=1
     fileid = str(uuid.uuid4())
+    metadata = True if request.args.get('metadata').lower() == 'json' else False
+    
     if 'file' in request.files.keys():
         file = request.files['file']
         file_ext = file.filename.rsplit('.', 1)[-1].lower()
@@ -87,7 +126,7 @@ def transcribe():
         if file_type == "audio":
             filename = TEMP_FILE_PATH+'/'+fileid+'.'+file_ext
             file.save(filename)
-            b, out = decode(filename,fileid)
+            b, out = decode(filename,fileid,metadata)
             if not b:
                 busy=0
                 return 'Error while file transcription: '+out, 400

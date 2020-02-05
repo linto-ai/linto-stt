@@ -61,10 +61,11 @@ RUN echo "/opt/kaldi/src/lib/" > /etc/ld.so.conf.d/kaldi.conf && \
 COPY Makefile /opt
 RUN cd /opt && ./Makefile
 
-WORKDIR $BASE_DIR
-COPY . .
-
-RUN ln -s /opt/kaldi-nnet3-latgen-faster /opt/kaldi-nnet2-latgen-faster  /usr/bin/
 RUN mkdir -p /opt/tmp
+RUN cp /opt/kaldi/egs/wsj/s5/utils/int2sym.pl /opt
+ENV PATH /opt:$PATH
+
+WORKDIR $BASE_DIR
+COPY run.py .
 
 CMD ./run.py

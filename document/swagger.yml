@@ -26,8 +26,13 @@ paths:
         description: "Wave File"
         required: true
         type: "file"
+      - name: "metadata"
+        in: "query"
+        description: "Accepted header"
+        required: true
+        type: "string"
+        enum: [ "Text", "Json" ]
+        default: "text"
       responses:
         200:
           description: Successfully transcribe the audio
-          schema:
-            type: "string"
