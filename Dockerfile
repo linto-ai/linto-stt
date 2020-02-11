@@ -65,7 +65,16 @@ RUN mkdir -p /opt/tmp
 RUN cp /opt/kaldi/egs/wsj/s5/utils/int2sym.pl /opt
 ENV PATH /opt:$PATH
 
+
+# Install Speaker-Diarization toolkit
+RUN apt-get install -y python-pyaudio libsndfile1
+RUN pip2 install numpy librosa matplotlib future
+RUN pip2 install torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip2 install Keras tensorflow
+
+
 WORKDIR $BASE_DIR
-COPY run.py .
+COPY speaker-diarization .
+COPY run.py  .
 
 CMD ./run.py

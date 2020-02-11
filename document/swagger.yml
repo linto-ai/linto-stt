@@ -20,19 +20,20 @@ paths:
       - "multipart/form-data"
       produces:
       - "application/json"
+      - "text/plain"
       parameters: 
       - name: "file"
         in: "formData"
         description: "Wave File"
         required: true
         type: "file"
-      - name: "metadata"
+      - name: "speaker"
         in: "query"
-        description: "Accepted header"
+        description: "Do speaker diarization"
         required: true
         type: "string"
-        enum: [ "Text", "Json" ]
-        default: "text"
+        enum: [ "Yes", "No" ]
+        default: "No"
       responses:
         200:
           description: Successfully transcribe the audio
