@@ -190,10 +190,11 @@ def decode(audio_file,wav_name,do_word_tStamp,do_speaker_diarization):
         error, output = run_shell_command("kaldi-lattice-align-words "+decode_words_boundary+" "+decode_mdl+" ark:"+TEMP_FILE_PATH+"/"+wav_name+".1best ark:"+TEMP_FILE_PATH+"/"+wav_name+".words") 
         error, output = run_shell_command("kaldi-nbest-to-ctm --frame-shift="+str(shift)+"  ark:"+TEMP_FILE_PATH+"/"+wav_name+".words "+TEMP_FILE_PATH+"/"+wav_name+".ctm")
         error, output = run_shell_command("int2sym.pl -f 5 "+decode_words+" "+TEMP_FILE_PATH+"/"+wav_name+".ctm")
+        data = []
         if not error and output != "":
             words = output.split("\n")
             transcription = ""
-            data = []
+            
             for word in words:
                 _word = word.strip().split(' ')
                 if len(_word) == 5:
@@ -274,7 +275,7 @@ def decode(audio_file,wav_name,do_word_tStamp,do_speaker_diarization):
 #            data["transcription"] = trans.strip()
             return True, output
         else:
-            app.logger.info("error during word time stamp generation")
+            app.logger.info("error during word time stamp generation: verify the LM and the file word_boundary.int")
 
     return True, transcription
 
