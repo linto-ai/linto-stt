@@ -1,33 +1,26 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from flask import Flask, request, abort, Response, json
+from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
-from os import path
-import uuid, os
-import configparser
-import subprocess
-import shlex
-import re
+import uuid, os, configparser, subprocess, shlex, re, yaml
 
 app = Flask(__name__)
-CORS(app)
 
-global busy
-busy=0
-
+# Main parameters
 AM_PATH = '/opt/models/AM'
 LM_PATH = '/opt/models/LM'
-TEMP_FILE_PATH = '/opt/tmp'  #/opt/wavs
-TEMP_FILE_PATH1= '/opt/models'
+TEMP_FILE_PATH = '/opt/tmp'
+CONFIG_FILES_PATH = '/opt/config'
+SERVICE_PORT=80
+SWAGGER_URL='/api-doc'
 
+if not os.path.isdir(TEMP_FILE_PATH):
+    os.mkdir(TEMP_FILE_PATH)
+if not os.path.isdir(CONFIG_FILES_PATH):
+    os.mkdir(CONFIG_FILES_PATH)
 
-def dockerId():
-    with open('/proc/self/cgroup') as f:
-        lines = f.readlines() 
-    for l in lines:
-        if '/docker/' in l:
-            return l.split('/')[2][:20]
 
 def run_shell_command(command_line):
     try:
@@ -36,25 +29,25 @@ def run_shell_command(command_line):
         output, error = process.communicate()
         return False, output
     except OSError as err:
-        print("OS error: {0}".format(err))
+        app.logger.info("OS error: {0}".format(err))
         return True, ''
     except ValueError:
-        print("data error.")
+        app.logger.info("data error.")
         return True, ''
     except:
-        print("Unexpected error:", sys.exc_info()[0])
+        app.logger.info("Unexpected error:", sys.exc_info()[0])
         return True, ''
 
 def decode(audio_file,wav_name,do_word_tStamp):
     # Normalize audio file and convert it to wave format
     error, output = run_shell_command("sox "+audio_file+" -t wav -b 16 -r 16000 -c 1 "+audio_file+".wav")
-    if not path.exists(audio_file+".wav"):
+    if not os.path.exists(audio_file+".wav"):
         app.logger.info(output)
         return False, 'Error during audio file conversion!!! Supported formats are wav, mp3, aiff, flac, and ogg.'
 
 
     decode_file  = audio_file+".wav"
-    decode_conf  = TEMP_FILE_PATH1+"/online.conf"
+    decode_conf  = CONFIG_FILES_PATH+"/online.conf"
     decode_mdl   = AM_PATH+"/"+AM_FILE_PATH+"/final.mdl"
     decode_graph = LM_PATH+"/HCLG.fst"
     decode_words = LM_PATH+"/words.txt"
@@ -62,20 +55,27 @@ def decode(audio_file,wav_name,do_word_tStamp):
 
 
     # Decode the audio file
+    decode_opt =" --min-active="+DECODER_MINACT
+    decode_opt+=" --max-active="+DECODER_MAXACT
+    decode_opt+=" --beam="+DECODER_BEAM
+    decode_opt+=" --lattice-beam="+DECODER_LATBEAM
+    decode_opt+=" --acoustic-scale="+DECODER_ACWT
+        
+    
     if DECODER_SYS == 'dnn3':
-        error, output = run_shell_command("kaldi-nnet3-latgen-faster --do-endpointing=false --frame-subsampling-factor="+DECODER_FSF+" --frames-per-chunk=20 --online=false --config="+decode_conf+" --minimize=false --min-active="+DECODER_MINACT+" --max-active="+DECODER_MAXACT+" --beam="+DECODER_BEAM+" --lattice-beam="+DECODER_LATBEAM+" --acoustic-scale="+DECODER_ACWT+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+decode_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
+        error, output = run_shell_command("kaldi-nnet3-latgen-faster --do-endpointing=false --frames-per-chunk=20 --online=false --frame-subsampling-factor="+DECODER_FSF+" --config="+decode_conf+" --minimize=false "+decode_opt+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+decode_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
     elif DECODER_SYS == 'dnn2' or DECODER_SYS == 'dnn':
-        error, output = run_shell_command("kaldi-nnet2-latgen-faster --do-endpointing=false --online=false --config="+decode_conf+" --min-active="+DECODER_MINACT+" --max-active="+DECODER_MAXACT+" --beam="+DECODER_BEAM+" --lattice-beam="+DECODER_LATBEAM+" --acoustic-scale="+DECODER_ACWT+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+decode_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
+        error, output = run_shell_command("kaldi-nnet2-latgen-faster --do-endpointing=false --online=false --config="+decode_conf+" "+decode_opt+" --word-symbol-table="+decode_words+" "+decode_mdl+" "+decode_graph+" \"ark:echo "+wav_name+" "+wav_name+"|\" \"scp:echo "+wav_name+" "+decode_file+"|\" ark:"+TEMP_FILE_PATH+"/"+wav_name+".lat")
     else:
         return False, 'The "decoder" parameter of the acoustic model is not supported!!!'
 
-    if not path.exists(TEMP_FILE_PATH+"/"+wav_name+".lat"):
+    if not os.path.exists(TEMP_FILE_PATH+"/"+wav_name+".lat"):
         app.logger.info(output)
         return False, 'One or multiple parameters of the acoustic model are not correct!!!'
 
 
     # Normalize the obtained transcription
-    hypothesis = re.findall('\n'+wav_name+'.*',output)
+    hypothesis = re.findall('\n'+wav_name+'.*',output.decode('utf-8'))
     trans=re.sub(wav_name,'',hypothesis[0]).strip()
     trans=re.sub(r"#nonterm:[^ ]* ", "", trans)
     trans=re.sub(r" <unk> ", " ", " "+trans+" ")
@@ -88,7 +88,7 @@ def decode(audio_file,wav_name,do_word_tStamp):
         error, output = run_shell_command("kaldi-nbest-to-ctm ark:"+TEMP_FILE_PATH+"/"+wav_name+".words "+TEMP_FILE_PATH+"/"+wav_name+".ctm")
         error, output = run_shell_command("int2sym.pl -f 5 "+decode_words+" "+TEMP_FILE_PATH+"/"+wav_name+".ctm")
         if not error and output != "":
-            words = output.split("\n")
+            words = output.decode('utf-8').split("\n")
             trans = ""
             data = {}
             data["words"] = []
@@ -117,8 +117,14 @@ def transcribe():
     global busy
     busy=1
     fileid = str(uuid.uuid4())
-    metadata = True if request.args.get('metadata').lower() == 'json' else False
+    if request.headers.get('accept').lower() == 'application/json':
+        metadata = True
+    elif request.headers.get('accept').lower() == 'text/plain':
+        metadata = False
+    else:
+        return 'Not accepted header', 400
     
+        
     if 'file' in request.files.keys():
         file = request.files['file']
         file_ext = file.filename.rsplit('.', 1)[-1].lower()
@@ -144,20 +150,27 @@ def transcribe():
     json_string = json.dumps(out, ensure_ascii=False)
     return Response(json_string,content_type="application/json; charset=utf-8" ), 200
 
-@app.route('/check', methods=['GET'])
+@app.route('/healthcheck', methods=['GET'])
 def check():
     return '1', 200
 
-@app.route('/stop', methods=['POST'])
-def stop():
-    while(busy==1):
-        continue
-    subprocess.call("kill 1",shell=True)
-    return '1', 200
+# Rejected request handlers
+@app.errorhandler(405)
+def page_not_found(error):
+    return 'The method is not allowed for the requested URL', 405
+
+@app.errorhandler(404)
+def page_not_found(error):
+    return 'The requested URL was not found', 404
 
 if __name__ == '__main__':
-    SERVICE_PORT = os.environ['SERVICE_PORT']
-
+    if 'SERVICE_PORT' in os.environ:
+        SERVICE_PORT = os.environ['SERVICE_PORT']
+    if 'SWAGGER_PATH' not in os.environ:
+        exit("You have to provide a 'SWAGGER_PATH'")
+    
+    SWAGGER_PATH = os.environ['SWAGGER_PATH']
+    
     #Decoder parameters applied for both GMM and DNN based ASR systems
     decoder_settings = configparser.ConfigParser()
     decoder_settings.read(AM_PATH+'/decode.cfg')
@@ -174,15 +187,15 @@ if __name__ == '__main__':
     AM_FINAL_PATH=AM_PATH+"/"+AM_FILE_PATH
     with open(AM_FINAL_PATH+"/conf/online.conf") as f:
         values = f.readlines()
-        with open(TEMP_FILE_PATH1+"/online.conf", 'w') as f:
+        with open(CONFIG_FILES_PATH+"/online.conf", 'w') as f:
             for i in values:
                 f.write(i)
-            f.write("--ivector-extraction-config="+TEMP_FILE_PATH1+"/ivector_extractor.conf\n")
+            f.write("--ivector-extraction-config="+CONFIG_FILES_PATH+"/ivector_extractor.conf\n")
             f.write("--mfcc-config="+AM_FINAL_PATH+"/conf/mfcc.conf")
 
     with open(AM_FINAL_PATH+"/conf/ivector_extractor.conf") as f:
         values = f.readlines()
-        with open(TEMP_FILE_PATH1+"/ivector_extractor.conf", 'w') as f:
+        with open(CONFIG_FILES_PATH+"/ivector_extractor.conf", 'w') as f:
             for i in values:
                 f.write(i)
             f.write("--splice-config="+AM_FINAL_PATH+"/conf/splice.conf\n")
@@ -192,6 +205,18 @@ if __name__ == '__main__':
             f.write("--diag-ubm="+AM_FINAL_PATH+"/ivector_extractor/final.dubm\n")
             f.write("--ivector-extractor="+AM_FINAL_PATH+"/ivector_extractor/final.ie")
 
+    ### swagger specific ###
+    swagger_yml = yaml.load(open(SWAGGER_PATH, 'r'), Loader=yaml.Loader)
+    swaggerui = get_swaggerui_blueprint(
+        SWAGGER_URL,  # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
+        SWAGGER_PATH,
+        config={  # Swagger UI config overrides
+            'app_name': "STT API Documentation",
+            'spec': swagger_yml
+        }
+    )
+    app.register_blueprint(swaggerui, url_prefix=SWAGGER_URL)
+    ### end swagger specific ###
 
     #Run server
     app.run(host='0.0.0.0', port=SERVICE_PORT, debug=True, threaded=False, processes=1)
