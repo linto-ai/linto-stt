@@ -9,19 +9,10 @@ services:
     volumes:
       - ${AM_PATH}:/opt/models/AM
       - ${LM_PATH}:/opt/models/LM
+      - ${SWAGGER_PATH}:/opt/swagger.yml
     ports:
-      - ${WORKER_PORT}:${SERVICE_PORT}
+      - target: 80
+        published: 8888
     env_file: .env
     environment:
-      - ${SERVICE_PORT}
-
-  swaggerui:
-    image: swaggerapi/swagger-ui
-    ports:
-      - 80:8080
-    hostname: swaggerui
-    volumes:
-      - ${SWAGGER_PATH}:/app/swagger/
-    env_file: .env
-    environment:
-      - SWAGGER_JSON
+      SWAGGER_PATH: /opt/swagger.yml

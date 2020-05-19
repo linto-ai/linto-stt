@@ -20,19 +20,13 @@ paths:
       - "multipart/form-data"
       produces:
       - "application/json"
+      - "text/plain"
       parameters: 
       - name: "file"
         in: "formData"
-        description: "Wave File"
+        description: "Audio File (wav, mp3, aiff, flac, ogg)"
         required: true
         type: "file"
-      - name: "metadata"
-        in: "query"
-        description: "Accepted header"
-        required: true
-        type: "string"
-        enum: [ "Text", "Json" ]
-        default: "text"
       responses:
         200:
           description: Successfully transcribe the audio
