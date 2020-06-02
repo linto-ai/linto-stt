@@ -4,6 +4,7 @@
 from flask import Flask, request, abort, Response, json
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
+from tools import ASR
 import yaml, os
 
 app = Flask(__name__)
@@ -15,6 +16,7 @@ TEMP_FILE_PATH = '/opt/tmp'
 CONFIG_FILES_PATH = '/opt/config'
 SERVICE_PORT=80
 SWAGGER_URL='/api-doc'
+asr = ASR(AM_PATH,LM_PATH, CONFIG_FILES_PATH)
 
 
 if not os.path.isdir(TEMP_FILE_PATH):
@@ -64,5 +66,8 @@ if __name__ == '__main__':
     #start SwaggerUI
     swaggerUI()
     
+    #Run ASR engine
+    asr.run()
+
     #Run server
     app.run(host='0.0.0.0', port=SERVICE_PORT, debug=True, threaded=False, processes=1)
