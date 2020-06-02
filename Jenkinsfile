@@ -47,5 +47,24 @@ pipeline {
                 }
             }
         }
+
+        stage('Docker build for pykaldi (unstable) branch'){
+            when{
+                branch 'pykaldi'
+            }
+            steps {
+                echo 'Publishing new Feature branch'
+                script {
+                    image = docker.build(env.DOCKER_HUB_REPO)
+                    VERSION = sh(
+                        returnStdout: true, 
+                        script: "awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                    ).trim()
+                    docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
+                        image.push('pykaldi')
+                    }
+                }
+            }
+        }
     }// end stages
 }
