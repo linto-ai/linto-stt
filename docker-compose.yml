@@ -5,7 +5,7 @@ services:
   stt-worker:
     container_name: stt-standalone-worker
     build: .
-    image: lintoai/linto-platform-stt-standalone-worker
+    image: lintoai/linto-platform-stt-standalone-worker:pykaldi
     volumes:
       - ${AM_PATH}:/opt/models/AM
       - ${LM_PATH}:/opt/models/LM

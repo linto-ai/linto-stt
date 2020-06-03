@@ -23,10 +23,20 @@ import kaldi.fstext as _fst
 ##############
 
 ## other packages
-import configparser, sys
+import configparser, sys, sox
 ##############
 
 
+class Logger:
+    def __init__(self,app,module):
+        self.app = app
+        self.module = module
+
+    def error(self,msg):
+        self.app.logger.error("["+self.module+"] "+str(msg))
+
+    def info(self,msg):
+        self.app.logger.info("["+self.module+"] "+str(msg))
 
 class ASR:
     def __init__(self, AM_PATH, LM_PATH, CONFIG_FILES_PATH):
@@ -70,7 +80,7 @@ class ASR:
                     f.write("--global-cmvn-stats="+self.AM_PATH+"/ivector_extractor/global_cmvn.stats\n")
                     f.write("--diag-ubm="+self.AM_PATH+"/ivector_extractor/final.dubm\n")
                     f.write("--ivector-extractor="+self.AM_PATH+"/ivector_extractor/final.ie")
-          
+        
         # Define online feature pipeline
         print("Load decoder config")
         loadConfig(self)
@@ -80,8 +90,8 @@ class ASR:
         feat_opts.register(po)
         endpoint_opts.register(po)
         po.read_config_file(self.AM_PATH+"/conf/online.conf")
-        feat_info = OnlineNnetFeaturePipelineInfo.from_config(feat_opts)
-
+        self.feat_info = OnlineNnetFeaturePipelineInfo.from_config(feat_opts)
+        
         # Construct recognizer
         print("Load Decoder model")
         decoder_opts = LatticeFasterDecoderOptions()
@@ -93,22 +103,37 @@ class ASR:
         decodable_opts.acoustic_scale = float(self.DECODER_ACWT)
         decodable_opts.frame_subsampling_factor = int(self.DECODER_FSF)
         decodable_opts.frames_per_chunk = 150
-        asr = NnetLatticeFasterOnlineRecognizer.from_files(
+        self.asr = NnetLatticeFasterOnlineRecognizer.from_files(
             self.AM_PATH+"/final.mdl", self.LM_PATH+"/HCLG.fst", self.LM_PATH+"/words.txt",
             decoder_opts=decoder_opts,
             decodable_opts=decodable_opts,
             endpoint_opts=endpoint_opts)
 
+    def get_sample_rate(self):
+        return self.feat_info.mfcc_opts.frame_opts.samp_freq
 
-
+    def set_logger(self,log):
+        self.log = log
+    
 class Audio:
     def __init__(self):
-        print("start Audio")
-        
-    def readAudio(stream,type):
-        print(type)
+        self.bit = 16
+        self.channels = 1
+        self.sr = -1
     
+    def set_sample_rate(self,sr):
+        self.sr = sr
     
-    def transformAudio():
-        print("###")
+    def set_logger(self,log):
+        self.log = log
     
+    def transform(self,file_name):
+        try:
+            tfm = sox.Transformer()
+            tfm.set_output_format(rate=self.sr,
+                                  bits=self.bit,
+                                  channels=self.channels)
+            self.data = tfm.build_array(input_filepath=file_name)
+        except Exception as e:
+            self.log.error(e)
+            raise ValueError("The uploaded file format is not supported!!!")
