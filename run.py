@@ -4,8 +4,8 @@
 from flask import Flask, request, abort, Response, json
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
-from tools import ASR
-import yaml, os
+from tools import ASR, Audio, Logger
+import yaml, os, sox
 
 app = Flask(__name__)
 
@@ -14,10 +14,13 @@ AM_PATH = '/opt/models/AM'
 LM_PATH = '/opt/models/LM'
 TEMP_FILE_PATH = '/opt/tmp'
 CONFIG_FILES_PATH = '/opt/config'
-SERVICE_PORT=80
-SWAGGER_URL='/api-doc'
+SAVE_AUDIO = False
+SERVICE_PORT = 80
+SWAGGER_URL = '/api-doc'
 asr = ASR(AM_PATH,LM_PATH, CONFIG_FILES_PATH)
-
+audio = Audio()
+logASR = Logger(app,"ASR")
+logAUDIO = Logger(app,"AUDIO")
 
 if not os.path.isdir(TEMP_FILE_PATH):
     os.mkdir(TEMP_FILE_PATH)
@@ -47,20 +50,49 @@ def swaggerUI():
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
-    return 'Test', 200
+    try:
+        #get response content type
+        if request.headers.get('accept').lower() == 'application/json':
+            metadata = True
+        elif request.headers.get('accept').lower() == 'text/plain':
+            metadata = False
+        else:
+            raise ValueError('Not accepted header')
+        
+        #get input file
+        if 'file' in request.files.keys():
+            file = request.files['file']
+            file_path = TEMP_FILE_PATH+file.filename.lower()
+            file_type = file.content_type.rsplit('/', 1)[0]
+            file.save(file_path)
+            audio.transform(file_path)
+        else:
+            raise ValueError('No audio file was uploaded')
+
+        return 'Test', 200
+    except ValueError as error:
+        return str(error), 400
+    except Exception as e:
+        app.logger.error(e)
+        return 'Server Error', 500
 
 @app.route('/healthcheck', methods=['GET'])
 def check():
-    return '1', 200
+    return '', 200
 
 # Rejected request handlers
 @app.errorhandler(405)
-def page_not_found(error):
+def method_not_allowed(error):
     return 'The method is not allowed for the requested URL', 405
 
 @app.errorhandler(404)
 def page_not_found(error):
     return 'The requested URL was not found', 404
+
+@app.errorhandler(500)
+def server_error(error):
+    app.logger.error(error)
+    return 'Server Error', 500
 
 if __name__ == '__main__':
     #start SwaggerUI
@@ -68,6 +100,11 @@ if __name__ == '__main__':
     
     #Run ASR engine
     asr.run()
+    #Set Audio Sample Rate
+    audio.set_sample_rate(asr.get_sample_rate())
+    #Set log messages
+    asr.set_logger(logASR)
+    audio.set_logger(logAUDIO)
 
     #Run server
     app.run(host='0.0.0.0', port=SERVICE_PORT, debug=True, threaded=False, processes=1)

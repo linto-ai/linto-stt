@@ -113,6 +113,7 @@ RUN git clone --depth 1 https://github.com/pykaldi/pykaldi.git /pykaldi \
 
 # Install main service packages
 RUN pip3 install flask flask-cors flask-swagger-ui configparser pyyaml
+RUN apt-get install -y libsox-fmt-all && pip3 install git+https://github.com/rabitt/pysox.git
 
 # Set environment variables
 ENV PATH /pykaldi/tools/kaldi/egs/wsj/s5/utils/:$PATH
