@@ -23,12 +23,12 @@ import kaldi.fstext as _fst
 ##############
 
 ## other packages
-import configparser, sys, sox
+import configparser, sys, sox, time
 ##############
 
 
 class Logger:
-    def __init__(self,app,module):
+    def __init__(self,app,module=""):
         self.app = app
         self.module = module
 
@@ -82,18 +82,18 @@ class ASR:
                     f.write("--ivector-extractor="+self.AM_PATH+"/ivector_extractor/final.ie")
         
         # Define online feature pipeline
-        print("Load decoder config")
+        self.log.info("Load decoder config")
         loadConfig(self)
         feat_opts = OnlineNnetFeaturePipelineConfig()
         endpoint_opts = OnlineEndpointConfig()
         po = ParseOptions("")
         feat_opts.register(po)
         endpoint_opts.register(po)
-        po.read_config_file(self.AM_PATH+"/conf/online.conf")
+        po.read_config_file(self.CONFIG_FILES_PATH+"/online.conf")
         self.feat_info = OnlineNnetFeaturePipelineInfo.from_config(feat_opts)
         
         # Construct recognizer
-        print("Load Decoder model")
+        self.log.info("Load Decoder model")
         decoder_opts = LatticeFasterDecoderOptions()
         decoder_opts.beam = float(self.DECODER_BEAM)
         decoder_opts.max_active = int(self.DECODER_MAXACT)
@@ -114,6 +114,21 @@ class ASR:
 
     def set_logger(self,log):
         self.log = log
+        
+    def decoder(self,audio):
+        try:
+            start_time = time.time()
+            feat_pipeline = OnlineNnetFeaturePipeline(self.feat_info)
+            self.asr.set_input_pipeline(feat_pipeline)
+            feat_pipeline.accept_waveform(audio.sr, audio.getDataKaldyVector())
+            feat_pipeline.input_finished()
+            self.decode = self.asr.decode()
+            self.log.info("Decode time in seconds: %s" % (time.time() - start_time))
+        except Exception as e:
+            self.log.error(e)
+            raise ValueError("Decoder failed to transcribe the input audio!!!")
+        else:
+            return self.decode["text"]
     
 class Audio:
     def __init__(self):
@@ -137,3 +152,6 @@ class Audio:
         except Exception as e:
             self.log.error(e)
             raise ValueError("The uploaded file format is not supported!!!")
+    
+    def getDataKaldyVector(self):
+        return Vector(self.data)

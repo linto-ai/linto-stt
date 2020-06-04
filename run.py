@@ -5,9 +5,11 @@ from flask import Flask, request, abort, Response, json
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
 from tools import ASR, Audio, Logger
-import yaml, os, sox
+import yaml, os, sox, logging
 
 app = Flask(__name__)
+app.logger.setLevel(logging.DEBUG)
+
 
 # Main parameters
 AM_PATH = '/opt/models/AM'
@@ -19,8 +21,8 @@ SERVICE_PORT = 80
 SWAGGER_URL = '/api-doc'
 asr = ASR(AM_PATH,LM_PATH, CONFIG_FILES_PATH)
 audio = Audio()
-logASR = Logger(app,"ASR")
-logAUDIO = Logger(app,"AUDIO")
+asr.set_logger(Logger(app,"ASR"))
+audio.set_logger(Logger(app,"AUDIO"))
 
 if not os.path.isdir(TEMP_FILE_PATH):
     os.mkdir(TEMP_FILE_PATH)
@@ -48,6 +50,13 @@ def swaggerUI():
     app.register_blueprint(swaggerui, url_prefix=SWAGGER_URL)
     ### end swagger specific ###
 
+def getAudio(file):
+    file_path = TEMP_FILE_PATH+file.filename.lower()
+    file.save(file_path)
+    audio.transform(file_path)
+    if not SAVE_AUDIO:
+        os.remove(file_path)
+    
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     try:
@@ -62,14 +71,12 @@ def transcribe():
         #get input file
         if 'file' in request.files.keys():
             file = request.files['file']
-            file_path = TEMP_FILE_PATH+file.filename.lower()
-            file_type = file.content_type.rsplit('/', 1)[0]
-            file.save(file_path)
-            audio.transform(file_path)
+            getAudio(file)
+            text = asr.decoder(audio)
         else:
             raise ValueError('No audio file was uploaded')
 
-        return 'Test', 200
+        return text, 200
     except ValueError as error:
         return str(error), 400
     except Exception as e:
@@ -97,14 +104,10 @@ def server_error(error):
 if __name__ == '__main__':
     #start SwaggerUI
     swaggerUI()
-    
     #Run ASR engine
     asr.run()
     #Set Audio Sample Rate
     audio.set_sample_rate(asr.get_sample_rate())
-    #Set log messages
-    asr.set_logger(logASR)
-    audio.set_logger(logAUDIO)
 
     #Run server
     app.run(host='0.0.0.0', port=SERVICE_PORT, debug=True, threaded=False, processes=1)

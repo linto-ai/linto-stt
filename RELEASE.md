@@ -1,2 +1,2 @@
-# 2.0.0
-- New ASR engine based on pykaldi package
+# 2.1.0
+- A fonctional offline ASR engine
