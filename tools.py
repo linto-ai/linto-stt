@@ -23,23 +23,12 @@ import kaldi.fstext as _fst
 ##############
 
 ## other packages
-import configparser, sys, sox, time
+import configparser, sys, sox, time, logging
 ##############
-
-
-class Logger:
-    def __init__(self,app,module=""):
-        self.app = app
-        self.module = module
-
-    def error(self,msg):
-        self.app.logger.error("["+self.module+"] "+str(msg))
-
-    def info(self,msg):
-        self.app.logger.info("["+self.module+"] "+str(msg))
 
 class ASR:
     def __init__(self, AM_PATH, LM_PATH, CONFIG_FILES_PATH):
+        self.log = logging.getLogger('__stt-standelone-worker__.ASR')
         self.AM_PATH = AM_PATH
         self.LM_PATH = LM_PATH
         self.CONFIG_FILES_PATH = CONFIG_FILES_PATH
@@ -112,9 +101,6 @@ class ASR:
     def get_sample_rate(self):
         return self.feat_info.mfcc_opts.frame_opts.samp_freq
 
-    def set_logger(self,log):
-        self.log = log
-        
     def decoder(self,audio):
         try:
             start_time = time.time()
@@ -129,9 +115,10 @@ class ASR:
             raise ValueError("Decoder failed to transcribe the input audio!!!")
         else:
             return self.decode["text"]
-    
+
 class Audio:
     def __init__(self):
+        self.log = logging.getLogger('__stt-standelone-worker__.Audio')
         self.bit = 16
         self.channels = 1
         self.sr = -1

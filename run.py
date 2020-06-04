@@ -4,12 +4,14 @@
 from flask import Flask, request, abort, Response, json
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
-from tools import ASR, Audio, Logger
+from tools import ASR, Audio
 import yaml, os, sox, logging
 
-app = Flask(__name__)
-app.logger.setLevel(logging.DEBUG)
+app = Flask("__stt-standelone-worker__")
 
+# Set logger config
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 # Main parameters
 AM_PATH = '/opt/models/AM'
@@ -21,8 +23,6 @@ SERVICE_PORT = 80
 SWAGGER_URL = '/api-doc'
 asr = ASR(AM_PATH,LM_PATH, CONFIG_FILES_PATH)
 audio = Audio()
-asr.set_logger(Logger(app,"ASR"))
-audio.set_logger(Logger(app,"AUDIO"))
 
 if not os.path.isdir(TEMP_FILE_PATH):
     os.mkdir(TEMP_FILE_PATH)
@@ -67,7 +67,7 @@ def transcribe():
             metadata = False
         else:
             raise ValueError('Not accepted header')
-        
+
         #get input file
         if 'file' in request.files.keys():
             file = request.files['file']
