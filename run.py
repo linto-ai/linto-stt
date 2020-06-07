@@ -4,7 +4,7 @@
 from flask import Flask, request, abort, Response, json
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
-from tools import ASR, Audio
+from tools import ASR, Audio, SttStandelone
 import yaml, os, sox, logging
 
 app = Flask("__stt-standelone-worker__")
@@ -32,6 +32,8 @@ if not os.path.isdir(CONFIG_FILES_PATH):
 # Environment parameters
 if 'SERVICE_PORT' in os.environ:
     SERVICE_PORT = os.environ['SERVICE_PORT']
+if 'SAVE_AUDIO' in os.environ:
+    SAVE_AUDIO = os.environ['SAVE_AUDIO']
 if 'SWAGGER_PATH' not in os.environ:
     exit("You have to provide a 'SWAGGER_PATH'")
 SWAGGER_PATH = os.environ['SWAGGER_PATH']
@@ -61,6 +63,7 @@ def getAudio(file):
 def transcribe():
     try:
         #get response content type
+        metadata = False
         if request.headers.get('accept').lower() == 'application/json':
             metadata = True
         elif request.headers.get('accept').lower() == 'text/plain':
@@ -68,15 +71,17 @@ def transcribe():
         else:
             raise ValueError('Not accepted header')
 
+        stt = SttStandelone(asr,metadata)
+
         #get input file
         if 'file' in request.files.keys():
             file = request.files['file']
             getAudio(file)
-            text = asr.decoder(audio)
+            output = stt.run(audio,asr)
         else:
             raise ValueError('No audio file was uploaded')
 
-        return text, 200
+        return output, 200
     except ValueError as error:
         return str(error), 400
     except Exception as e:
