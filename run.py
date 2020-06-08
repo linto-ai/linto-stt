@@ -6,6 +6,7 @@ from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
 from tools import ASR, Audio, SttStandelone
 import yaml, os, sox, logging
+from time import gmtime, strftime
 
 app = Flask("__stt-standelone-worker__")
 
@@ -18,6 +19,7 @@ AM_PATH = '/opt/models/AM'
 LM_PATH = '/opt/models/LM'
 TEMP_FILE_PATH = '/opt/tmp'
 CONFIG_FILES_PATH = '/opt/config'
+NBR_PROCESSES = 1
 SAVE_AUDIO = False
 SERVICE_PORT = 80
 SWAGGER_URL = '/api-doc'
@@ -34,6 +36,11 @@ if 'SERVICE_PORT' in os.environ:
     SERVICE_PORT = os.environ['SERVICE_PORT']
 if 'SAVE_AUDIO' in os.environ:
     SAVE_AUDIO = os.environ['SAVE_AUDIO']
+if 'NBR_PROCESSES' in os.environ:
+    if int(os.environ['NBR_PROCESSES']) > 0:
+        NBR_PROCESSES = int(os.environ['NBR_PROCESSES'])
+    else:
+        exit("You must to provide a positif number of processes 'NBR_PROCESSES'")
 if 'SWAGGER_PATH' not in os.environ:
     exit("You have to provide a 'SWAGGER_PATH'")
 SWAGGER_PATH = os.environ['SWAGGER_PATH']
@@ -62,6 +69,7 @@ def getAudio(file):
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     try:
+        app.logger.info('[%s] New user entry on /transcribe' % (strftime("%d/%b/%d %H:%M:%S", gmtime())))
         #get response content type
         metadata = False
         if request.headers.get('accept').lower() == 'application/json':
@@ -115,4 +123,4 @@ if __name__ == '__main__':
     audio.set_sample_rate(asr.get_sample_rate())
 
     #Run server
-    app.run(host='0.0.0.0', port=SERVICE_PORT, debug=True, threaded=False, processes=1)
+    app.run(host='0.0.0.0', port=SERVICE_PORT, debug=True, threaded=False, processes=NBR_PROCESSES)
