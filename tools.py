@@ -1,6 +1,7 @@
 ## Kaldi ASR decoder
 from kaldi.asr import NnetLatticeFasterOnlineRecognizer
-from kaldi.decoder import LatticeFasterDecoderOptions
+from kaldi.decoder import (LatticeFasterDecoderOptions,
+                           LatticeFasterOnlineDecoder)
 from kaldi.nnet3 import NnetSimpleLoopedComputationOptions
 from kaldi.online2 import (OnlineEndpointConfig,
                            OnlineIvectorExtractorAdaptationState,
@@ -75,18 +76,16 @@ class ASR:
         self.log.info("Load decoder config")
         loadConfig(self)
         feat_opts = OnlineNnetFeaturePipelineConfig()
-        endpoint_opts = OnlineEndpointConfig()
+        self.endpoint_opts = OnlineEndpointConfig()
         po = ParseOptions("")
         feat_opts.register(po)
-        endpoint_opts.register(po)
+        self.endpoint_opts.register(po)
         po.read_config_file(self.CONFIG_FILES_PATH+"/online.conf")
         self.feat_info = OnlineNnetFeaturePipelineInfo.from_config(feat_opts)
         
         # Set metadata parameters
         self.samp_freq = self.feat_info.mfcc_opts.frame_opts.samp_freq
         self.frame_shift = self.feat_info.mfcc_opts.frame_opts.frame_shift_ms / 1000
-        self.symbols = _fst.SymbolTable.read_text(self.LM_PATH+"/words.txt")
-        self.info = WordBoundaryInfo.from_file(WordBoundaryInfoNewOpts(),self.LM_PATH+"/word_boundary.int")
 
         # Construct recognizer
         self.log.info("Load Decoder model")
@@ -95,64 +94,83 @@ class ASR:
         decoder_opts.max_active = self.DECODER_MAXACT
         decoder_opts.min_active = self.DECODER_MINACT
         decoder_opts.lattice_beam = self.DECODER_LATBEAM
-        decodable_opts = NnetSimpleLoopedComputationOptions()
-        decodable_opts.acoustic_scale = self.DECODER_ACWT
-        decodable_opts.frame_subsampling_factor = self.DECODER_FSF
-        decodable_opts.frames_per_chunk = 150
-        self.asr = NnetLatticeFasterOnlineRecognizer.from_files(
-            self.AM_PATH+"/final.mdl", self.LM_PATH+"/HCLG.fst", self.LM_PATH+"/words.txt",
-            decoder_opts=decoder_opts,
-            decodable_opts=decodable_opts,
-            endpoint_opts=endpoint_opts)
+        self.decodable_opts = NnetSimpleLoopedComputationOptions()
+        self.decodable_opts.acoustic_scale = self.DECODER_ACWT
+        self.decodable_opts.frame_subsampling_factor = self.DECODER_FSF
+        self.decodable_opts.frames_per_chunk = 150
+        
+        # Load Acoustic and graph models and other files
+        self.transition_model, self.acoustic_model = NnetRecognizer.read_model(self.AM_PATH+"/final.mdl")
+        graph = _fst.read_fst_kaldi(self.LM_PATH+"/HCLG.fst")
+        self.decoder_graph = LatticeFasterOnlineDecoder(graph, decoder_opts)
+        self.symbols = _fst.SymbolTable.read_text(self.LM_PATH+"/words.txt")
+        self.info = WordBoundaryInfo.from_file(WordBoundaryInfoNewOpts(),self.LM_PATH+"/word_boundary.int")
+        del graph, decoder_opts
 
     def get_sample_rate(self):
-        return self.feat_info.mfcc_opts.frame_opts.samp_freq
+        return self.samp_freq
 
-    def decoder(self,audio):
+    def get_frames(self,feat_pipeline):
+        rows = feat_pipeline.num_frames_ready()
+        cols = feat_pipeline.dim()
+        frames = Matrix(rows,cols)
+        feat_pipeline.get_frames(range(rows),frames)
+        return frames[:,:self.feat_info.mfcc_opts.num_ceps], frames[:,self.feat_info.mfcc_opts.num_ceps:]
+        # return feats + ivectors
+        
+    def compute_feat(self,audio):
+        feat_pipeline = OnlineNnetFeaturePipeline(self.feat_info)
+        feat_pipeline.accept_waveform(audio.sr, audio.getDataKaldyVector())
+        feat_pipeline.input_finished()
+        return feat_pipeline
+        
+    def decoder(self,feats):
         try:
             start_time = time.time()
-            feat_pipeline = OnlineNnetFeaturePipeline(self.feat_info)
-            self.asr.set_input_pipeline(feat_pipeline)
-            feat_pipeline.accept_waveform(audio.sr, audio.getDataKaldyVector())
-            feat_pipeline.input_finished()
-            self.decode = self.asr.decode()
-            self.text = self.decode['text']
+            asr = NnetLatticeFasterOnlineRecognizer(self.transition_model, self.acoustic_model, self.decoder_graph,
+                                                    self.symbols, decodable_opts= self.decodable_opts, endpoint_opts=self.endpoint_opts)
+            asr.set_input_pipeline(feats)
+            decode = asr.decode()
             self.log.info("Decode time in seconds: %s" % (time.time() - start_time))
         except Exception as e:
             self.log.error(e)
             raise ValueError("Decoder failed to transcribe the input audio!!!")
+        else:
+            return decode
         
-    def wordTimestamp(self):
+    def wordTimestamp(self,decode):
         try:
-            _fst.utils.scale_compact_lattice([[1.0, 0],[0, float(self.DECODER_ACWT)]], self.decode['lattice'])
-            bestPath = compact_lattice_shortest_path(self.decode['lattice'])
+            _fst.utils.scale_compact_lattice([[1.0, 0],[0, float(self.DECODER_ACWT)]], decode['lattice'])
+            bestPath = compact_lattice_shortest_path(decode['lattice'])
             _fst.utils.scale_compact_lattice([[1.0, 0],[0, 1.0/float(self.DECODER_ACWT)]], bestPath)
-            bestLattice = word_align_lattice(bestPath, self.asr.transition_model, self.info, 0)
+            bestLattice = word_align_lattice(bestPath, self.transition_model, self.info, 0)
             alignment = compact_lattice_to_word_alignment(bestLattice[1])
             words = _fst.indices_to_symbols(self.symbols, alignment[0])
-            self.timestamps={
+        except Exception as e:
+            self.log.error(e)
+            raise ValueError("Decoder failed to create the word timestamps!!!")
+        else:
+            return {
                 "words":words,
                 "start":alignment[1],
                 "dur":alignment[2]
             }
-        except Exception as e:
-            self.log.error(e)
-            raise ValueError("Decoder failed to create the word timestamps!!!")
-        
+
 class SttStandelone:
     def __init__(self,asr,metadata=False):
         self.log = logging.getLogger('__stt-standelone-worker__.SttStandelone')
         self.metadata = metadata
 
     def run(self,audio,asr):
-        asr.decoder(audio)
+        feats = asr.compute_feat(audio)
+        decode = asr.decoder(feats)
         if self.metadata:
-            asr.wordTimestamp()
-            self.formatOutput(asr.timestamps,asr.frame_shift, asr.DECODER_FSF)
+            timestamps = asr.wordTimestamp(decode)
+            self.formatOutput(timestamps,asr.frame_shift, asr.decodable_opts.frame_subsampling_factor)
             return self.output
         else:
-            return asr.text
-        
+            return decode["text"]
+
     def formatOutput(self,timestamps,frame_shift, frame_subsampling):
         self.output = {}
         text = ""
