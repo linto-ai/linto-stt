@@ -4,7 +4,7 @@
 from flask import Flask, request, abort, Response, json
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
-from tools import ASR, Audio, SttStandelone
+from tools import ASR, Audio, SpeakerDiarization, SttStandelone
 import yaml, os, sox, logging
 from time import gmtime, strftime
 
@@ -24,7 +24,6 @@ SAVE_AUDIO = False
 SERVICE_PORT = 80
 SWAGGER_URL = '/api-doc'
 asr = ASR(AM_PATH,LM_PATH, CONFIG_FILES_PATH)
-audio = Audio()
 
 if not os.path.isdir(TEMP_FILE_PATH):
     os.mkdir(TEMP_FILE_PATH)
@@ -59,7 +58,7 @@ def swaggerUI():
     app.register_blueprint(swaggerui, url_prefix=SWAGGER_URL)
     ### end swagger specific ###
 
-def getAudio(file):
+def getAudio(file,audio):
     file_path = TEMP_FILE_PATH+file.filename.lower()
     file.save(file_path)
     audio.transform(file_path)
@@ -70,6 +69,10 @@ def getAudio(file):
 def transcribe():
     try:
         app.logger.info('[%s] New user entry on /transcribe' % (strftime("%d/%b/%d %H:%M:%S", gmtime())))
+        # create main objects
+        spk = SpeakerDiarization()
+        audio = Audio(asr.get_sample_rate())
+        
         #get response content type
         metadata = False
         if request.headers.get('accept').lower() == 'application/json':
@@ -79,13 +82,29 @@ def transcribe():
         else:
             raise ValueError('Not accepted header')
 
-        stt = SttStandelone(asr,metadata)
+        #get speaker parameter
+        spkDiarization = False
+        if request.form.get('speaker') != None and (request.form.get('speaker').lower() == 'yes' or request.form.get('speaker').lower() == 'no'):
+            spkDiarization = True if request.form.get('speaker').lower() == 'yes' else False
+            #get number of speakers parameter
+            try:
+                if request.form.get('nbrSpeaker') != None and spkDiarization and int(request.form.get('nbrSpeaker')) > 0:
+                    spk.set_maxNrSpeakers(int(request.form.get('nbrSpeaker')))
+                elif request.form.get('nbrSpeaker') != None and spkDiarization:
+                    raise ValueError('Not accepted "nbrSpeaker" field value (nbrSpeaker>0)')
+            except Exception as e:
+                app.logger.error(e)
+                raise ValueError('Not accepted "nbrSpeaker" field value (nbrSpeaker>0)')
+        else:
+            raise ValueError('Not accepted "speaker" field value (yes|no)')
 
+        stt = SttStandelone(metadata,spkDiarization)
+        
         #get input file
         if 'file' in request.files.keys():
             file = request.files['file']
-            getAudio(file)
-            output = stt.run(audio,asr)
+            getAudio(file,audio)
+            output = stt.run(audio,asr,spk)
         else:
             raise ValueError('No audio file was uploaded')
 
@@ -119,8 +138,6 @@ if __name__ == '__main__':
     swaggerUI()
     #Run ASR engine
     asr.run()
-    #Set Audio Sample Rate
-    audio.set_sample_rate(asr.get_sample_rate())
 
     #Run server
-    app.run(host='0.0.0.0', port=SERVICE_PORT, debug=True, threaded=False, processes=NBR_PROCESSES)
+    app.run(host='0.0.0.0', port=SERVICE_PORT, debug=False, threaded=False, processes=NBR_PROCESSES)

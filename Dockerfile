@@ -111,14 +111,18 @@ RUN git clone --depth 1 https://github.com/pykaldi/pykaldi.git /pykaldi \
         && cd /pykaldi/tools/kaldi/tools && mkdir openfsttmp && mv openfst-*/lib openfst-*/include openfst-*/bin openfsttmp && rm openfsttmp/lib/*.a openfsttmp/lib/*.la && \
                 rm -r openfst-*/* && mv openfsttmp/* openfst-*/ && rm -r openfsttmp
 
+# Define the main folder
+WORKDIR /usr/src/speech-to-text
+
 # Install main service packages
-RUN pip3 install flask flask-cors flask-swagger-ui configparser pyyaml logger
-RUN apt-get install -y libsox-fmt-all && pip3 install git+https://github.com/rabitt/pysox.git
+RUN pip3 install flask flask-cors flask-swagger-ui configparser pyyaml logger librosa webrtcvad scipy sklearn
+RUN apt-get install -y libsox-fmt-all && pip3 install git+https://github.com/rabitt/pysox.git \
+    && git clone https://github.com/irebai/pyBK.git /pykaldi/tools/pyBK \
+    && cp /pykaldi/tools/pyBK/diarizationFunctions.py .
 
 # Set environment variables
 ENV PATH /pykaldi/tools/kaldi/egs/wsj/s5/utils/:$PATH
 
-WORKDIR /usr/src/speech-to-text
 COPY tools.py .
 COPY run.py .
 
