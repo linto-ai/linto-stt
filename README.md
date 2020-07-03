@@ -1,9 +1,17 @@
-# Automatic Speech Recognition - LinSTT
+# Linto-Platform-Stt-Standalone-Worker
 
+This service is mandatory in a LinTO platform stack as the main worker for speech to text toolkit.
 
-## LinSTT
 Generally, Automatic Speech Recognition (ASR) is the task of recognition and translation of spoken language into text. Our ASR system takes advantages from the recent advances in machine learning technologies and in particular deep learning ones (TDNN, LSTM, attentation-based architecture). The core of our system consists of two main components: an acoustic model and a decoding graph. A high-performance ASR system relies on an accurate acoustic model as well as a perfect decoding graph.
 
+## Usage
+See documentation : [doc.linto.ai](https://doc.linto.ai)
+
+# Deploy
+
+With our proposed stack [linto-platform-stack](https://github.com/linto-ai/linto-platform-stack)
+
+# Develop
 
 ## Installation
 
