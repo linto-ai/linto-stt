@@ -23,6 +23,7 @@ NBR_PROCESSES = 1
 SAVE_AUDIO = False
 SERVICE_PORT = 80
 SWAGGER_URL = '/api-doc'
+SWAGGER_PATH = ''
 asr = ASR(AM_PATH,LM_PATH, CONFIG_FILES_PATH)
 
 if not os.path.isdir(TEMP_FILE_PATH):
@@ -40,9 +41,8 @@ if 'NBR_PROCESSES' in os.environ:
         NBR_PROCESSES = int(os.environ['NBR_PROCESSES'])
     else:
         exit("You must to provide a positif number of processes 'NBR_PROCESSES'")
-if 'SWAGGER_PATH' not in os.environ:
-    exit("You have to provide a 'SWAGGER_PATH'")
-SWAGGER_PATH = os.environ['SWAGGER_PATH']
+if 'SWAGGER_PATH' in os.environ:
+    SWAGGER_PATH = os.environ['SWAGGER_PATH']
 
 def swaggerUI():
     ### swagger specific ###
@@ -135,7 +135,9 @@ def server_error(error):
 
 if __name__ == '__main__':
     #start SwaggerUI
-    swaggerUI()
+    if SWAGGER_PATH != '':
+        swaggerUI()
+
     #Run ASR engine
     asr.run()
 
