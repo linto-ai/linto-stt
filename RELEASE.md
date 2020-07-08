@@ -1,7 +1,7 @@
 # 2.2.1
 - Fix minor bugs
 - put SWAGGER_PATH parameter as optional
-- Generate the word_boundary file if it not exists
+- Generate the word_boundary file if it does not exist
 
 # 2.2.0
 - Speaker diarization feature: pyBK package
