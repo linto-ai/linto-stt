@@ -35,7 +35,7 @@ from kaldi.util.options import ParseOptions
 ##############
 
 ## other packages
-import configparser, sys, sox, time, logging
+import configparser, sys, os, re, sox, time, logging
 from concurrent.futures import ThreadPoolExecutor
 ##############
 
@@ -82,41 +82,72 @@ class ASR:
                     f.write("--global-cmvn-stats="+self.AM_PATH+"/ivector_extractor/global_cmvn.stats\n")
                     f.write("--diag-ubm="+self.AM_PATH+"/ivector_extractor/final.dubm\n")
                     f.write("--ivector-extractor="+self.AM_PATH+"/ivector_extractor/final.ie")
-        
-        # Define online feature pipeline
-        self.log.info("Load decoder config")
-        loadConfig(self)
-        feat_opts = OnlineNnetFeaturePipelineConfig()
-        self.endpoint_opts = OnlineEndpointConfig()
-        po = ParseOptions("")
-        feat_opts.register(po)
-        self.endpoint_opts.register(po)
-        po.read_config_file(self.CONFIG_FILES_PATH+"/online.conf")
-        self.feat_info = OnlineNnetFeaturePipelineInfo.from_config(feat_opts)
-        
-        # Set metadata parameters
-        self.samp_freq = self.feat_info.mfcc_opts.frame_opts.samp_freq
-        self.frame_shift = self.feat_info.mfcc_opts.frame_opts.frame_shift_ms / 1000
+            
+            #Prepare "word_boundary.int" if not exist
+            if not os.path.exists(self.LM_PATH+"/word_boundary.int"):
+                if os.path.exists(self.AM_PATH+"phones.txt"):
+                    with open(self.AM_PATH+"phones.txt") as f:
+                        phones = f.readlines()
 
-        # Construct recognizer
-        self.log.info("Load Decoder model")
-        decoder_opts = LatticeFasterDecoderOptions()
-        decoder_opts.beam = self.DECODER_BEAM
-        decoder_opts.max_active = self.DECODER_MAXACT
-        decoder_opts.min_active = self.DECODER_MINACT
-        decoder_opts.lattice_beam = self.DECODER_LATBEAM
-        self.decodable_opts = NnetSimpleLoopedComputationOptions()
-        self.decodable_opts.acoustic_scale = self.DECODER_ACWT
-        self.decodable_opts.frame_subsampling_factor = self.DECODER_FSF
-        self.decodable_opts.frames_per_chunk = 150
+                    with open(self.LM_PATH+"/word_boundary.int", "w") as f:
+                        for phone in phones:
+                            phone = phone.strip()
+                            phone = re.sub('^<eps> .*','', phone)
+                            phone = re.sub('^#\d+ .*','', phone)
+                            if phone != '':
+                                id = phone.split(' ')[1]
+                                if '_I ' in phone:
+                                    f.write(id+" internal\n")
+                                elif '_B ' in phone:
+                                    f.write(id+" begin\n")
+                                elif '_E ' in phone:
+                                    f.write(id+" end\n")
+                                elif '_S ' in phone:
+                                    f.write(id+" singleton\n")
+                                else:
+                                    f.write(id+" nonword\n")
+
+                else:
+                    raise ValueError('Neither word_boundary.int nor phones.txt exists!!!')
         
-        # Load Acoustic and graph models and other files
-        self.transition_model, self.acoustic_model = NnetRecognizer.read_model(self.AM_PATH+"/final.mdl")
-        graph = _fst.read_fst_kaldi(self.LM_PATH+"/HCLG.fst")
-        self.decoder_graph = LatticeFasterOnlineDecoder(graph, decoder_opts)
-        self.symbols = _fst.SymbolTable.read_text(self.LM_PATH+"/words.txt")
-        self.info = WordBoundaryInfo.from_file(WordBoundaryInfoNewOpts(),self.LM_PATH+"/word_boundary.int")
-        del graph, decoder_opts
+        try:
+            # Define online feature pipeline
+            self.log.info("Load decoder config")
+            loadConfig(self)
+            feat_opts = OnlineNnetFeaturePipelineConfig()
+            self.endpoint_opts = OnlineEndpointConfig()
+            po = ParseOptions("")
+            feat_opts.register(po)
+            self.endpoint_opts.register(po)
+            po.read_config_file(self.CONFIG_FILES_PATH+"/online.conf")
+            self.feat_info = OnlineNnetFeaturePipelineInfo.from_config(feat_opts)
+            
+            # Set metadata parameters
+            self.samp_freq = self.feat_info.mfcc_opts.frame_opts.samp_freq
+            self.frame_shift = self.feat_info.mfcc_opts.frame_opts.frame_shift_ms / 1000
+
+            # Construct recognizer
+            self.log.info("Load Decoder model")
+            decoder_opts = LatticeFasterDecoderOptions()
+            decoder_opts.beam = self.DECODER_BEAM
+            decoder_opts.max_active = self.DECODER_MAXACT
+            decoder_opts.min_active = self.DECODER_MINACT
+            decoder_opts.lattice_beam = self.DECODER_LATBEAM
+            self.decodable_opts = NnetSimpleLoopedComputationOptions()
+            self.decodable_opts.acoustic_scale = self.DECODER_ACWT
+            self.decodable_opts.frame_subsampling_factor = self.DECODER_FSF
+            self.decodable_opts.frames_per_chunk = 150
+            
+            # Load Acoustic and graph models and other files
+            self.transition_model, self.acoustic_model = NnetRecognizer.read_model(self.AM_PATH+"/final.mdl")
+            graph = _fst.read_fst_kaldi(self.LM_PATH+"/HCLG.fst")
+            self.decoder_graph = LatticeFasterOnlineDecoder(graph, decoder_opts)
+            self.symbols = _fst.SymbolTable.read_text(self.LM_PATH+"/words.txt")
+            self.info = WordBoundaryInfo.from_file(WordBoundaryInfoNewOpts(),self.LM_PATH+"/word_boundary.int")
+            del graph, decoder_opts
+        except Exception as e:
+            self.log.error(e)
+            raise ValueError("AM and LM loading failed!!! (see logs for more details)")
 
     def get_sample_rate(self):
         return self.samp_freq
@@ -130,10 +161,15 @@ class ASR:
         # return feats + ivectors
         
     def compute_feat(self,audio):
-        feat_pipeline = OnlineNnetFeaturePipeline(self.feat_info)
-        feat_pipeline.accept_waveform(audio.sr, audio.getDataKaldyVector())
-        feat_pipeline.input_finished()
-        return feat_pipeline
+        try:
+            feat_pipeline = OnlineNnetFeaturePipeline(self.feat_info)
+            feat_pipeline.accept_waveform(audio.sr, audio.getDataKaldyVector())
+            feat_pipeline.input_finished()
+        except Exception as e:
+            self.log.error(e)
+            raise ValueError("Feature extraction failed!!!")
+        else:
+            return feat_pipeline
         
     def decoder(self,feats):
         try:

@@ -134,12 +134,16 @@ def server_error(error):
     return 'Server Error', 500
 
 if __name__ == '__main__':
-    #start SwaggerUI
-    if SWAGGER_PATH != '':
-        swaggerUI()
+    try:
+        #start SwaggerUI
+        if SWAGGER_PATH != '':
+            swaggerUI()
 
-    #Run ASR engine
-    asr.run()
+        #Run ASR engine
+        asr.run()
 
-    #Run server
-    app.run(host='0.0.0.0', port=SERVICE_PORT, debug=False, threaded=False, processes=NBR_PROCESSES)
+        #Run server
+        app.run(host='0.0.0.0', port=SERVICE_PORT, debug=False, threaded=False, processes=NBR_PROCESSES)
+    except Exception as e:
+        app.logger.error(e)
+        exit(e)
