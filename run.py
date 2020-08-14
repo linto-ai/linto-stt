@@ -96,7 +96,8 @@ def transcribe():
                 app.logger.error(e)
                 raise ValueError('Not accepted "nbrSpeaker" field value (nbrSpeaker>0)')
         else:
-            raise ValueError('Not accepted "speaker" field value (yes|no)')
+            if request.form.get('speaker') != None:
+                raise ValueError('Not accepted "speaker" field value (yes|no)')
 
         stt = SttStandelone(metadata,spkDiarization)
         
