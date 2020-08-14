@@ -435,7 +435,7 @@ class SpeakerDiarization:
 
             start_time = time.time()
             self.log.info("Start Speaker Diarization: %s" % (start_time))
-            if self.maxNrSpeakers == 1:
+            if self.maxNrSpeakers == 1 or audio.dur < 3:
                 self.log.info("Speaker Diarization time in seconds: %s" % (time.time() - start_time))
                 return [[0, audio.dur, 1],
                         [audio.dur, -1, -1]]
