@@ -542,7 +542,8 @@ class SttStandelone:
             else:
                 return {"text":output["text"]}
         else:
-            return decode["text"]
+            text = re.sub(r"#nonterm:[^ ]* ", "", decode["text"])
+            return text
 
     def getOutput(self,timestamps,frame_shift, frame_subsampling, spkSeg = []):
         output = {}
