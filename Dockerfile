@@ -1,128 +1,81 @@
-# Dockerfile for building PyKaldi image from Ubuntu 16.04 image
 FROM ubuntu:18.04
 LABEL maintainer="irebai@linagora.com"
 
-# Install necessary system packages
-RUN apt-get update \
-    && apt-get install -y \
-    python3 \
+RUN apt-get update &&\
+    apt-get install -y \
+    python2.7   \
+    python3     \
     python3-pip \
-    python2.7 \
-    autoconf \
-    automake \
-    cmake \
-    make \
-    curl \
-    g++ \
-    git \
-    graphviz \
-    libatlas3-base \
-    libtool \
-    pkg-config \
-    sox \
-    subversion \
-    bzip2 \
-    unzip \
-    wget \
-    zlib1g-dev \
-    ca-certificates \
-    gfortran \
-    patch \
-    ffmpeg \
-    nano && \
-    ln -s /usr/bin/python3 /usr/bin/python && \
-    ln -s /usr/bin/pip3 /usr/bin/pip
+    git  \
+    swig \
+    nano \
+    sox  \
+    automake wget unzip build-essential libtool zlib1g-dev locales libatlas-base-dev ca-certificates gfortran subversion &&\
+    apt-get clean
 
-# Install necessary Python packages (pykaldi dependencies)
-RUN pip install --upgrade pip \
-    numpy \
-    setuptools \
-    pyparsing \
-    ninja
+## Build kaldi and Clean installation (intel, openfst, src/*)
+RUN git clone --depth 1 https://github.com/kaldi-asr/kaldi.git /opt/kaldi && \
+    cd /opt/kaldi/tools && \
+    ./extras/install_mkl.sh && \
+    make -j $(nproc) && \
+    cd /opt/kaldi/src && \
+    ./configure --shared && \
+    make depend -j $(nproc) && \
+    make -j $(nproc) && \
+    mkdir -p /opt/kaldi/src_ && \
+    mv       /opt/kaldi/src/base \
+             /opt/kaldi/src/chain \
+             /opt/kaldi/src/cudamatrix \
+             /opt/kaldi/src/decoder \
+             /opt/kaldi/src/feat \
+             /opt/kaldi/src/fstext \
+             /opt/kaldi/src/gmm \
+             /opt/kaldi/src/hmm \
+             /opt/kaldi/src/ivector \
+             /opt/kaldi/src/kws \
+             /opt/kaldi/src/lat \
+             /opt/kaldi/src/lm \
+             /opt/kaldi/src/matrix \
+             /opt/kaldi/src/nnet \
+             /opt/kaldi/src/nnet2 \
+             /opt/kaldi/src/nnet3 \
+             /opt/kaldi/src/online2 \
+             /opt/kaldi/src/rnnlm \
+             /opt/kaldi/src/sgmm2 \
+             /opt/kaldi/src/transform \
+             /opt/kaldi/src/tree \
+             /opt/kaldi/src/util \
+             /opt/kaldi/src/itf \
+             /opt/kaldi/src/lib /opt/kaldi/src_ && \
+    cd /opt/kaldi && rm -r src && mv src_ src && rm src/*/*.cc && rm src/*/*.o && rm src/*/*.so && \
+    cd /opt/intel/mkl/lib && rm -f intel64/*.a intel64_lin/*.a && \
+    cd /opt/kaldi/tools && mkdir openfst_ && mv openfst-*/lib openfst-*/include openfst-*/bin openfst_ && rm openfst_/lib/*.so* openfst_/lib/*.la && \
+    rm -r openfst-*/* && mv openfst_/* openfst-*/ && rm -r openfst_
 
-## Install Protobuf, CLIF, Kaldi and PyKaldi and Clean installation
-RUN git clone --depth 1 https://github.com/pykaldi/pykaldi.git /pykaldi \
-    && cd /pykaldi/tools \
-    && sed -i "s/make \-j4/make -j $(nproc)/g" ./install_kaldi.sh \
-    && sed -i "s/\-j 2/-j $(nproc)/g" ./install_clif.sh \
-    && sed -i "s/make \-j4/make -j $(nproc)/g" ./install_protobuf.sh \
-    && ./check_dependencies.sh \
-    && ./install_protobuf.sh \
-    && ./install_clif.sh \
-    && ./install_kaldi.sh \
-    && cd /pykaldi \
-    && python setup.py install \
-    && rm -rf   /pykaldi/CMakeLists.txt \
-                /pykaldi/LICENSE \
-                /pykaldi/README.md \
-                /pykaldi/setup.cfg \
-                /pykaldi/setup.py \
-                /pykaldi/docker \
-                /pykaldi/docs \
-                /pykaldi/extras \
-                /pykaldi/pykaldi.egg-info \
-                /pykaldi/tests \
-                /pykaldi/build/CMakeCache.txt \
-                /pykaldi/build/bdist.linux-x86_64 \
-                /pykaldi/build/build.ninja \
-                /pykaldi/build/cmake_install.cmake \
-                /pykaldi/build/docs \
-                /pykaldi/build/kaldi \
-                /pykaldi/build/lib \
-                /pykaldi/build/rules.ninja \
-                /pykaldi/tools/check_dependencies.sh \
-                /pykaldi/tools/clif* \
-                /pykaldi/tools/find_python_library.py \
-                /pykaldi/tools/install_* \
-                /pykaldi/tools/protobuf \
-                /pykaldi/tools/use_namespace.sh \
-                /pykaldi/tools/kaldi/COPYING \
-                /pykaldi/tools/kaldi/INSTALL \
-                /pykaldi/tools/kaldi/README.md \
-                /pykaldi/tools/kaldi/egs \
-                /pykaldi/tools/kaldi/misc \
-                /pykaldi/tools/kaldi/scripts \
-                /pykaldi/tools/kaldi/windows \
-    && mkdir -p /pykaldi/tools/kaldi/src_/lib \
-    && mv  /pykaldi/tools/kaldi/src/base/libkaldi-base.so \
-            /pykaldi/tools/kaldi/src/chain/libkaldi-chain.so \
-            /pykaldi/tools/kaldi/src/cudamatrix/libkaldi-cudamatrix.so \
-            /pykaldi/tools/kaldi/src/decoder/libkaldi-decoder.so \
-            /pykaldi/tools/kaldi/src/feat/libkaldi-feat.so \
-            /pykaldi/tools/kaldi/src/fstext/libkaldi-fstext.so \
-            /pykaldi/tools/kaldi/src/gmm/libkaldi-gmm.so \
-            /pykaldi/tools/kaldi/src/hmm/libkaldi-hmm.so \
-            /pykaldi/tools/kaldi/src/ivector/libkaldi-ivector.so \
-            /pykaldi/tools/kaldi/src/kws/libkaldi-kws.so \
-            /pykaldi/tools/kaldi/src/lat/libkaldi-lat.so \
-            /pykaldi/tools/kaldi/src/lm/libkaldi-lm.so \
-            /pykaldi/tools/kaldi/src/matrix/libkaldi-matrix.so \
-            /pykaldi/tools/kaldi/src/nnet/libkaldi-nnet.so \
-            /pykaldi/tools/kaldi/src/nnet2/libkaldi-nnet2.so \
-            /pykaldi/tools/kaldi/src/nnet3/libkaldi-nnet3.so \
-            /pykaldi/tools/kaldi/src/online2/libkaldi-online2.so \
-            /pykaldi/tools/kaldi/src/rnnlm/libkaldi-rnnlm.so \
-            /pykaldi/tools/kaldi/src/sgmm2/libkaldi-sgmm2.so \
-            /pykaldi/tools/kaldi/src/transform/libkaldi-transform.so \
-            /pykaldi/tools/kaldi/src/tree/libkaldi-tree.so \
-            /pykaldi/tools/kaldi/src/util/libkaldi-util.so \
-            /pykaldi/tools/kaldi/src_/lib \
-        && rm -rf /pykaldi/tools/kaldi/src && mv /pykaldi/tools/kaldi/src_ /pykaldi/tools/kaldi/src \
-        && cd /pykaldi/tools/kaldi/tools && mkdir openfsttmp && mv openfst-*/lib openfst-*/include openfst-*/bin openfsttmp && rm openfsttmp/lib/*.a openfsttmp/lib/*.la && \
-                rm -r openfst-*/* && mv openfsttmp/* openfst-*/ && rm -r openfsttmp
+# Install pyBK (speaker diarization toolkit)
+RUN apt install -y software-properties-common && wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 10 && \
+    export LLVM_CONFIG=/usr/bin/llvm-config-10 && \
+    pip3 install numpy && \
+    pip3 install websockets && \
+    pip3 install librosa webrtcvad scipy sklearn
+
+# build VOSK KALDI
+COPY vosk-api /opt/vosk-api
+RUN cd /opt/vosk-api/python && \
+    export KALDI_ROOT=/opt/kaldi && \
+    export KALDI_MKL=1 && \
+    python3 setup.py install --user --single-version-externally-managed --root=/
 
 # Define the main folder
 WORKDIR /usr/src/speech-to-text
 
 # Install main service packages
-RUN pip3 install flask flask-cors flask-swagger-ui configparser pyyaml logger librosa webrtcvad scipy sklearn
-RUN apt-get install -y libsox-fmt-all && pip3 install git+https://github.com/rabitt/pysox.git \
-    && git clone https://github.com/irebai/pyBK.git /pykaldi/tools/pyBK \
-    && cp /pykaldi/tools/pyBK/diarizationFunctions.py .
+RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml
 
 # Set environment variables
 ENV PATH /pykaldi/tools/kaldi/egs/wsj/s5/utils/:$PATH
 
+COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
 COPY tools.py .
 COPY run.py .
 
