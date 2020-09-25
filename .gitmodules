@@ -1,6 +1,6 @@
 [submodule "vosk-api"]
 	path = vosk-api
-	url = git@github.com:irebai/vosk-api.git
+	url = https://github.com/irebai/vosk-api.git
 [submodule "pyBK"]
 	path = pyBK
-	url = git@github.com:irebai/pyBK.git
+	url = https://github.com/irebai/pyBK.git
