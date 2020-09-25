@@ -81,13 +81,15 @@ class WorkerStreaming:
 
 
     def getAudio(self,file):
-        file_path = self.TEMP_FILE_PATH+"/"+file.filename.lower()
-        file.save(file_path)
-        self.rate, self.data = scipy.io.wavfile.read(file_path)
-        
-        if not self.SAVE_AUDIO:
-            os.remove(file_path)
-    
+        try:
+            file_path = self.TEMP_FILE_PATH+"/"+file.filename.lower()
+            file.save(file_path)
+            self.rate, self.data = scipy.io.wavfile.read(file_path)
+            if not self.SAVE_AUDIO:
+                os.remove(file_path)
+        except Exception as e:
+            raise ValueError('Unsupported audio file! Only WAVE format is supported.')
+
     # re-create config files
     def loadConfig(self):
         # load decoder parameters from "decode.cfg"
