@@ -39,7 +39,6 @@ class WorkerStreaming:
         self.SAVE_AUDIO=False
         self.SERVICE_PORT = 80
         self.NBR_THREADS = 100
-        self.METADATA = True
         self.SWAGGER_URL = '/api-doc'
         self.SWAGGER_PATH = ''
 
@@ -64,7 +63,6 @@ class WorkerStreaming:
         self.log.info("Create the new config files")
         self.loadConfig()
 
-
     def swaggerUI(self, app):
         ### swagger specific ###
         swagger_yml = yaml.load(open(self.SWAGGER_PATH, 'r'), Loader=yaml.Loader)
@@ -78,7 +76,6 @@ class WorkerStreaming:
         )
         app.register_blueprint(swaggerui, url_prefix=self.SWAGGER_URL)
         ### end swagger specific ###
-
 
     def getAudio(self,file):
         try:
@@ -167,112 +164,90 @@ class WorkerStreaming:
                         else:
                             f.write(id+" nonword\n")
 
-    # TODO: metadata (timestamps, speakers, save audio)
-    #       return at the end of streaming a json object including word-data, speaker-data
-    #       (get frames after the end of decoding)
-    def process_metadata(self, metadata, spkDiarization, nbrSpk=10):
-        if metadata is not None and 'words' in metadata and 'features' in metadata:
-            if not spkDiarization:
-                del metadata['features']
-                del metadata['segments']
-                return metadata
+    # remove extra symbols
+    def parse_text(self, text):
+        text = re.sub(r"<unk>", "", text) # remove <unk> symbol
+        text = re.sub(r"#nonterm:[^ ]* ", "", text) # remove entity's mark
+        text = re.sub(r"' ", "'", text) # remove space after quote '
+        text = re.sub(r" +", " ", text) # remove multiple spaces
+        text = text.strip()
+        return text
 
+    # Postprocess response
+    def get_response(self, dataJson, is_metadata, is_spkDiarization, nbrOfSpk):
+        if dataJson is not None:
+            data = json.loads(dataJson)
+            if not is_metadata:
+                text = data['text'] # get text from response
+                return self.parse_text(text)
 
-            features = metadata['features']
-            seg = metadata['segments'] if metadata['segments'] is not None else []
-            feats = np.array(features)
-            feats = np.squeeze(feats)
-            mask = np.ones(shape=(feats.shape[0],))
+            elif 'words' in data and 'features' in data:
+                if is_spkDiarization:
+                    # Get Features and spoken segments and clean data
+                    features = data['features']
+                    seg = data['segments'] if data['segments'] is not None else []
+                    del data['features']
+                    del data['segments']
 
-            for pos in seg:
-                mask[pos-30:pos]=0
+                    # Prepare the parameters for SpeakerDiarization input
+                    feats = np.array(features)
+                    feats = np.squeeze(feats)
+                    mask = np.ones(shape=(feats.shape[0],))
+                    for pos in seg:
+                        mask[pos-30:pos]=0
 
-            spk = SpeakerDiarization()
-            spk.set_maxNrSpeakers(nbrSpk)
-            spkrs = spk.run(feats,mask)
+                    # Do speaker diarization and get speaker segments
+                    spk = SpeakerDiarization()
+                    spk.set_maxNrSpeakers(nbrOfSpk)
+                    spkrs = spk.run(feats,mask)
 
-            speaker = []
-            i = 0
-            text = ""
-            for word in metadata['words']:
-                if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
-                    text += word["word"]  + " "
-                else:
-                    speaker.append({'spk'+str(int(spkrs[i][2])) : text})
-                    i+=1
-                    text=""
-            speaker.append({'spk'+str(int(spkrs[i][2])) : text})
-            
-            metadata["speakers"]=speaker
+                    # Generate final output data
+                    return self.process_output(data, spkrs)
 
-            # vad = metadata['silweights']
-            # weights = np.zeros(shape=(vad[len(vad)-2]+1,))
-            # id = []
-            # w = []
-            # for i in range(0, len(vad), 2):
-            #     id.append(vad[i])
-            #     w.append(vad[i+1])
-            #     weights[vad[i]] = vad[i+1]
-            # self.log.info(id)
-            # self.log.info(w)
-            # self.log.info(weights)
-
-            del metadata['features']
-            del metadata['segments']
-
-            return metadata
+                del data['features']
+                del data['segments']
+                return data
+            else:
+                return {'speakers': [], 'text': '', 'words': []}
         else:
             return {'speakers': [], 'text': '', 'words': []}
 
-#    def process_metadata_conversation_manager(self, metadata):
-#        features = metadata['features']
-#        seg = metadata['segments'] if metadata['segments'] is not None else []
-#        feats = np.array(features)
-#        feats = np.squeeze(feats)        
-#        mask = np.ones(shape=(feats.shape[0],))
-#
-#        for pos in seg:
-#            mask[pos-30:pos]=0
-#
-#        spk = SpeakerDiarization()
-#        spk.set_maxNrSpeakers(10)
-#        spkrs = spk.run(feats,mask)
-#
-#        speakers = []
-#        text = []
-#        i = 0
-#        text_ = ""
-#        words=[]
-#        if 'words' in metadata:
-#            for word in metadata['words']:
-#                if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
-#                    text_ += word["word"]  + " "
-#                    words.append(word)
-#                else:
-#                    speaker = {}
-#                    speaker["btime"]=words[0]["start"]
-#                    speaker["etime"]=words[len(words)-1]["end"]
-#                    speaker["speaker_id"]='spk'+str(int(spkrs[i][2]))
-#                    speaker["words"]=words
-#
-#                    text.append('spk'+str(int(spkrs[i][2]))+' : '+text_)
-#                    speakers.append(speaker)
-#
-#                    words=[]
-#                    text_=""
-#                    i+=1
-#
-#            speaker = {}
-#            speaker["btime"]=words[0]["start"]
-#            speaker["etime"]=words[len(words)-1]["end"]
-#            speaker["speaker_id"]='spk'+str(int(spkrs[i][2]))
-#            speaker["words"]=words
-#
-#            text.append('spk'+str(int(spkrs[i][2]))+' : '+text_)
-#            speakers.append(speaker)
-#            return json.dumps({'speakers': speakers, 'text': text})
-#        else:
-#            return json.dumps({'speakers': [], 'text': '', 'words': []})
+
+    # return a json object including word-data, speaker-data
+    def process_output(self, data, spkrs):
+        speakers = []
+        text = []
+        i = 0
+        text_ = ""
+        words=[]
+        for word in data['words']:
+            if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
+                text_ += word["word"]  + " "
+                words.append(word)
+            else:
+                speaker = {}
+                speaker["start"]=words[0]["start"]
+                speaker["end"]=words[len(words)-1]["end"]
+                speaker["speaker_id"]='spk'+str(int(spkrs[i][2]))
+                speaker["words"]=words
+
+                text.append('spk'+str(int(spkrs[i][2]))+' : '+ self.parse_text(text_))
+                speakers.append(speaker)
+
+                words=[word]
+                text_=word["word"] + " "
+                i+=1
+
+        speaker = {}
+        speaker["start"]=words[0]["start"]
+        speaker["end"]=words[len(words)-1]["end"]
+        speaker["speaker_id"]='spk'+str(int(spkrs[i][2]))
+        speaker["words"]=words
+
+        text.append('spk'+str(int(spkrs[i][2]))+' : '+ self.parse_text(text_))
+        speakers.append(speaker)
+
+        return {'speakers': speakers, 'text': text}
 
 
 class SpeakerDiarization:

@@ -28,51 +28,30 @@ def transcribe():
         worker.log.info('[%s] New user entry on /transcribe' %
                         (strftime("%d/%b/%d %H:%M:%S", gmtime())))
 
-        metadata = worker.METADATA
-        nbrSpk = 10
+        is_metadata = False
+        nbrOfSpk = 10
 
         # get response content type
         if request.headers.get('accept').lower() == 'application/json':
-            metadata = True
+            is_metadata = True
         elif request.headers.get('accept').lower() == 'text/plain':
-            metadata = False
+            is_metadata = False
         else:
             raise ValueError('Not accepted header')
-
-        # get speaker parameter
-        spkDiarization = False
-        if request.form.get('speaker') != None and (request.form.get('speaker').lower() == 'yes' or request.form.get('speaker').lower() == 'no'):
-            spkDiarization = True if request.form.get(
-                'speaker').lower() == 'yes' else False
-            # get number of speakers parameter
-            try:
-                if request.form.get('nbrSpeaker') != None and spkDiarization and int(request.form.get('nbrSpeaker')) > 0:
-                    nbrSpk = int(request.form.get('nbrSpeaker'))
-                elif request.form.get('nbrSpeaker') != None and spkDiarization:
-                    raise ValueError(
-                        'Not accepted "nbrSpeaker" field value (nbrSpeaker>0)')
-            except Exception as e:
-                worker.log.error(e)
-                raise ValueError(
-                    'Not accepted "nbrSpeaker" field value (nbrSpeaker>0)')
-        else:
-            if request.form.get('speaker') != None:
-                raise ValueError('Not accepted "speaker" field value (yes|no)')
 
         # get input file
         if 'file' in request.files.keys():
             file = request.files['file']
             worker.getAudio(file)
-            rec = KaldiRecognizer(model, worker.rate, metadata)
-            response = rec.Decode(worker.data)
-            if metadata:
-                obj = rec.GetMetadata()
-                data = json.loads(obj)
-                response = worker.process_metadata(data, spkDiarization, nbrSpk)
+            rec = KaldiRecognizer(model, worker.rate, is_metadata)
+            data_ = rec.Decode(worker.data)
+            if is_metadata:
+                data_ = rec.GetMetadata()
+            data = worker.get_response(data_, is_metadata, is_metadata, nbrOfSpk)
         else:
             raise ValueError('No audio file was uploaded')
 
-        return response, 200
+        return data, 200
     except ValueError as error:
         return str(error), 400
     except Exception as e:
