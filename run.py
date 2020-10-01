@@ -59,13 +59,8 @@ def transcribe():
         return 'Server Error', 500
 
 
-@app.route('/healthcheck', methods=['GET'])
-def check():
-    return '', 200
 
 # Rejected request handlers
-
-
 @app.errorhandler(405)
 def method_not_allowed(error):
     return 'The method is not allowed for the requested URL', 405
