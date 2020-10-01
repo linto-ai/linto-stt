@@ -72,9 +72,6 @@ WORKDIR /usr/src/speech-to-text
 # Install main service packages
 RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml
 
-# Set environment variables
-ENV PATH /pykaldi/tools/kaldi/egs/wsj/s5/utils/:$PATH
-
 COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
 COPY tools.py .
 COPY run.py .
