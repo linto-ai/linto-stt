@@ -7,12 +7,13 @@ from flask_cors import CORS
 from tools import ASR, Audio, SpeakerDiarization, SttStandelone
 import yaml, os, sox, logging
 from time import gmtime, strftime
+from gevent.pywsgi import WSGIServer
 
 app = Flask("__stt-standelone-worker__")
 
 # Set logger config
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 # Main parameters
 AM_PATH = '/opt/models/AM'
@@ -61,7 +62,7 @@ def swaggerUI():
 def getAudio(file,audio):
     file_path = TEMP_FILE_PATH+file.filename.lower()
     file.save(file_path)
-    audio.transform(file_path)
+    audio.read_audio(file_path)
     if not SAVE_AUDIO:
         os.remove(file_path)
     
@@ -116,10 +117,6 @@ def transcribe():
         app.logger.error(e)
         return 'Server Error', 500
 
-@app.route('/healthcheck', methods=['GET'])
-def check():
-    return '', 200
-
 # Rejected request handlers
 @app.errorhandler(405)
 def method_not_allowed(error):
@@ -144,7 +141,9 @@ if __name__ == '__main__':
         asr.run()
 
         #Run server
-        app.run(host='0.0.0.0', port=SERVICE_PORT, debug=False, threaded=False, processes=NBR_PROCESSES)
+        app.logger.info('Server ready for transcription...')
+        http_server = WSGIServer(('', SERVICE_PORT), app)
+        http_server.serve_forever()
     except Exception as e:
         app.logger.error(e)
         exit(e)
