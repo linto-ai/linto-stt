@@ -37,6 +37,7 @@ from kaldi.util.options import ParseOptions
 ## other packages
 import configparser, sys, os, re, sox, time, logging
 from concurrent.futures import ThreadPoolExecutor
+import scipy.io.wavfile
 ##############
 
 class ASR:
@@ -602,13 +603,14 @@ class Audio:
     def set_logger(self,log):
         self.log = log
     
-    def transform(self,file_name):
+    def read_audio(self, audio):
         try:
-            tfm = sox.Transformer()
-            tfm.set_output_format(rate=self.sr,
-                                  bits=self.bit,
-                                  channels=self.channels)
-            self.data = tfm.build_array(input_filepath=file_name)
+            data, sr = librosa.load(audio,sr=None)
+            if sr != self.sr:
+                self.log.info('Resample audio file: '+str(sr)+'Hz -> '+str(self.sr)+'Hz')
+                data = librosa.resample(data, sr, self.sr)
+            data = (data * 32767).astype(np.int16)
+            self.data = data
             self.dur = len(self.data) / self.sr
         except Exception as e:
             self.log.error(e)
