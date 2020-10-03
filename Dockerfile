@@ -115,9 +115,8 @@ RUN git clone --depth 1 https://github.com/pykaldi/pykaldi.git /pykaldi \
 WORKDIR /usr/src/speech-to-text
 
 # Install main service packages
-RUN pip3 install flask flask-cors flask-swagger-ui configparser pyyaml logger librosa webrtcvad scipy sklearn gevent
-RUN apt-get install -y libsox-fmt-all && pip3 install git+https://github.com/rabitt/pysox.git \
-    && git clone https://github.com/irebai/pyBK.git /pykaldi/tools/pyBK \
+RUN pip3 install flask flask-cors flask-swagger-ui pyyaml librosa gevent
+RUN git clone https://github.com/irebai/pyBK.git /pykaldi/tools/pyBK \
     && cp /pykaldi/tools/pyBK/diarizationFunctions.py .
 
 # Set environment variables

@@ -24,22 +24,9 @@ paths:
       parameters: 
       - name: "file"
         in: "formData"
-        description: "Audio File (wav, mp3, aiff, flac, ogg)"
+        description: "Audio File (wav, mp3, flac, ogg)"
         required: true
         type: "file"
-      - name: "nbrSpeaker"
-        in: "formData"
-        description: "Number of speakers in the audio"
-        required: false
-        type: "number"
-        default: 1
-      - name: "speaker"
-        in: "formData"
-        description: "Do speaker diarization"
-        required: false
-        type: "string"
-        enum: [ "Yes", "No" ]
-        default: "No"
       responses:
         200:
           description: Successfully transcribe the audio
