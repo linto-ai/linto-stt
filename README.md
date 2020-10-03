@@ -140,9 +140,7 @@ Convert a speech to text
 >  `post`  <br>
 > Make a POST request
 >>  <b  style="color:green;">Arguments</b> :
->>  -  **{File} file** : Audio file (file format: wav, mp3, aiff, flac, ogg)
->>  -  **{Integer} nbrSpeaker (optional)**: Number of speakers engaged in dialog
->>  -  **{String} speaker (optional)**: Do speaker diarization (yes|no)
+>>  -  **{File} file** : Audio file (file format: wav, mp3, flac, ogg)
 >
 >>  <b  style="color:green;">Header</b> :
 >>  -  **{String} Accept**: response content type (text/plain|application/json)
