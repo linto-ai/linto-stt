@@ -5,7 +5,7 @@ from flask import Flask, request, abort, Response, json
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
 from tools import ASR, Audio, SpeakerDiarization, SttStandelone
-import yaml, os, sox, logging
+import yaml, os, sox, logging, uuid
 from time import gmtime, strftime
 
 app = Flask("__stt-standelone-worker__")
@@ -17,8 +17,9 @@ logging.basicConfig(level=logging.DEBUG)
 # Main parameters
 AM_PATH = '/opt/models/AM'
 LM_PATH = '/opt/models/LM'
-TEMP_FILE_PATH = '/opt/tmp'
+TEMP_FILE_PATH = '/opt/tmp/'
 CONFIG_FILES_PATH = '/opt/config'
+FILE_EXTENSION = '.wav'
 NBR_PROCESSES = 1
 SAVE_AUDIO = False
 SERVICE_PORT = 80
@@ -59,7 +60,7 @@ def swaggerUI():
     ### end swagger specific ###
 
 def getAudio(file,audio):
-    file_path = TEMP_FILE_PATH+file.filename.lower()
+    file_path = TEMP_FILE_PATH+str(uuid.uuid4())+FILE_EXTENSION
     file.save(file_path)
     audio.transform(file_path)
     if not SAVE_AUDIO:
