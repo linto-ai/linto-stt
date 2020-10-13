@@ -24,7 +24,7 @@ paths:
       parameters: 
       - name: "file"
         in: "formData"
-        description: "Audio File - Waveform Format"
+        description: "Audio File (wav, mp3, flac, ogg)"
         required: true
         type: "file"
       responses:
