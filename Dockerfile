@@ -70,7 +70,8 @@ RUN cd /opt/vosk-api/python && \
 WORKDIR /usr/src/speech-to-text
 
 # Install main service packages
-RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml
+RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml && \
+    apt-get install -y ffmpeg
 
 COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
 COPY tools.py .

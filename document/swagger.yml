@@ -24,7 +24,7 @@ paths:
       parameters: 
       - name: "file"
         in: "formData"
-        description: "Audio File (wav, mp3, flac, ogg)"
+        description: "Audio File (wav, mp3, flac, ogg, wma, m4a)"
         required: true
         type: "file"
       responses:
