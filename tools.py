@@ -14,12 +14,13 @@ import webrtcvad
 
 # other packages
 import configparser
+import librosa
 import logging
 import os
 import re
+import uuid
 import json
 import yaml
-import scipy.io.wavfile
 import numpy as np
 from flask_swagger_ui import get_swaggerui_blueprint
 ##############
@@ -36,7 +37,7 @@ class WorkerStreaming:
         self.LM_PATH = '/opt/models/LM'
         self.TEMP_FILE_PATH = '/opt/tmp'
         self.CONFIG_FILES_PATH = '/opt/config'
-        self.SAVE_AUDIO=False
+        self.SAVE_AUDIO = False
         self.SERVICE_PORT = 80
         self.NBR_THREADS = 100
         self.SWAGGER_URL = '/api-doc'
@@ -58,16 +59,17 @@ class WorkerStreaming:
         if 'SWAGGER_PATH' in os.environ:
             self.SWAGGER_PATH = os.environ['SWAGGER_PATH']
 
-
         # start loading ASR configuration
         self.log.info("Create the new config files")
         self.loadConfig()
 
     def swaggerUI(self, app):
         ### swagger specific ###
-        swagger_yml = yaml.load(open(self.SWAGGER_PATH, 'r'), Loader=yaml.Loader)
+        swagger_yml = yaml.load(
+            open(self.SWAGGER_PATH, 'r'), Loader=yaml.Loader)
         swaggerui = get_swaggerui_blueprint(
-            self.SWAGGER_URL,  # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
+            # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
+            self.SWAGGER_URL,
             self.SWAGGER_PATH,
             config={  # Swagger UI config overrides
                 'app_name': "STT API Documentation",
@@ -77,15 +79,20 @@ class WorkerStreaming:
         app.register_blueprint(swaggerui, url_prefix=self.SWAGGER_URL)
         ### end swagger specific ###
 
-    def getAudio(self,file):
+    def getAudio(self, file):
+        filename = str(uuid.uuid4())
+        file_path = self.TEMP_FILE_PATH+"/"+filename
+        file.save(file_path)
         try:
-            file_path = self.TEMP_FILE_PATH+"/"+file.filename.lower()
-            file.save(file_path)
-            self.rate, self.data = scipy.io.wavfile.read(file_path)
+            data, sr = librosa.load(file_path)
+            self.data = (data * 32767).astype(np.int16)
+            self.rate = sr
+        except Exception as e:
+            self.log.error(e)
+            raise ValueError("The uploaded file format is not supported!!!")
+        finally:
             if not self.SAVE_AUDIO:
                 os.remove(file_path)
-        except Exception as e:
-            raise ValueError('Unsupported audio file! Only WAVE format is supported.')
 
     # re-create config files
     def loadConfig(self):
@@ -166,10 +173,10 @@ class WorkerStreaming:
 
     # remove extra symbols
     def parse_text(self, text):
-        text = re.sub(r"<unk>", "", text) # remove <unk> symbol
-        text = re.sub(r"#nonterm:[^ ]* ", "", text) # remove entity's mark
-        text = re.sub(r"' ", "'", text) # remove space after quote '
-        text = re.sub(r" +", " ", text) # remove multiple spaces
+        text = re.sub(r"<unk>", "", text)  # remove <unk> symbol
+        text = re.sub(r"#nonterm:[^ ]* ", "", text)  # remove entity's mark
+        text = re.sub(r"' ", "'", text)  # remove space after quote '
+        text = re.sub(r" +", " ", text)  # remove multiple spaces
         text = text.strip()
         return text
 
@@ -178,7 +185,7 @@ class WorkerStreaming:
         if dataJson is not None:
             data = json.loads(dataJson)
             if not is_metadata:
-                text = data['text'] # get text from response
+                text = data['text']  # get text from response
                 return self.parse_text(text)
 
             elif 'words' in data and 'features' in data:
@@ -194,12 +201,12 @@ class WorkerStreaming:
                     feats = np.squeeze(feats)
                     mask = np.ones(shape=(feats.shape[0],))
                     for pos in seg:
-                        mask[pos-30:pos]=0
+                        mask[pos-30:pos] = 0
 
                     # Do speaker diarization and get speaker segments
                     spk = SpeakerDiarization()
                     spk.set_maxNrSpeakers(nbrOfSpk)
-                    spkrs = spk.run(feats,mask)
+                    spkrs = spk.run(feats, mask)
 
                     # Generate final output data
                     return self.process_output(data, spkrs)
@@ -212,39 +219,40 @@ class WorkerStreaming:
         else:
             return {'speakers': [], 'text': '', 'words': []}
 
-
     # return a json object including word-data, speaker-data
+
     def process_output(self, data, spkrs):
         speakers = []
         text = []
         i = 0
         text_ = ""
-        words=[]
+        words = []
         for word in data['words']:
             if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
-                text_ += word["word"]  + " "
+                text_ += word["word"] + " "
                 words.append(word)
             else:
                 speaker = {}
-                speaker["start"]=words[0]["start"]
-                speaker["end"]=words[len(words)-1]["end"]
-                speaker["speaker_id"]='spk'+str(int(spkrs[i][2]))
-                speaker["words"]=words
+                speaker["start"] = words[0]["start"]
+                speaker["end"] = words[len(words)-1]["end"]
+                speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
+                speaker["words"] = words
 
-                text.append('spk'+str(int(spkrs[i][2]))+' : '+ self.parse_text(text_))
+                text.append(
+                    'spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
                 speakers.append(speaker)
 
-                words=[word]
-                text_=word["word"] + " "
-                i+=1
+                words = [word]
+                text_ = word["word"] + " "
+                i += 1
 
         speaker = {}
-        speaker["start"]=words[0]["start"]
-        speaker["end"]=words[len(words)-1]["end"]
-        speaker["speaker_id"]='spk'+str(int(spkrs[i][2]))
-        speaker["words"]=words
+        speaker["start"] = words[0]["start"]
+        speaker["end"] = words[len(words)-1]["end"]
+        speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
+        speaker["words"] = words
 
-        text.append('spk'+str(int(spkrs[i][2]))+' : '+ self.parse_text(text_))
+        text.append('spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
         speakers.append(speaker)
 
         return {'speakers': speakers, 'text': text}
@@ -362,7 +370,7 @@ class SpeakerDiarization:
 
             maskSAD = mask
             maskUEM = np.ones([1, nFeatures])
-            
+
             mask = np.logical_and(maskUEM, maskSAD)
             mask = mask[0][0:nFeatures]
             nSpeechFeatures = np.sum(mask)
@@ -434,7 +442,8 @@ class SpeakerDiarization:
             else:
                 return None
 
-            self.log.info("Speaker Diarization time in seconds: %s" % (time.time() - start_time))
+            self.log.info("Speaker Diarization time in seconds: %s" %
+                          (time.time() - start_time))
         except ValueError as v:
             self.log.info(v)
             return [[0, duration, 1],
