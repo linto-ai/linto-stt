@@ -35,7 +35,7 @@ from kaldi.util.options import ParseOptions
 ##############
 
 # other packages
-import configparser, sys, os, re, time, logging, yaml
+import configparser, sys, os, re, time, logging, yaml, uuid
 from flask_swagger_ui import get_swaggerui_blueprint
 ##############
 
@@ -572,7 +572,8 @@ class SttStandelone:
         ### end swagger specific ###
 
     def read_audio(self, file, sample_rate):
-        file_path = self.TEMP_FILE_PATH+file.filename.lower()
+        filename = str(uuid.uuid4())
+        file_path = self.TEMP_FILE_PATH+"/"+filename
         file.save(file_path)
         try:
             data, sr = librosa.load(file_path, sr=None)
@@ -583,12 +584,12 @@ class SttStandelone:
             data = (data * 32767).astype(np.int16)
             self.dur = len(data) / sample_rate
             self.data = Vector(data)
-
-            if not self.SAVE_AUDIO:
-                os.remove(file_path)
         except Exception as e:
             self.log.error(e)
             raise ValueError("The uploaded file format is not supported!!!")
+        finally:
+            if not self.SAVE_AUDIO:
+                os.remove(file_path)
 
     def run(self, asr, metadata):
         feats = asr.compute_feat(self.data)
