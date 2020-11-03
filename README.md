@@ -55,14 +55,14 @@ If you want to use our service alone without LinTO-Platform-STT-Service-Manager,
 
 ```bash
 wget https://dl.linto.ai/downloads/model-distribution/acoustic-models/fr-FR/linSTT_AM_fr-FR_v1.0.0.zip
-wget https://dl.linto.ai/downloads/model-distribution/decoding-graphs/LVCSR/fr-FR/decoding_graph_fr-FR_Small_v1.0.0.zip
+wget https://dl.linto.ai/downloads/model-distribution/decoding-graphs/LVCSR/fr-FR/decoding_graph_fr-FR_Small_v1.1.0.zip
 ```
 
 2- Uncompress both files
 
 ```bash
 unzip linSTT_AM_fr-FR_v1.0.0.zip -d AM_fr-FR
-unzip decoding_graph_fr-FR_Small_v1.0.0.zip -d DG_fr-FR_Small
+unzip decoding_graph_fr-FR_Small_v1.1.0.zip -d DG_fr-FR_Small
 ```
 
 3- Move the uncompressed files into the shared storage directory
