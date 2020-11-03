@@ -59,6 +59,10 @@ RUN apt install -y software-properties-common && wget https://apt.llvm.org/llvm.
     pip3 install websockets && \
     pip3 install librosa webrtcvad scipy sklearn
 
+# Install main service packages
+RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml && \
+    apt-get install -y ffmpeg
+
 # build VOSK KALDI
 COPY vosk-api /opt/vosk-api
 RUN cd /opt/vosk-api/python && \
@@ -68,10 +72,6 @@ RUN cd /opt/vosk-api/python && \
 
 # Define the main folder
 WORKDIR /usr/src/speech-to-text
-
-# Install main service packages
-RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml && \
-    apt-get install -y ffmpeg
 
 COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
 COPY tools.py .

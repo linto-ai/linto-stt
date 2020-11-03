@@ -19,7 +19,7 @@ worker = WorkerStreaming()
 worker.log.info('Load acoustic model and decoding graph')
 model = Model(worker.AM_PATH, worker.LM_PATH,
               worker.CONFIG_FILES_PATH+"/online.conf")
-
+spkModel = None
 
 # API
 @app.route('/transcribe', methods=['POST'])
@@ -43,11 +43,13 @@ def transcribe():
         if 'file' in request.files.keys():
             file = request.files['file']
             worker.getAudio(file)
-            rec = KaldiRecognizer(model, worker.rate, is_metadata)
-            data_ = rec.Decode(worker.data)
+            rec = KaldiRecognizer(model, spkModel, worker.rate, False)
+            rec.AcceptWaveform(worker.data)
+            data_ = rec.FinalResult()
             if is_metadata:
                 data_ = rec.GetMetadata()
-            data = worker.get_response(data_, is_metadata, is_metadata, nbrOfSpk)
+            data = worker.get_response(data_, is_metadata, nbrOfSpk)
+            worker.clean()
         else:
             raise ValueError('No audio file was uploaded')
 
