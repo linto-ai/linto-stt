@@ -29,7 +29,6 @@ def transcribe():
                         (strftime("%d/%b/%d %H:%M:%S", gmtime())))
 
         is_metadata = False
-        nbrOfSpk = 10
 
         # get response content type
         if request.headers.get('accept').lower() == 'application/json':
@@ -43,12 +42,12 @@ def transcribe():
         if 'file' in request.files.keys():
             file = request.files['file']
             worker.getAudio(file)
-            rec = KaldiRecognizer(model, spkModel, worker.rate, False)
+            rec = KaldiRecognizer(model, spkModel, worker.rate, worker.ONLINE)
             rec.AcceptWaveform(worker.data)
             data_ = rec.FinalResult()
             if is_metadata:
                 data_ = rec.GetMetadata()
-            data = worker.get_response(data_, is_metadata, nbrOfSpk)
+            data = worker.get_response(data_, is_metadata)
             worker.clean()
         else:
             raise ValueError('No audio file was uploaded')
