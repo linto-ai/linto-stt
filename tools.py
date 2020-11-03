@@ -43,6 +43,7 @@ class WorkerStreaming:
         self.NBR_THREADS = 100
         self.SWAGGER_URL = '/api-doc'
         self.SWAGGER_PATH = ''
+        self.ONLINE = False
 
         if not os.path.isdir(self.CONFIG_FILES_PATH):
             os.mkdir(self.CONFIG_FILES_PATH)
@@ -181,7 +182,7 @@ class WorkerStreaming:
         return text
 
     # Postprocess response
-    def get_response(self, dataJson, is_metadata, nbrOfSpk):
+    def get_response(self, dataJson, is_metadata):
         if dataJson is not None:
             data = json.loads(dataJson)
             if not is_metadata:
@@ -191,7 +192,6 @@ class WorkerStreaming:
             elif 'words' in data:
                 # Do speaker diarization and get speaker segments
                 spk = SpeakerDiarization()
-                spk.set_maxNrSpeakers(nbrOfSpk)
                 spkrs = spk.run(self.file_path)
 
                 # Generate final output data
@@ -296,7 +296,7 @@ class SpeakerDiarization:
         self.bestClusteringCriterion = 'elbow'
         self.sigma = 1  # Spectral clustering parameters, employed if bestClusteringCriterion == spectral
         self.percentile = 40
-        self.maxNrSpeakers = 16  # If known, max nr of speakers in a sesssion in the database. This is to limit the effect of changes in very small meaningless eigenvalues values generating huge eigengaps
+        self.maxNrSpeakers = 10  # If known, max nr of speakers in a sesssion in the database. This is to limit the effect of changes in very small meaningless eigenvalues values generating huge eigengaps
         ######
 
         # RESEGMENTATION
@@ -351,9 +351,6 @@ class SpeakerDiarization:
             raise ValueError("Speaker diarization failed while voice activity detection!!!")
         else:
             return maskSAD
-
-    def set_maxNrSpeakers(self, nbr):
-        self.maxNrSpeakers = nbr
 
     def run(self, audioFile):
         try:
