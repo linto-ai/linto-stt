@@ -27,10 +27,10 @@ from flask_swagger_ui import get_swaggerui_blueprint
 ##############
 
 
-class WorkerStreaming:
+class Worker:
     def __init__(self):
         # Set logger config
-        self.log = logging.getLogger("__stt-standelone-worker-streaming__")
+        self.log = logging.getLogger("__stt-standelone-worker__")
         logging.basicConfig(level=logging.INFO)
 
         # Main parameters
