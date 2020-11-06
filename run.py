@@ -3,7 +3,7 @@
 
 from flask import Flask, request, abort, Response, json
 from vosk import Model, KaldiRecognizer
-from tools import WorkerStreaming
+from tools import Worker
 from time import gmtime, strftime
 
 from gevent.pywsgi import WSGIServer
@@ -13,7 +13,7 @@ from gevent.pywsgi import WSGIServer
 app = Flask("__stt-standelone-worker__")
 
 # create WorkerStreaming object
-worker = WorkerStreaming()
+worker = Worker()
 
 # Load ASR models (acoustic model and decoding graph)
 worker.log.info('Load acoustic model and decoding graph')
@@ -45,6 +45,7 @@ def transcribe():
             rec = KaldiRecognizer(model, spkModel, worker.rate, worker.ONLINE)
             rec.AcceptWaveform(worker.data)
             data_ = rec.FinalResult()
+            worker.log.info(rec.uttConfidence())
             if is_metadata:
                 data_ = rec.GetMetadata()
             data = worker.get_response(data_, is_metadata)
