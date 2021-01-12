@@ -182,9 +182,10 @@ class Worker:
         return text
 
     # Postprocess response
-    def get_response(self, dataJson, is_metadata):
+    def get_response(self, dataJson, confidence, is_metadata):
         if dataJson is not None:
             data = json.loads(dataJson)
+            data['conf'] = confidence
             if not is_metadata:
                 text = data['text']  # get text from response
                 return self.parse_text(text)
@@ -197,11 +198,11 @@ class Worker:
                 # Generate final output data
                 return self.process_output(data, spkrs)
             elif 'text' in data:
-                return {'speakers': [], 'text': data['text'], 'words': []}
+                return {'speakers': [], 'text': data['text'], 'confidence-score': data['conf'], 'words': []}
             else:
-                return {'speakers': [], 'text': '', 'words': []}
+                return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
         else:
-            return {'speakers': [], 'text': '', 'words': []}
+            return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
 
     # return a json object including word-data, speaker-data
 
@@ -243,12 +244,13 @@ class Worker:
             speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
             speaker["words"] = words
 
-            text.append('spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
+            text.append('spk'+str(int(spkrs[i][2])) +
+                        ' : ' + self.parse_text(text_))
             speakers.append(speaker)
 
-            return {'speakers': speakers, 'text': text}
+            return {'speakers': speakers, 'text': text, 'confidence-score': data['conf']}
         except:
-            return { 'data': data, 'spks': spkrs }
+            return {'text': data['text'], 'words': data['words'], 'confidence-score': data['conf'], 'spks': []}
 
 
 class SpeakerDiarization:
@@ -312,50 +314,57 @@ class SpeakerDiarization:
         self.nbIter = 10  # Number of expectation-maximization (EM) iterations
         self.smoothWin = 100  # Size of the likelihood smoothing window in nb of frames
         ######
- 
-    def compute_feat_Librosa(self,audioFile):
+
+    def compute_feat_Librosa(self, audioFile):
         try:
-            self.data, self.sr = librosa.load(audioFile,sr=None)
+            self.data, self.sr = librosa.load(audioFile, sr=None)
             frame_length_inSample = self.frame_length_s * self.sr
             hop = int(self.frame_shift_s * self.sr)
             NFFT = int(2**np.ceil(np.log2(frame_length_inSample)))
             if self.sr >= 16000:
                 mfccNumpy = librosa.feature.mfcc(y=self.data,
-                                                sr=self.sr,
-                                                dct_type=2,
-                                                n_mfcc=self.num_ceps,
-                                                n_mels=self.num_bins,
-                                                n_fft=NFFT,
-                                                hop_length=hop,
-                                                fmin=20,
-                                                fmax=7600).T
+                                                 sr=self.sr,
+                                                 dct_type=2,
+                                                 n_mfcc=self.num_ceps,
+                                                 n_mels=self.num_bins,
+                                                 n_fft=NFFT,
+                                                 hop_length=hop,
+                                                 fmin=20,
+                                                 fmax=7600).T
             else:
                 mfccNumpy = librosa.feature.mfcc(y=self.data,
-                                                sr=self.sr,
-                                                dct_type=2,
-                                                n_mfcc=self.num_ceps,
-                                                n_mels=self.num_bins,
-                                                n_fft=NFFT,
-                                                hop_length=hop).T
+                                                 sr=self.sr,
+                                                 dct_type=2,
+                                                 n_mfcc=self.num_ceps,
+                                                 n_mels=self.num_bins,
+                                                 n_fft=NFFT,
+                                                 hop_length=hop).T
 
         except Exception as e:
             self.log.error(e)
-            raise ValueError("Speaker diarization failed when extracting features!!!")
+            raise ValueError(
+                "Speaker diarization failed when extracting features!!!")
         else:
             return mfccNumpy
 
     def computeVAD_WEBRTC(self, data, sr, nFeatures):
         try:
-            va_framed = py_webrtcvad(data, fs=sr, fs_vad=sr, hoplength=30, vad_mode=0)
-            segments = get_py_webrtcvad_segments(va_framed,sr)
-            maskSAD = np.zeros([1,nFeatures])
+            if sr not in [8000, 16000, 32000, 48000]:
+                data = librosa.resample(data, sr, 16000)
+                sr = 16000
+
+            va_framed = py_webrtcvad(
+                data, fs=sr, fs_vad=sr, hoplength=30, vad_mode=0)
+            segments = get_py_webrtcvad_segments(va_framed, sr)
+            maskSAD = np.zeros([1, nFeatures])
             for seg in segments:
-                start=int(np.round(seg[0]/self.frame_shift_s))
-                end=int(np.round(seg[1]/self.frame_shift_s))
-                maskSAD[0][start:end]=1
+                start = int(np.round(seg[0]/self.frame_shift_s))
+                end = int(np.round(seg[1]/self.frame_shift_s))
+                maskSAD[0][start:end] = 1
         except Exception as e:
             self.log.error(e)
-            raise ValueError("Speaker diarization failed while voice activity detection!!!")
+            raise ValueError(
+                "Speaker diarization failed while voice activity detection!!!")
         else:
             return maskSAD
 
@@ -478,7 +487,7 @@ class SpeakerDiarization:
                     finalClusteringTableResegmentation), duration)
             else:
                 return [[0, duration, 1],
-                    [duration, -1, -1]]
+                        [duration, -1, -1]]
 
             self.log.info("Speaker Diarization time in seconds: %d" %
                           int(time.time() - start_time))
