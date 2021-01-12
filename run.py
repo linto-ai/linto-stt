@@ -45,10 +45,10 @@ def transcribe():
             rec = KaldiRecognizer(model, spkModel, worker.rate, worker.ONLINE)
             rec.AcceptWaveform(worker.data)
             data_ = rec.FinalResult()
-            worker.log.info(rec.uttConfidence())
+            confidence = rec.uttConfidence()
             if is_metadata:
                 data_ = rec.GetMetadata()
-            data = worker.get_response(data_, is_metadata)
+            data = worker.get_response(data_, confidence, is_metadata)
             worker.clean()
         else:
             raise ValueError('No audio file was uploaded')
