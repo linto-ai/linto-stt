@@ -140,7 +140,8 @@ Convert a speech to text
 >  `post`  <br>
 > Make a POST request
 >>  <b  style="color:green;">Arguments</b> :
->>  -  **{File} file** : Audio file (file format: wav, mp3, flac, ogg)
+>>  -  **{File} file** Audio File - Waveform Audio File Format is required
+
 >
 >>  <b  style="color:green;">Header</b> :
 >>  -  **{String} Accept**: response content type (text/plain|application/json)
