@@ -1,190 +1,268 @@
-# Kaldi ASR decoder
-from kaldi.asr import NnetLatticeFasterOnlineRecognizer
-from kaldi.decoder import (LatticeFasterDecoderOptions,
-                           LatticeFasterOnlineDecoder)
-from kaldi.nnet3 import NnetSimpleLoopedComputationOptions
-from kaldi.online2 import (OnlineEndpointConfig,
-                           OnlineIvectorExtractorAdaptationState,
-                           OnlineNnetFeaturePipelineConfig,
-                           OnlineNnetFeaturePipelineInfo,
-                           OnlineNnetFeaturePipeline,
-                           OnlineSilenceWeighting)
-from kaldi.util.options import ParseOptions
-from kaldi.util.table import SequentialWaveReader
-from kaldi.matrix import Matrix, Vector
-##############
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-# word to CTM
-from kaldi.lat.align import (WordBoundaryInfoNewOpts,
-                             WordBoundaryInfo,
-                             word_align_lattice)
-from kaldi.lat.functions import (compact_lattice_to_word_alignment,
-                                 compact_lattice_shortest_path)
-from kaldi.asr import NnetRecognizer
-import kaldi.fstext as _fst
+#  ASR
+from vosk import Model, KaldiRecognizer
 ##############
 
 # Speaker Diarization
-from diarizationFunctions import *
-import numpy as np
+from pyBK.diarizationFunctions import *
 import librosa
-from kaldi.ivector import (compute_vad_energy,
-                           VadEnergyOptions)
-from kaldi.feat.mfcc import Mfcc, MfccOptions
-from kaldi.util.options import ParseOptions
+import time
+import webrtcvad
 ##############
 
 # other packages
-import configparser, sys, os, re, time, logging, yaml, uuid
+import configparser
+import librosa
+import logging
+import os
+import re
+import uuid
+import json
+import yaml
+import numpy as np
+from scipy.io import wavfile
 from flask_swagger_ui import get_swaggerui_blueprint
 ##############
 
 
-class ASR:
-    def __init__(self, AM_PATH, LM_PATH, CONFIG_FILES_PATH):
-        self.log = logging.getLogger('__stt-standelone-worker__.ASR')
-        self.AM_PATH = AM_PATH
-        self.LM_PATH = LM_PATH
-        self.CONFIG_FILES_PATH = CONFIG_FILES_PATH
-        self.LoadModels()
-        
-    def LoadModels(self):
+class Worker:
+    def __init__(self):
+        # Set logger config
+        self.log = logging.getLogger("__stt-standelone-worker__")
+        logging.basicConfig(level=logging.INFO)
+
+        # Main parameters
+        self.AM_PATH = '/opt/models/AM'
+        self.LM_PATH = '/opt/models/LM'
+        self.TEMP_FILE_PATH = '/opt/tmp'
+        self.CONFIG_FILES_PATH = '/opt/config'
+        self.SAVE_AUDIO = False
+        self.SERVICE_PORT = 80
+        self.NBR_THREADS = 100
+        self.SWAGGER_URL = '/api-doc'
+        self.SWAGGER_PATH = ''
+        self.ONLINE = False
+
+        if not os.path.isdir(self.CONFIG_FILES_PATH):
+            os.mkdir(self.CONFIG_FILES_PATH)
+
+        if not os.path.isdir(self.TEMP_FILE_PATH):
+            os.mkdir(self.TEMP_FILE_PATH)
+
+        # Environment parameters
+        if 'NBR_THREADS' in os.environ:
+            if int(os.environ['NBR_THREADS']) > 0:
+                self.NBR_THREADS = int(os.environ['NBR_THREADS'])
+            else:
+                self.log.warning(
+                    "You must to provide a positif number of threads 'NBR_THREADS'")
+        if 'SWAGGER_PATH' in os.environ:
+            self.SWAGGER_PATH = os.environ['SWAGGER_PATH']
+
+        # start loading ASR configuration
+        self.log.info("Create the new config files")
+        self.loadConfig()
+
+    def swaggerUI(self, app):
+        ### swagger specific ###
+        swagger_yml = yaml.load(
+            open(self.SWAGGER_PATH, 'r'), Loader=yaml.Loader)
+        swaggerui = get_swaggerui_blueprint(
+            # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
+            self.SWAGGER_URL,
+            self.SWAGGER_PATH,
+            config={  # Swagger UI config overrides
+                'app_name': "STT API Documentation",
+                'spec': swagger_yml
+            }
+        )
+        app.register_blueprint(swaggerui, url_prefix=self.SWAGGER_URL)
+        ### end swagger specific ###
+
+    def getAudio(self, file):
+        filename = str(uuid.uuid4())
+        self.file_path = self.TEMP_FILE_PATH+"/"+filename
+        file.save(self.file_path)
         try:
-            # Define online feature pipeline
-            po = ParseOptions("")
-
-            decoder_opts = LatticeFasterDecoderOptions()
-            self.endpoint_opts = OnlineEndpointConfig()
-            self.decodable_opts = NnetSimpleLoopedComputationOptions()
-            feat_opts = OnlineNnetFeaturePipelineConfig()
-
-
-            decoder_opts.register(po)
-            self.endpoint_opts.register(po)
-            self.decodable_opts.register(po)
-            feat_opts.register(po)
-
-            po.read_config_file(self.CONFIG_FILES_PATH+"/online.conf")
-            self.feat_info = OnlineNnetFeaturePipelineInfo.from_config(
-                feat_opts)
-
-            # Set metadata parameters
-            self.samp_freq = self.feat_info.mfcc_opts.frame_opts.samp_freq
-            self.frame_shift = self.feat_info.mfcc_opts.frame_opts.frame_shift_ms / 1000
-            self.acwt = self.decodable_opts.acoustic_scale
-
-            # Load Acoustic and graph models and other files
-            self.transition_model, self.acoustic_model = NnetRecognizer.read_model(
-                self.AM_PATH+"/final.mdl")
-            graph = _fst.read_fst_kaldi(self.LM_PATH+"/HCLG.fst")
-            self.decoder_graph = LatticeFasterOnlineDecoder(
-                graph, decoder_opts)
-            self.symbols = _fst.SymbolTable.read_text(
-                self.LM_PATH+"/words.txt")
-            self.info = WordBoundaryInfo.from_file(
-                WordBoundaryInfoNewOpts(), self.LM_PATH+"/word_boundary.int")
-
-            
-            self.asr = NnetLatticeFasterOnlineRecognizer(self.transition_model, self.acoustic_model, self.decoder_graph,
-                                                    self.symbols, decodable_opts=self.decodable_opts, endpoint_opts=self.endpoint_opts)
-            del graph, decoder_opts
+            self.rate, self.data = wavfile.read(self.file_path)
+            # if stereo file, convert to mono by computing the mean of the channels
+            if len(self.data.shape) == 2 and self.data.shape[1] == 2:
+                self.data = np.mean(self.data, axis=1, dtype=np.int16)
         except Exception as e:
             self.log.error(e)
-            raise ValueError(
-                "AM and LM loading failed!!! (see logs for more details)")
+            raise ValueError("The uploaded file format is not supported!!!")
 
-    def get_sample_rate(self):
-        return self.samp_freq
+    def clean(self):
+        if not self.SAVE_AUDIO:
+            os.remove(self.file_path)
 
-    def get_frames(self, feat_pipeline):
-        rows = feat_pipeline.num_frames_ready()
-        cols = feat_pipeline.dim()
-        frames = Matrix(rows, cols)
-        feat_pipeline.get_frames(range(rows), frames)
-        return frames[:, :self.feat_info.mfcc_opts.num_ceps], frames[:, self.feat_info.mfcc_opts.num_ceps:]
-        # return feats + ivectors
+    # re-create config files
+    def loadConfig(self):
+        # load decoder parameters from "decode.cfg"
+        decoder_settings = configparser.ConfigParser()
+        if os.path.exists(self.AM_PATH+'/decode.cfg') == False:
+            return False
+        decoder_settings.read(self.AM_PATH+'/decode.cfg')
 
-    def compute_feat(self, wav):
-        try:
-            feat_pipeline = OnlineNnetFeaturePipeline(self.feat_info)
-            feat_pipeline.accept_waveform(self.samp_freq, wav)
-            feat_pipeline.input_finished()
-        except Exception as e:
-            self.log.error(e)
-            raise ValueError("Feature extraction failed!!!")
+        # Prepare "online.conf"
+        self.AM_PATH = self.AM_PATH+"/" + \
+            decoder_settings.get('decoder_params', 'ampath')
+        with open(self.AM_PATH+"/conf/online.conf") as f:
+            values = f.readlines()
+            with open(self.CONFIG_FILES_PATH+"/online.conf", 'w') as f:
+                for i in values:
+                    f.write(i)
+                f.write("--ivector-extraction-config=" +
+                        self.CONFIG_FILES_PATH+"/ivector_extractor.conf\n")
+                f.write("--mfcc-config="+self.AM_PATH+"/conf/mfcc.conf\n")
+                f.write(
+                    "--beam="+decoder_settings.get('decoder_params', 'beam')+"\n")
+                f.write(
+                    "--lattice-beam="+decoder_settings.get('decoder_params', 'lattice_beam')+"\n")
+                f.write("--acoustic-scale=" +
+                        decoder_settings.get('decoder_params', 'acwt')+"\n")
+                f.write(
+                    "--min-active="+decoder_settings.get('decoder_params', 'min_active')+"\n")
+                f.write(
+                    "--max-active="+decoder_settings.get('decoder_params', 'max_active')+"\n")
+                f.write("--frame-subsampling-factor="+decoder_settings.get(
+                    'decoder_params', 'frame_subsampling_factor')+"\n")
+
+        # Prepare "ivector_extractor.conf"
+        with open(self.AM_PATH+"/conf/ivector_extractor.conf") as f:
+            values = f.readlines()
+            with open(self.CONFIG_FILES_PATH+"/ivector_extractor.conf", 'w') as f:
+                for i in values:
+                    f.write(i)
+                f.write("--splice-config="+self.AM_PATH+"/conf/splice.conf\n")
+                f.write("--cmvn-config="+self.AM_PATH +
+                        "/conf/online_cmvn.conf\n")
+                f.write("--lda-matrix="+self.AM_PATH +
+                        "/ivector_extractor/final.mat\n")
+                f.write("--global-cmvn-stats="+self.AM_PATH +
+                        "/ivector_extractor/global_cmvn.stats\n")
+                f.write("--diag-ubm="+self.AM_PATH +
+                        "/ivector_extractor/final.dubm\n")
+                f.write("--ivector-extractor="+self.AM_PATH +
+                        "/ivector_extractor/final.ie")
+
+        # Prepare "word_boundary.int" if not exist
+        if not os.path.exists(self.LM_PATH+"/word_boundary.int") and os.path.exists(self.AM_PATH+"/phones.txt"):
+            self.log.info("Create word_boundary.int based on phones.txt")
+            with open(self.AM_PATH+"/phones.txt") as f:
+                phones = f.readlines()
+
+            with open(self.LM_PATH+"/word_boundary.int", "w") as f:
+                for phone in phones:
+                    phone = phone.strip()
+                    phone = re.sub('^<eps> .*', '', phone)
+                    phone = re.sub('^#\d+ .*', '', phone)
+                    if phone != '':
+                        id = phone.split(' ')[1]
+                        if '_I ' in phone:
+                            f.write(id+" internal\n")
+                        elif '_B ' in phone:
+                            f.write(id+" begin\n")
+                        elif '_E ' in phone:
+                            f.write(id+" end\n")
+                        elif '_S ' in phone:
+                            f.write(id+" singleton\n")
+                        else:
+                            f.write(id+" nonword\n")
+
+    # remove extra symbols
+    def parse_text(self, text):
+        text = re.sub(r"<unk>", "", text)  # remove <unk> symbol
+        text = re.sub(r"#nonterm:[^ ]* ", "", text)  # remove entity's mark
+        text = re.sub(r"' ", "'", text)  # remove space after quote '
+        text = re.sub(r" +", " ", text)  # remove multiple spaces
+        text = text.strip()
+        return text
+
+    # Postprocess response
+    def get_response(self, dataJson, confidence, is_metadata):
+        if dataJson is not None:
+            data = json.loads(dataJson)
+            data['conf'] = confidence
+            if not is_metadata:
+                text = data['text']  # get text from response
+                return self.parse_text(text)
+
+            elif 'words' in data:
+                # Do speaker diarization and get speaker segments
+                spk = SpeakerDiarization()
+                spkrs = spk.run(self.file_path)
+
+                # Generate final output data
+                return self.process_output(data, spkrs)
+            elif 'text' in data:
+                return {'speakers': [], 'text': data['text'], 'confidence-score': data['conf'], 'words': []}
+            else:
+                return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
         else:
-            return feat_pipeline
+            return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
 
-    def decoder(self, feats):
+    # return a json object including word-data, speaker-data
+
+    def process_output(self, data, spkrs):
         try:
-            start_time = time.time()
-            self.log.info("Start Decoding: %s" % (start_time))
-            self.asr.set_input_pipeline(feats)
-            decode = self.asr.decode()
-            self.log.info("Decode time in seconds: %s" %
-                          (time.time() - start_time))
-        except Exception as e:
-            self.log.error(e)
-            raise ValueError("Decoder failed to transcribe the input audio!!!")
-        else:
-            return decode
+            speakers = []
+            text = []
+            i = 0
+            text_ = ""
+            words = []
+            for word in data['words']:
+                if i+1 == len(spkrs):
+                    continue
+                if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
+                    text_ += word["word"] + " "
+                    words.append(word)
+                elif len(words) != 0:
+                    speaker = {}
+                    speaker["start"] = words[0]["start"]
+                    speaker["end"] = words[len(words)-1]["end"]
+                    speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
+                    speaker["words"] = words
 
-    def wordTimestamp(self, text, lattice, frame_shift, frame_subsampling):
-        try:
-            _fst.utils.scale_compact_lattice(
-                [[1.0, 0], [0, float(self.acwt)]], lattice)
-            bestPath = compact_lattice_shortest_path(lattice)
-            _fst.utils.scale_compact_lattice(
-                [[1.0, 0], [0, 1.0/float(self.acwt)]], bestPath)
-            bestLattice = word_align_lattice(
-                bestPath, self.transition_model, self.info, 0)
-            alignment = compact_lattice_to_word_alignment(bestLattice[1])
-            words = _fst.indices_to_symbols(self.symbols, alignment[0])
-            start = alignment[1]
-            dur   = alignment[2]
+                    text.append(
+                        'spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
+                    speakers.append(speaker)
 
-            output = {}
-            output["words"] = []
-            for i in range(len(words)):
-                meta = {}
-                meta["word"] = words[i]
-                meta["start"] = round(start[i] * frame_shift * frame_subsampling, 2)
-                meta["end"] = round((start[i]+dur[i]) * frame_shift * frame_subsampling, 2)
-                output["words"].append(meta)
-                text += " "+meta["word"]
-            output["text"] = text
+                    words = [word]
+                    text_ = word["word"] + " "
+                    i += 1
+                else:
+                    words = [word]
+                    text_ = word["word"] + " "
+                    i += 1
 
-        except Exception as e:
-            self.log.error(e)
-            raise ValueError("Decoder failed to create the word timestamps!!!")
-        else:
-            return output
+            speaker = {}
+            speaker["start"] = words[0]["start"]
+            speaker["end"] = words[len(words)-1]["end"]
+            speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
+            speaker["words"] = words
+
+            text.append('spk'+str(int(spkrs[i][2])) +
+                        ' : ' + self.parse_text(text_))
+            speakers.append(speaker)
+
+            return {'speakers': speakers, 'text': text, 'confidence-score': data['conf']}
+        except:
+            return {'text': data['text'], 'words': data['words'], 'confidence-score': data['conf'], 'spks': []}
 
 
 class SpeakerDiarization:
-    def __init__(self, sample_rate):
+    def __init__(self):
         self.log = logging.getLogger(
             '__stt-standelone-worker__.SPKDiarization')
 
-        # MFCC FEATURES PARAMETERS
-        self.sr = sample_rate
+       # MFCC FEATURES PARAMETERS
         self.frame_length_s = 0.025
         self.frame_shift_s = 0.01
-        self.num_bins = 40
-        self.num_ceps = 40
-        self.low_freq = 40
-        self.high_freq = -200
-        if self.sr == 16000:
-            self.low_freq = 20
-            self.high_freq = 7600
-        #####
-
-        # VAD PARAMETERS
-        self.vad_ops = VadEnergyOptions()
-        self.vad_ops.vad_energy_mean_scale = 0.9
-        self.vad_ops.vad_energy_threshold = 5
-        #vad_ops.vad_frames_context = 2
-        #vad_ops.vad_proportion_threshold = 0.12
+        self.num_bins = 30
+        self.num_ceps = 30
         #####
 
         # Segment
@@ -237,85 +315,52 @@ class SpeakerDiarization:
         self.smoothWin = 100  # Size of the likelihood smoothing window in nb of frames
         ######
 
-    def compute_feat_KALDI(self, wav):
+    def compute_feat_Librosa(self, audioFile):
         try:
-            po = ParseOptions("")
-            mfcc_opts = MfccOptions()
-            mfcc_opts.use_energy = False
-            mfcc_opts.frame_opts.samp_freq = self.sr
-            mfcc_opts.frame_opts.frame_length_ms = self.frame_length_s*1000
-            mfcc_opts.frame_opts.frame_shift_ms = self.frame_shift_s*1000
-            mfcc_opts.frame_opts.allow_downsample = False
-            mfcc_opts.mel_opts.num_bins = self.num_bins
-            mfcc_opts.mel_opts.low_freq = self.low_freq
-            mfcc_opts.mel_opts.high_freq = self.high_freq
-            mfcc_opts.num_ceps = self.num_ceps
-            mfcc_opts.register(po)
+            self.data, self.sr = librosa.load(audioFile, sr=None)
+            frame_length_inSample = self.frame_length_s * self.sr
+            hop = int(self.frame_shift_s * self.sr)
+            NFFT = int(2**np.ceil(np.log2(frame_length_inSample)))
+            if self.sr >= 16000:
+                mfccNumpy = librosa.feature.mfcc(y=self.data,
+                                                 sr=self.sr,
+                                                 dct_type=2,
+                                                 n_mfcc=self.num_ceps,
+                                                 n_mels=self.num_bins,
+                                                 n_fft=NFFT,
+                                                 hop_length=hop,
+                                                 fmin=20,
+                                                 fmax=7600).T
+            else:
+                mfccNumpy = librosa.feature.mfcc(y=self.data,
+                                                 sr=self.sr,
+                                                 dct_type=2,
+                                                 n_mfcc=self.num_ceps,
+                                                 n_mels=self.num_bins,
+                                                 n_fft=NFFT,
+                                                 hop_length=hop).T
 
-            # Create MFCC object and obtain sample frequency
-            mfccObj = Mfcc(mfcc_opts)
-            mfccKaldi = mfccObj.compute_features(wav, self.sr, 1.0)
         except Exception as e:
             self.log.error(e)
             raise ValueError(
-                "Speaker diarization failed while extracting features!!!")
+                "Speaker diarization failed when extracting features!!!")
         else:
-            return mfccKaldi
+            return mfccNumpy
 
-    def computeVAD_KALDI(self, feats):
+    def computeVAD_WEBRTC(self, data, sr, nFeatures):
         try:
-            vadStream = compute_vad_energy(self.vad_ops, feats)
-            vad = Vector(vadStream)
-            VAD = vad.numpy()
+            if sr not in [8000, 16000, 32000, 48000]:
+                data = librosa.resample(data, sr, 16000)
+                sr = 16000
 
-            #  segmentation
-            occurence = []
-            value = []
-            occurence.append(1)
-            value.append(VAD[0])
-
-            # compute the speech and non-speech frames
-            for i in range(1, len(VAD)):
-                if value[-1] == VAD[i]:
-                    occurence[-1] += 1
-                else:
-                    occurence.append(1)
-                    value.append(VAD[i])
-
-            # filter the speech and non-speech segments that are below 30 frames
-            i = 0
-            while(i < len(occurence)):
-                if i != 0 and (occurence[i] < 30 or value[i-1] == value[i]):
-                    occurence[i-1] += occurence[i]
-                    del value[i]
-                    del occurence[i]
-                else:
-                    i += 1
-
-            # split if and only if the silence is above 50 frames
-            i = 0
-            while(i < len(occurence)):
-                if i != 0 and ((occurence[i] < 30 and value[i] == 0.0) or value[i-1] == value[i]):
-                    occurence[i-1] += occurence[i]
-                    del value[i]
-                    del occurence[i]
-                else:
-                    i += 1
-
-            # compute VAD mask
-            maskSAD = np.zeros(len(VAD))
-            start = 0
-            for i in range(len(occurence)):
-                if value[i] == 1.0:
-                    end = start+occurence[i]
-                    maskSAD[start:end] = 1
-                    start = end
-                else:
-                    start += occurence[i]
-
-            maskSAD = np.expand_dims(maskSAD, axis=0)
-        except ValueError as v:
-            self.log.error(v)
+            va_framed = py_webrtcvad(
+                data, fs=sr, fs_vad=sr, hoplength=30, vad_mode=0)
+            segments = get_py_webrtcvad_segments(va_framed, sr)
+            maskSAD = np.zeros([1, nFeatures])
+            for seg in segments:
+                start = int(np.round(seg[0]/self.frame_shift_s))
+                end = int(np.round(seg[1]/self.frame_shift_s))
+                maskSAD[0][start:end] = 1
         except Exception as e:
             self.log.error(e)
             raise ValueError(
@@ -323,7 +368,7 @@ class SpeakerDiarization:
         else:
             return maskSAD
 
-    def run(self, wav, dur, feats=None):
+    def run(self, audioFile):
         try:
             def getSegments(frameshift, finalSegmentTable, finalClusteringTable, dur):
                 numberOfSpeechFeatures = finalSegmentTable[-1, 2].astype(int)+1
@@ -357,18 +402,19 @@ class SpeakerDiarization:
                 seg[0][0] = 0.0
                 return seg
 
-
             start_time = time.time()
-            self.log.info("Start Speaker Diarization: %s" % (start_time))
-            if self.maxNrSpeakers == 1 or dur < 5:
-                self.log.info("Speaker Diarization time in seconds: %s" %
-                              (time.time() - start_time))
-                return [[0, dur, 1],
-                        [dur, -1, -1]]
-            if feats == None:
-                feats = self.compute_feat_KALDI(wav)
+
+            self.log.info('Start Speaker diarization')
+
+            feats = self.compute_feat_Librosa(audioFile)
             nFeatures = feats.shape[0]
-            maskSAD = self.computeVAD_KALDI(feats)
+            duration = nFeatures * self.frame_shift_s
+
+            if duration < 5:
+                return [[0, duration, 1],
+                        [duration, -1, -1]]
+
+            maskSAD = self.computeVAD_WEBRTC(self.data, self.sr, nFeatures)
             maskUEM = np.ones([1, nFeatures])
 
             mask = np.logical_and(maskUEM, maskSAD)
@@ -393,8 +439,9 @@ class SpeakerDiarization:
                 windowRate = int(self.maximumKBMWindowRate)
 
             if windowRate == 0:
-                raise ValueError(
-                    'The audio is to short in order to perform the speaker diarization!!!')
+                #self.log.info('The audio is to short in order to perform the speaker diarization!!!')
+                return [[0, duration, 1],
+                        [duration, -1, -1]]
 
             poolSize = np.floor((nSpeechFeatures-self.windowLength)/windowRate)
             if self.useRelativeKBMsize:
@@ -436,217 +483,21 @@ class SpeakerDiarization:
             if self.resegmentation and np.size(np.unique(finalClusteringTable[:, bestClusteringID.astype(int)-1]), 0) > 1:
                 finalClusteringTableResegmentation, finalSegmentTable = performResegmentation(data, speechMapping, mask, finalClusteringTable[:, bestClusteringID.astype(
                     int)-1], segmentTable, self.modelSize, self.nbIter, self.smoothWin, nSpeechFeatures)
-                seg = getSegments(self.frame_shift_s, finalSegmentTable, np.squeeze(finalClusteringTableResegmentation), dur)
+                seg = getSegments(self.frame_shift_s, finalSegmentTable, np.squeeze(
+                    finalClusteringTableResegmentation), duration)
             else:
-                seg = getSegmentationFile(
-                    self.frame_shift_s, segmentTable, finalClusteringTable[:, bestClusteringID.astype(int)-1])
-            self.log.info("Speaker Diarization time in seconds: %s" %
-                          (time.time() - start_time))
+                return [[0, duration, 1],
+                        [duration, -1, -1]]
+
+            self.log.info("Speaker Diarization time in seconds: %d" %
+                          int(time.time() - start_time))
         except ValueError as v:
-            self.log.info(v)
-            return [[0, dur, 1],
-                    [dur, -1, -1]]
+            self.log.error(v)
+            return [[0, duration, 1],
+                    [duration, -1, -1]]
         except Exception as e:
             self.log.error(e)
-            raise ValueError("Speaker Diarization failed!!!")
+            return [[0, duration, 1],
+                    [duration, -1, -1]]
         else:
             return seg
-
-
-class SttStandelone:
-    def __init__(self):
-        self.log = logging.getLogger("__stt-standelone-worker-streaming__")
-        logging.basicConfig(level=logging.INFO)
-
-        # Main parameters
-        self.AM_PATH = '/opt/models/AM'
-        self.LM_PATH = '/opt/models/LM'
-        self.TEMP_FILE_PATH = '/opt/tmp'
-        self.CONFIG_FILES_PATH = '/opt/config'
-        self.SAVE_AUDIO = False
-        self.SERVICE_PORT = 80
-        self.SWAGGER_URL = '/api-doc'
-        self.SWAGGER_PATH = None
-
-        if not os.path.isdir(self.TEMP_FILE_PATH):
-            os.mkdir(self.TEMP_FILE_PATH)
-        if not os.path.isdir(self.CONFIG_FILES_PATH):
-            os.mkdir(self.CONFIG_FILES_PATH)
-
-        # Environment parameters
-        if 'SERVICE_PORT' in os.environ:
-            self.SERVICE_PORT = os.environ['SERVICE_PORT']
-        if 'SAVE_AUDIO' in os.environ:
-            self.SAVE_AUDIO = os.environ['SAVE_AUDIO']
-        if 'SWAGGER_PATH' in os.environ:
-            self.SWAGGER_PATH = os.environ['SWAGGER_PATH']
-
-        self.loadConfig()
-
-    def loadConfig(self):
-        # get decoder parameters from "decode.cfg"
-        decoder_settings = configparser.ConfigParser()
-        if not os.path.exists(self.AM_PATH+'/decode.cfg'):
-            return False
-        decoder_settings.read(self.AM_PATH+'/decode.cfg')
-
-        # Prepare "online.conf"
-        self.AM_PATH = self.AM_PATH+"/" + \
-            decoder_settings.get('decoder_params', 'ampath')
-        with open(self.AM_PATH+"/conf/online.conf") as f:
-            values = f.readlines()
-            with open(self.CONFIG_FILES_PATH+"/online.conf", 'w') as f:
-                for i in values:
-                    f.write(i)
-                f.write("--ivector-extraction-config=" +
-                        self.CONFIG_FILES_PATH+"/ivector_extractor.conf\n")
-                f.write("--mfcc-config="+self.AM_PATH+"/conf/mfcc.conf\n")
-                f.write(
-                    "--beam="+decoder_settings.get('decoder_params', 'beam')+"\n")
-                f.write(
-                    "--lattice-beam="+decoder_settings.get('decoder_params', 'lattice_beam')+"\n")
-                f.write("--acoustic-scale=" +
-                        decoder_settings.get('decoder_params', 'acwt')+"\n")
-                f.write(
-                    "--min-active="+decoder_settings.get('decoder_params', 'min_active')+"\n")
-                f.write(
-                    "--max-active="+decoder_settings.get('decoder_params', 'max_active')+"\n")
-                f.write("--frame-subsampling-factor="+decoder_settings.get(
-                    'decoder_params', 'frame_subsampling_factor')+"\n")
-
-        # Prepare "ivector_extractor.conf"
-        with open(self.AM_PATH+"/conf/ivector_extractor.conf") as f:
-            values = f.readlines()
-            with open(self.CONFIG_FILES_PATH+"/ivector_extractor.conf", 'w') as f:
-                for i in values:
-                    f.write(i)
-                f.write("--splice-config="+self.AM_PATH+"/conf/splice.conf\n")
-                f.write("--cmvn-config="+self.AM_PATH +
-                        "/conf/online_cmvn.conf\n")
-                f.write("--lda-matrix="+self.AM_PATH +
-                        "/ivector_extractor/final.mat\n")
-                f.write("--global-cmvn-stats="+self.AM_PATH +
-                        "/ivector_extractor/global_cmvn.stats\n")
-                f.write("--diag-ubm="+self.AM_PATH +
-                        "/ivector_extractor/final.dubm\n")
-                f.write("--ivector-extractor="+self.AM_PATH +
-                        "/ivector_extractor/final.ie")
-
-        # Prepare "word_boundary.int" if not exist
-        if not os.path.exists(self.LM_PATH+"/word_boundary.int") and os.path.exists(self.AM_PATH+"phones.txt"):
-            with open(self.AM_PATH+"phones.txt") as f:
-                phones = f.readlines()
-
-            with open(self.LM_PATH+"/word_boundary.int", "w") as f:
-                for phone in phones:
-                    phone = phone.strip()
-                    phone = re.sub('^<eps> .*', '', phone)
-                    phone = re.sub('^#\d+ .*', '', phone)
-                    if phone != '':
-                        id = phone.split(' ')[1]
-                        if '_I ' in phone:
-                            f.write(id+" internal\n")
-                        elif '_B ' in phone:
-                            f.write(id+" begin\n")
-                        elif '_E ' in phone:
-                            f.write(id+" end\n")
-                        elif '_S ' in phone:
-                            f.write(id+" singleton\n")
-                        else:
-                            f.write(id+" nonword\n")
-
-    def swaggerUI(self, app):
-        ### swagger specific ###
-        swagger_yml = yaml.load(
-            open(self.SWAGGER_PATH, 'r'), Loader=yaml.Loader)
-        swaggerui = get_swaggerui_blueprint(
-            # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
-            self.SWAGGER_URL,
-            self.SWAGGER_PATH,
-            config={  # Swagger UI config overrides
-                'app_name': "STT API Documentation",
-                'spec': swagger_yml
-            }
-        )
-        app.register_blueprint(swaggerui, url_prefix=self.SWAGGER_URL)
-        ### end swagger specific ###
-
-    def read_audio(self, file, sample_rate):
-        filename = str(uuid.uuid4())
-        file_path = self.TEMP_FILE_PATH+"/"+filename
-        file.save(file_path)
-        try:
-            data, sr = librosa.load(file_path, sr=None)
-            if sr != sample_rate:
-                self.log.info('Resample audio file: '+str(sr) +
-                              'Hz -> '+str(sample_rate)+'Hz')
-                data = librosa.resample(data, sr, sample_rate)
-            data = (data * 32767).astype(np.int16)
-            self.dur = len(data) / sample_rate
-            self.data = Vector(data)
-        except Exception as e:
-            self.log.error(e)
-            raise ValueError("The uploaded file format is not supported!!!")
-        finally:
-            if not self.SAVE_AUDIO:
-                os.remove(file_path)
-
-    def run(self, asr, metadata):
-        feats = asr.compute_feat(self.data)
-        mfcc, ivector = asr.get_frames(feats)
-        decode = asr.decoder(feats)
-        if metadata:
-            spk = SpeakerDiarization(asr.get_sample_rate())
-            spkSeg = spk.run(self.data, self.dur, mfcc)
-            data = asr.wordTimestamp(decode["text"], decode['lattice'], asr.frame_shift, asr.decodable_opts.frame_subsampling_factor)
-            output = self.process_output(data, spkSeg)
-            return output
-        else:
-            return self.parse_text(decode["text"])
-
-
-    # return a json object including word-data, speaker-data
-    def process_output(self, data, spkrs):
-        speakers = []
-        text = []
-        i = 0
-        text_ = ""
-        words=[]
-        for word in data['words']:
-            if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
-                text_ += word["word"]  + " "
-                words.append(word)
-            else:
-                speaker = {}
-                speaker["start"]=words[0]["start"]
-                speaker["end"]=words[len(words)-1]["end"]
-                speaker["speaker_id"]='spk'+str(int(spkrs[i][2]))
-                speaker["words"]=words
-
-                text.append('spk'+str(int(spkrs[i][2]))+' : '+ self.parse_text(text_))
-                speakers.append(speaker)
-
-                words=[word]
-                text_=word["word"] + " "
-                i+=1
-
-        speaker = {}
-        speaker["start"]=words[0]["start"]
-        speaker["end"]=words[len(words)-1]["end"]
-        speaker["speaker_id"]='spk'+str(int(spkrs[i][2]))
-        speaker["words"]=words
-
-        text.append('spk'+str(int(spkrs[i][2]))+' : '+ self.parse_text(text_))
-        speakers.append(speaker)
-
-        return {'speakers': speakers, 'text': text}
-
-    # remove extra symbols
-    def parse_text(self, text):
-        text = re.sub(r"<unk>", "", text) # remove <unk> symbol
-        text = re.sub(r"#nonterm:[^ ]* ", "", text) # remove entity's mark
-        text = re.sub(r"<eps>", "", text) # remove <eps>
-        text = re.sub(r"' ", "'", text) # remove space after quote '
-        text = re.sub(r" +", " ", text) # remove multiple spaces
-        text = text.strip()
-        return text

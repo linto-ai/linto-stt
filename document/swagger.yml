@@ -24,7 +24,7 @@ paths:
       parameters: 
       - name: "file"
         in: "formData"
-        description: "Audio File (wav, mp3, flac, ogg, wma, m4a)"
+        description: "Audio File - Waveform Audio File Format is required. Best configuration (16KHz, 16b, mono)"
         required: true
         type: "file"
       responses:
