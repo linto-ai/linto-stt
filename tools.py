@@ -206,42 +206,49 @@ class Worker:
     # return a json object including word-data, speaker-data
 
     def process_output(self, data, spkrs):
-        speakers = []
-        text = []
-        i = 0
-        text_ = ""
-        words = []
-        for word in data['words']:
-            if i+1 == len(spkrs):
-                continue
-            if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
-                text_ += word["word"] + " "
-                words.append(word)
-            else:
-                speaker = {}
-                speaker["start"] = words[0]["start"]
-                speaker["end"] = words[len(words)-1]["end"]
-                speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
-                speaker["words"] = words
+        try:
+            speakers = []
+            text = []
+            i = 0
+            text_ = ""
+            words = []
+            for word in data['words']:
+                if i+1 == len(spkrs):
+                    continue
+                if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
+                    text_ += word["word"] + " "
+                    words.append(word)
+                elif len(words) != 0:
+                    speaker = {}
+                    speaker["start"] = words[0]["start"]
+                    speaker["end"] = words[len(words)-1]["end"]
+                    speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
+                    speaker["words"] = words
 
-                text.append(
-                    'spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
-                speakers.append(speaker)
+                    text.append(
+                        'spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
+                    speakers.append(speaker)
 
-                words = [word]
-                text_ = word["word"] + " "
-                i += 1
+                    words = [word]
+                    text_ = word["word"] + " "
+                    i += 1
+                else:
+                    words = [word]
+                    text_ = word["word"] + " "
+                    i += 1
 
-        speaker = {}
-        speaker["start"] = words[0]["start"]
-        speaker["end"] = words[len(words)-1]["end"]
-        speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
-        speaker["words"] = words
+            speaker = {}
+            speaker["start"] = words[0]["start"]
+            speaker["end"] = words[len(words)-1]["end"]
+            speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
+            speaker["words"] = words
 
-        text.append('spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
-        speakers.append(speaker)
+            text.append('spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
+            speakers.append(speaker)
 
-        return {'speakers': speakers, 'text': text}
+            return {'speakers': speakers, 'text': text}
+        except:
+            return { 'data': data, 'spks': spkrs }
 
 
 class SpeakerDiarization:
