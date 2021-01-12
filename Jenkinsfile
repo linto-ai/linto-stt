@@ -24,7 +24,6 @@ pipeline {
                     docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
                         image.push("${VERSION}")
                         image.push('latest')
-                        image.push('offline')
                     }
                 }
             }

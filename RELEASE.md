@@ -1,3 +1,8 @@
+# 3.1.1
+- Change Pykaldi with vosk-API (no python wrapper for decoding function, no extrat packages during installation, c++ implementation based on kaldi functions)
+- New feature: Compute a confidence score per transcription
+- Fix minor bugs
+
 # 2.2.1
 - Fix minor bugs
 - put SWAGGER_PATH parameter as optional
