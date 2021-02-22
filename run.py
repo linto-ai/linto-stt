@@ -12,6 +12,10 @@ from gevent.pywsgi import WSGIServer
 
 
 
+from gevent.pywsgi import WSGIServer
+
+
+
 app = Flask("__stt-standelone-worker__")
 
 # create WorkerStreaming object
