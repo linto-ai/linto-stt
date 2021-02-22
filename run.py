@@ -5,7 +5,6 @@ from flask import Flask, request, abort, Response, json
 from vosk import Model, KaldiRecognizer
 from tools import Worker
 from time import gmtime, strftime
-
 from gevent.pywsgi import WSGIServer
 
 
