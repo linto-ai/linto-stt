@@ -6,14 +6,6 @@ from vosk import Model, KaldiRecognizer
 from tools import Worker
 from time import gmtime, strftime
 from gevent.pywsgi import WSGIServer
-import os
-
-from gevent.pywsgi import WSGIServer
-
-
-
-from gevent.pywsgi import WSGIServer
-
 
 
 app = Flask("__stt-standelone-worker__")
