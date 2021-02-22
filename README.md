@@ -11,6 +11,17 @@ See documentation : [doc.linto.ai](https://doc.linto.ai)
 
 With our proposed stack [linto-platform-stack](https://github.com/linto-ai/linto-platform-stack)
 
+# Hardware requirements
+In order to install and run this service, you need to have at least:
+
+* 5Go available on your hard drive for the installation, and
+
+* 500Mo/3Go/7Go of RAM memory available for models loading and decoding. The size depends mainly on the choosed decoding model (small, medium or big).
+
+While there is no specific minimal requirement on the CPU, speech recognition is a computationally task.
+
+**`—The better your hardware performance, the lower your decoding time—`**
+
 # Develop
 
 ## Installation
@@ -20,6 +31,7 @@ To start the LinSTT service on your local machine or your cloud, you need first 
 
 ```bash
 git clone https://github.com/linto-ai/linto-platform-stt-standalone-worker
+git submodule update --init
 cd linto-platform-stt-standalone-worker
 mv .envdefault .env
 ```
@@ -27,7 +39,7 @@ mv .envdefault .env
 Then, to build the docker image, execute:
 
 ```bash
-docker build -t lintoai/linto-platform-stt-standalone-worker .
+docker build -t lintoai/linto-platform-stt-standalone-worker:latest .
 ```
 
 Or by docker-compose, by using:
@@ -42,16 +54,12 @@ Or, download the pre-built image from docker-hub:
 docker pull lintoai/linto-platform-stt-standalone-worker:latest
 ```
 
-NB: You must install docker on your machine.
+NB: You must install docker and docker-compose on your machine.
 
 ## Configuration
 The LinSTT service that will be set-up here require KALDI models, the acoustic model and the decoding graph. Indeed, these models are not included in the repository; you must download them in order to run LinSTT. You can use our pre-trained models from here: [Downloads](https://doc.linto.ai/#/services/linstt_download).
 
-### Outside LinTO-Platform-STT-Service-Manager
-
-If you want to use our service alone without LinTO-Platform-STT-Service-Manager, you must `unzip` the files and put the extracted ones in the [shared storage](https://doc.linto.ai/#/infra?id=shared-storage). For example,
-
-1- Download the French acoustic model and the small decoding graph
+1- Download the French acoustic model and the small decoding graph (linstt.v1). You can download the latest version for optimal performance and you should make sure that you have the hardware requirement in terms of RAM.
 
 ```bash
 wget https://dl.linto.ai/downloads/model-distribution/acoustic-models/fr-FR/linSTT_AM_fr-FR_v1.0.0.zip
@@ -68,38 +76,31 @@ unzip decoding_graph_fr-FR_Small_v1.1.0.zip -d DG_fr-FR_Small
 3- Move the uncompressed files into the shared storage directory
 
 ```bash
-mv AM_fr-FR ~/linto_shared/data
-mv DG_fr-FR_Small ~/linto_shared/data
+mkdir ~/linstt_model_storage
+mv AM_fr-FR ~/linstt_model_storage
+mv DG_fr-FR ~/linstt_model_storage
 ```
 
 4- Configure the environment file `.env` included in this repository
 
-    AM_PATH=/full/path/to/linto_shared/data/AM_fr-FR
-    LM_PATH=/full/path/to/linto_shared/data/DG_fr-FR_Small
-
+    AM_PATH=~/linstt_model_storage/AM_fr-FR
+    LM_PATH=~/linstt_model_storage/DG_fr-FR
 
 NB: if you want to use the visual user interface of the service, you need also to configure the swagger file `document/swagger.yml` included in this repository. Specifically, in the section `host`, specify the adress of the machine in which the service is deployed.
 
-### Using LinTO-Platform-STT-Service-Manager
-In case you want to use `LinTO-Platform-STT-Service-Manager`, you need to:
-
-1- Create an acoustic model and upload the approriate file
-
-2- Create a language model and upload the corresponding decoding graph
-
-3- Configure the environmenet file of this service.
-
-For more details, see configuration instruction in [LinTO - STT-Manager](https://doc.linto.ai/#/manager)
-
 ## Execute
-In order to run the service alone, you have only to execute:
+In order to run the service, you have only to execute:
 
+```bash
+cd linto-platform-stt-standalone-worker
+docker run -p 8888:80 -v /full/path/to/linstt_model_storage/AM_fr-FR:/opt/models/AM -v /full/path/to/linstt_model_storage/DG_fr-FR:/opt/models/LM -v /full/path/to/linto-platform-stt-standalone-worker/document/swagger.yml:/opt/swagger.yml -e SWAGGER_PATH="/opt/swagger.yml" lintoai/linto-platform-stt-standalone-worker:latest
+```
+
+or simply by executing:
 ```bash
 cd linto-platform-stt-standalone-worker
 docker-compose up
 ```
-
-To run and manager LinSTT under `LinTO-Platform-STT-Service-Manager` service, you need to create a service first and then to start it. See [LinTO - STT-Manager](services/manager?id=execute)
 
 Our service requires an audio file in `Waveform format`. It should has the following parameters:
 
@@ -109,8 +110,30 @@ Our service requires an audio file in `Waveform format`. It should has the follo
     - microphone: any type
     - duration: <30 minutes
 
+### API
+<!-- tabs:start -->
+
+#### /transcribe
+
+Convert a speech to text
+
+### Functionality
+>  `post`  <br>
+> Make a POST request
+>>  <b  style="color:green;">Arguments</b> :
+>>  -  **{File} file** Audio File - Waveform Audio File Format is required
+
+>
+>>  <b  style="color:green;">Header</b> :
+>>  -  **{String} Accept**: response content type (text/plain|application/json)
+>
+>  **{text|Json}** : Return the full transcription or a json object with metadata
+
+<!-- tabs:end -->
+
+
 ### Run Example Applications
-To run an automated test go to the test folder
+To run an automated test, go to the test folder:
 
 ```bash
 cd linto-platform-stt-standalone-worker/test
@@ -122,5 +145,4 @@ And run the test script:
 ./test_deployment.sh
 ```
 
-Or use swagger interface to perform your personal test
-
+To run personal test, you can use swagger interface: `localhost:8888/api-doc/`
