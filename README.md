@@ -13,8 +13,10 @@ With our proposed stack [linto-platform-stack](https://github.com/linto-ai/linto
 
 # Hardware requirements
 In order to install and run this service, you need to have at least:
-    * 5Go available on your hard drive for the installation, and
-    * 500Mo/3Go/7Go of RAM memory available for models loading and decoding. The size depends mainly on the choosed decoding model (small, medium or big).
+
+* 5Go available on your hard drive for the installation, and
+
+* 500Mo/3Go/7Go of RAM memory available for models loading and decoding. The size depends mainly on the choosed decoding model (small, medium or big).
 
 While there is no specific minimal requirement on the CPU, speech recognition is a computationally task.
 
