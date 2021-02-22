@@ -8,7 +8,6 @@ from time import gmtime, strftime
 from gevent.pywsgi import WSGIServer
 
 
-
 app = Flask("__stt-standelone-worker__")
 
 # create WorkerStreaming object
