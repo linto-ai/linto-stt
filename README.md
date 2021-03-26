@@ -31,8 +31,8 @@ To start the LinSTT service on your local machine or your cloud, you need first 
 
 ```bash
 git clone https://github.com/linto-ai/linto-platform-stt-standalone-worker
-git submodule update --init
 cd linto-platform-stt-standalone-worker
+git submodule update --init
 mv .envdefault .env
 ```
 
