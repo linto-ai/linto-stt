@@ -57,6 +57,8 @@ class Worker:
             ) == "true" else False
         if 'SWAGGER_PATH' in os.environ:
             self.SWAGGER_PATH = os.environ['SWAGGER_PATH']
+        if 'SWAGGER_URL' in os.environ:
+            self.SWAGGER_URL = os.environ['SWAGGER_URL']
 
         # start loading ASR configuration
         self.log.info("Create the new config files")
