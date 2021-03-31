@@ -71,7 +71,7 @@ RUN cd /opt/vosk-api/python && \
     python3 setup.py install --user --single-version-externally-managed --root=/
 
 # Install curl for healthcheck
-RUN apt-get install -y curl
+RUN apt-get update && apt-get install -y curl
 
 # Define the main folder
 WORKDIR /usr/src/speech-to-text
