@@ -16,3 +16,10 @@ services:
     env_file: .env
     environment:
       SWAGGER_PATH: /opt/swagger.yml
+    networks:
+      - linstt-net
+
+networks:
+    internal:
+    linstt-net:
+       external: true

@@ -3,15 +3,18 @@
 
 from flask import Flask, request, abort, Response, json
 from vosk import Model, KaldiRecognizer
-from tools import Worker
+from tools import Worker, SpeakerDiarization, Punctuation
 from time import gmtime, strftime
 from gevent.pywsgi import WSGIServer
-
+import argparse
+import os
 
 app = Flask("__stt-standelone-worker__")
 
-# create WorkerStreaming object
+# instantiate services
 worker = Worker()
+punctuation = Punctuation()
+speakerdiarization = SpeakerDiarization()
 
 # Load ASR models (acoustic model and decoding graph)
 worker.log.info('Load acoustic model and decoding graph')
@@ -19,7 +22,20 @@ model = Model(worker.AM_PATH, worker.LM_PATH,
               worker.CONFIG_FILES_PATH+"/online.conf")
 spkModel = None
 
+def decode(is_metadata):
+    rec = KaldiRecognizer(model, spkModel, worker.rate, worker.ONLINE)
+    rec.AcceptWaveform(worker.data)
+    data = rec.FinalResult()
+    confidence = rec.uttConfidence()
+    if is_metadata:
+        data = rec.GetMetadata()
+    return data, confidence
+
 # API
+@app.route('/healthcheck', methods=['GET'])
+def healthcheck():
+    return "1", 200
+
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     try:
@@ -40,18 +56,15 @@ def transcribe():
         if 'file' in request.files.keys():
             file = request.files['file']
             worker.getAudio(file)
-            rec = KaldiRecognizer(model, spkModel, worker.rate, worker.ONLINE)
-            rec.AcceptWaveform(worker.data)
-            data_ = rec.FinalResult()
-            confidence = rec.uttConfidence()
-            if is_metadata:
-                data_ = rec.GetMetadata()
-            data = worker.get_response(data_, confidence, is_metadata)
+            data, confidence = decode(is_metadata)
+            spk = speakerdiarization.get(worker.file_path)
+            trans = worker.get_response(data, spk, confidence, is_metadata)
+            response = punctuation.get(trans)
             worker.clean()
         else:
             raise ValueError('No audio file was uploaded')
 
-        return data, 200
+        return response, 200
     except ValueError as error:
         return str(error), 400
     except Exception as e:
@@ -79,6 +92,22 @@ def server_error(error):
 
 if __name__ == '__main__':
     try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--puctuation',
+            type=int,
+            help='punctuation service status',
+            default=0)
+        parser.add_argument(
+            '--speaker_diarization',
+            type=int,
+            help='speaker diarization service status',
+            default=0)
+        args = parser.parse_args()
+
+        punctuation.setParam(True if args.puctuation else False)
+        speakerdiarization.setParam(True if args.speaker_diarization else False)
+        
         # start SwaggerUI
         if worker.SWAGGER_PATH != '':
             worker.swaggerUI(app)
