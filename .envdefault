@@ -1,3 +1,10 @@
 AM_PATH=/path/to/acoustic/models/dir
 LM_PATH=/path/to/language/models/dir
 SWAGGER_PATH=./document/swagger.yml
+
+# dependent services config
+PUCTUATION_HOST=text-punctuation-worker-host-name
+PUCTUATION_PORT=8080
+PUCTUATION_ROUTE="/api/route/path/"
+SPEAKER_DIARIZATION_HOST=speaker-diarization-worker-host-name
+SPEAKER_DIARIZATION_PORT=80

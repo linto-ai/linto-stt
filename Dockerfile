@@ -70,13 +70,18 @@ RUN cd /opt/vosk-api/python && \
     export KALDI_MKL=1 && \
     python3 setup.py install --user --single-version-externally-managed --root=/
 
+# Install curl for healthcheck
+RUN apt-get install -y curl
+
 # Define the main folder
 WORKDIR /usr/src/speech-to-text
 
 COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
-COPY tools.py .
-COPY run.py .
+COPY tools.py run.py docker-entrypoint.sh wait-for-it.sh ./
 
 EXPOSE 80
 
-CMD python3 ./run.py
+HEALTHCHECK CMD curl http://localhost/healthcheck || exit 1
+
+# Entrypoint handles the passed arguments
+ENTRYPOINT ["./docker-entrypoint.sh"]
