@@ -42,6 +42,7 @@ class Worker:
         self.SAVE_AUDIO = False
         self.SERVICE_PORT = 80
         self.SWAGGER_URL = '/api-doc'
+        self.SWAGGER_PREFIX = ''
         self.SWAGGER_PATH = ''
         self.ONLINE = False
 
@@ -57,8 +58,8 @@ class Worker:
             ) == "true" else False
         if 'SWAGGER_PATH' in os.environ:
             self.SWAGGER_PATH = os.environ['SWAGGER_PATH']
-        if 'SWAGGER_URL' in os.environ:
-            self.SWAGGER_URL = os.environ['SWAGGER_URL']
+        if 'SWAGGER_PREFIX' in os.environ:
+            self.SWAGGER_PREFIX = os.environ['SWAGGER_PREFIX']
 
         # start loading ASR configuration
         self.log.info("Create the new config files")
@@ -70,7 +71,7 @@ class Worker:
             open(self.SWAGGER_PATH, 'r'), Loader=yaml.Loader)
         swaggerui = get_swaggerui_blueprint(
             # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
-            self.SWAGGER_URL,
+            self.SWAGGER_PREFIX+self.SWAGGER_URL,
             self.SWAGGER_PATH,
             config={  # Swagger UI config overrides
                 'app_name': "STT API Documentation",
