@@ -81,7 +81,5 @@ COPY tools.py run.py docker-entrypoint.sh wait-for-it.sh ./
 
 EXPOSE 80
 
-HEALTHCHECK CMD curl http://localhost/healthcheck || exit 1
-
 # Entrypoint handles the passed arguments
 ENTRYPOINT ["./docker-entrypoint.sh"]
