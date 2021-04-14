@@ -342,7 +342,7 @@ class SpeakerDiarization:
                 
                 return speakers
             else:
-                raise ValueError('Service is OFF')
+                return None
         except Exception as e:
             self.log.error(str(e))
             return None
@@ -398,7 +398,7 @@ class Punctuation:
 
                     return result.text
             else:
-                raise ValueError('Service is OFF')
+                return text
         except Exception as e:
             self.log.error(str(e))
             return text
