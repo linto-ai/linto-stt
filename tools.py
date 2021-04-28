@@ -381,20 +381,21 @@ class Punctuation:
                         text_punc = []
                         for utterance in text['text']:
                             data = utterance.split(':')
+                            self.log.info(data[1].strip())
                             result = requests.post(self.url, data=data[1].strip().encode('utf-8'), headers={'content-type': 'application/octet-stream'})
                             if result.status_code != 200:
                                 raise ValueError(result.text)
                             
-                            text_punc.append(data[0]+": "+result.text.encode('latin-1').decode('utf-8'))
+                            text_punc.append(data[0]+": "+result.text)
                         text['text'] = text_punc
                     else:
                         result = requests.post(self.url, data=text['text'].strip().encode('utf-8'), headers={'content-type': 'application/octet-stream'})
-                        text['text'] = result.text.encode('latin-1').decode('utf-8')
+                        text['text'] = result.text
                     return text
                 else:
                     result = requests.post(self.url, data=text.encode('utf-8'), headers={'content-type': 'application/octet-stream'})
                     if result.status_code != 200:
-                        raise ValueError(result.text.encode('latin-1').decode('utf-8'))
+                        raise ValueError(result.text)
 
                     return result.text
             else:
