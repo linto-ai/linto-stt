@@ -381,7 +381,6 @@ class Punctuation:
                         text_punc = []
                         for utterance in text['text']:
                             data = utterance.split(':')
-                            self.log.info(data[1].strip())
                             result = requests.post(self.url, data=data[1].strip().encode('utf-8'), headers={'content-type': 'application/octet-stream'})
                             if result.status_code != 200:
                                 raise ValueError(result.text)
