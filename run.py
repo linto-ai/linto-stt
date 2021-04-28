@@ -43,12 +43,17 @@ def transcribe():
                         (strftime("%d/%b/%d %H:%M:%S", gmtime())))
 
         is_metadata = False
+        do_spk = True
 
         # get response content type
         if request.headers.get('accept').lower() == 'application/json':
             is_metadata = True
+        elif request.headers.get('accept').lower() == 'application/json-nospk':
+            is_metadata = True
+            do_spk = False
         elif request.headers.get('accept').lower() == 'text/plain':
             is_metadata = False
+            do_spk = False
         else:
             raise ValueError('Not accepted header')
 
@@ -57,7 +62,9 @@ def transcribe():
             file = request.files['file']
             worker.getAudio(file)
             data, confidence = decode(is_metadata)
-            spk = speakerdiarization.get(worker.file_path)
+            spk = None
+            if do_spk:
+                spk = speakerdiarization.get(worker.file_path)
             trans = worker.get_response(data, spk, confidence, is_metadata)
             response = punctuation.get(trans)
             worker.clean()
