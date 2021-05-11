@@ -97,6 +97,7 @@ class Worker:
     def clean(self):
         if not self.SAVE_AUDIO:
             os.remove(self.file_path)
+        del self.data
 
     # re-create config files
     def loadConfig(self):
