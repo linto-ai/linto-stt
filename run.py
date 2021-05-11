@@ -29,6 +29,7 @@ def decode(is_metadata):
     confidence = rec.uttConfidence()
     if is_metadata:
         data = rec.GetMetadata()
+    del rec
     return data, confidence
 
 # API
