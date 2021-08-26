@@ -1,20 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-#  ASR
-from vosk import Model, KaldiRecognizer
-##############
-
-# Speaker Diarization
-from pyBK.diarizationFunctions import *
-import librosa
-import time
-import webrtcvad
-##############
-
-# other packages
 import configparser
-import librosa
 import logging
 import os
 import re
@@ -22,10 +9,9 @@ import uuid
 import json
 import yaml
 import numpy as np
-from scipy.io import wavfile
+import wavio
 from flask_swagger_ui import get_swaggerui_blueprint
 import requests
-##############
 
 
 class Worker:
@@ -86,7 +72,9 @@ class Worker:
         self.file_path = self.TEMP_FILE_PATH+"/"+filename
         file.save(self.file_path)
         try:
-            self.rate, self.data = wavfile.read(self.file_path)
+            file_content = wavio.read(self.file_path)
+            self.rate = file_content.rate
+            self.data = file_content.data
             # if stereo file, convert to mono by computing the mean of the channels
             if len(self.data.shape) == 2 and self.data.shape[1] == 2:
                 self.data = np.mean(self.data, axis=1, dtype=np.int16)

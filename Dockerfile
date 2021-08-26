@@ -52,31 +52,19 @@ RUN git clone --depth 1 https://github.com/kaldi-asr/kaldi.git /opt/kaldi && \
     cd /opt/kaldi/tools && mkdir openfst_ && mv openfst-*/lib openfst-*/include openfst-*/bin openfst_ && rm openfst_/lib/*.so* openfst_/lib/*.la && \
     rm -r openfst-*/* && mv openfst_/* openfst-*/ && rm -r openfst_
 
-# Install pyBK (speaker diarization toolkit)
-RUN apt install -y software-properties-common && wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 10 && \
-    export LLVM_CONFIG=/usr/bin/llvm-config-10 && \
-    pip3 install numpy && \
-    pip3 install websockets && \
-    pip3 install librosa webrtcvad scipy sklearn
-
-# Install main service packages
-RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml && \
-    apt-get install -y ffmpeg
+# Install python dependencies
+COPY requirements.txt ./
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # build VOSK KALDI
-COPY vosk-api /opt/vosk-api
-RUN cd /opt/vosk-api/python && \
+RUN git clone --depth 1 https://github.com/irebai/vosk-api.git /opt/vosk-api && cd /opt/vosk-api/python && \
     export KALDI_ROOT=/opt/kaldi && \
     export KALDI_MKL=1 && \
     python3 setup.py install --user --single-version-externally-managed --root=/
 
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y curl
-
 # Define the main folder
 WORKDIR /usr/src/speech-to-text
 
-COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
 COPY tools.py run.py docker-entrypoint.sh wait-for-it.sh ./
 
 EXPOSE 80

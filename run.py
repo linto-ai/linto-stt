@@ -23,13 +23,19 @@ model = Model(worker.AM_PATH, worker.LM_PATH,
 spkModel = None
 
 def decode(is_metadata):
-    rec = KaldiRecognizer(model, spkModel, worker.rate, worker.ONLINE)
-    rec.AcceptWaveform(worker.data)
-    data = rec.FinalResult()
-    confidence = rec.uttConfidence()
+    if is_metadata and len(worker.data) / worker.rate > 30 :
+        recognizer = KaldiRecognizer(model, spkModel, worker.rate, is_metadata, True)
+        for i in range(0, len(worker.data), int(worker.rate/4)):
+            if recognizer.AcceptWaveform(worker.data[i:i + int(worker.rate/4)]):
+                recognizer.Result()
+    else:
+        recognizer = KaldiRecognizer(model, None, worker.rate, is_metadata, False)
+        recognizer.AcceptWaveform(worker.data)
+
+    data = recognizer.FinalResult()
+    confidence = recognizer.uttConfidence()
     if is_metadata:
-        data = rec.GetMetadata()
-    del rec
+        data = recognizer.GetMetadata()
     return data, confidence
 
 # API
@@ -40,7 +46,7 @@ def healthcheck():
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     try:
-        worker.log.info('[%s] New user entry on /transcribe' %
+        worker.log.info('[%s] Transcribe request received' %
                         (strftime("%d/%b/%d %H:%M:%S", gmtime())))
 
         is_metadata = False
@@ -62,19 +68,23 @@ def transcribe():
         if 'file' in request.files.keys():
             file = request.files['file']
             worker.getAudio(file)
+            worker.log.info("Start decoding [Audio duration={}(s)]".format(str(int(len(worker.data) / worker.rate))))
             data, confidence = decode(is_metadata)
+            worker.log.info("Decoding complete")
             spk = None
             if do_spk:
                 spk = speakerdiarization.get(worker.file_path)
             trans = worker.get_response(data, spk, confidence, is_metadata)
             response = punctuation.get(trans)
             worker.clean()
+            worker.log.info("... Complete")
         else:
             raise ValueError('No audio file was uploaded')
 
         return response, 200
     except ValueError as error:
-        return str(error), 400
+        worker.log.error(e)
+        return 'Server Error', 400
     except Exception as e:
         worker.log.error(e)
         return 'Server Error', 500
