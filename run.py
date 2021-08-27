@@ -23,7 +23,7 @@ model = Model(worker.AM_PATH, worker.LM_PATH,
 spkModel = None
 
 def decode(is_metadata):
-    if is_metadata and len(worker.data) / worker.rate > 30 :
+    if is_metadata and len(worker.data) / worker.rate > 1800 :
         recognizer = KaldiRecognizer(model, spkModel, worker.rate, is_metadata, True)
         for i in range(0, len(worker.data), int(worker.rate/4)):
             if recognizer.AcceptWaveform(worker.data[i:i + int(worker.rate/4)]):
