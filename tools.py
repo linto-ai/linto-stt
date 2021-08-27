@@ -184,14 +184,14 @@ class Worker:
                     # Generate final output data
                     return self.process_output_v2(data, speakers)
                 else:
-                    return {'speakers': [], 'text': data['text'], 'confidence-score': data['conf'], 'words': data['words']}
+                    return {'text': data['text'], 'confidence-score': data['conf'], 'words': data['words']}
 
             elif 'text' in data:
-                return {'speakers': [], 'text': data['text'], 'confidence-score': data['conf'], 'words': []}
+                return {'text': data['text'], 'confidence-score': data['conf'], 'words': []}
             else:
-                return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
+                return {'text': '', 'confidence-score': 0, 'words': []}
         else:
-            return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
+            return {'text': '', 'confidence-score': 0, 'words': []}
 
     # return a json object including word-data, speaker-data
     def process_output(self, data, spkrs):
