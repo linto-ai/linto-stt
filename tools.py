@@ -43,8 +43,8 @@ class Worker:
         if not os.path.isdir(self.TRANS_FILES_PATH):
             os.mkdir(self.TRANS_FILES_PATH)
 
-        with open(self.TRANS_FILES_PATH + "/pids.json", 'w') as outfile:
-            json.dump({'pids':[]}, outfile)
+        with open(self.TRANS_FILES_PATH + "/jobids.json", 'w') as outfile:
+            json.dump({'jobids':[]}, outfile)
 
         # Environment parameters
         if 'SAVE_AUDIO' in os.environ:

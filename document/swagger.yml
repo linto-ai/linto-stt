@@ -34,7 +34,7 @@ paths:
           description: Request error
         500:
           description: Server error
-  /transcription/{PID}:
+  /transcription/{jobid}:
     get:
       tags:
         - "Speech-To-Text API"
@@ -45,23 +45,23 @@ paths:
       - "application/json"
       - "text/plain"
       parameters: 
-      - name: "PID"
+      - name: "jobid"
         in: "path"
-        description: "PID of a transcribe request"
+        description: "jobid of a transcribe request"
         required: true
         type: "string"
       responses:
         200:
           description: Get transcription
         400:
-          description: Invalid PID
-  /get/pids:
+          description: Invalid jobid
+  /get/jobids:
     get:
       tags:
         - "Speech-To-Text API"
-      summary: Get PIDs
+      summary: Get jobids
       produces:
       - "application/json"
       responses:
         200:
-          description: Get list of PIDs
+          description: Get list of jobids
