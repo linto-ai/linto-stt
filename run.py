@@ -8,8 +8,12 @@ from time import gmtime, strftime
 from gevent.pywsgi import WSGIServer
 import argparse
 import os
+import _thread
+import uuid
 
 app = Flask("__stt-standelone-worker__")
+
+max_duration = 1800
 
 # instantiate services
 worker = Worker()
@@ -23,7 +27,7 @@ model = Model(worker.AM_PATH, worker.LM_PATH,
 spkModel = None
 
 def decode(is_metadata):
-    if is_metadata and len(worker.data) / worker.rate > 1800 :
+    if is_metadata and len(worker.data) / worker.rate > max_duration :
         recognizer = KaldiRecognizer(model, spkModel, worker.rate, is_metadata, True)
         for i in range(0, len(worker.data), int(worker.rate/4)):
             if recognizer.AcceptWaveform(worker.data[i:i + int(worker.rate/4)]):
@@ -38,10 +42,43 @@ def decode(is_metadata):
         data = recognizer.GetMetadata()
     return data, confidence
 
+def processing(is_metadata, do_spk, audio_buffer, file_path=None):
+    try:
+        worker.log.info("Start decoding")
+        data, confidence = decode(is_metadata)
+        worker.log.info("Decoding complete")
+        worker.log.info("Post Processing ...")
+        spk = None
+        if do_spk:
+            spk = speakerdiarization.get(audio_buffer)
+        trans = worker.get_response(data, spk, confidence, is_metadata)
+        response = punctuation.get(trans)
+        worker.log.info("... Complete")
+        if file_path is not None:
+            with open(file_path, 'w') as outfile:
+                json.dump(response, outfile)
+        else:
+            return response
+    except Exception as e:
+        worker.log.error(e)
+        exit(1)
+
 # API
 @app.route('/healthcheck', methods=['GET'])
 def healthcheck():
     return "1", 200
+
+@app.route('/transcription/<PID>', methods=['GET'])
+def transcription(PID):
+    file_path = worker.TRANS_FILES_PATH + "/" + str(PID)
+    if os.path.exists(file_path):
+        return json.load(open(file_path,)), 200
+    else:
+        return "PID {} is invalid".format(str(PID)), 400
+
+@app.route('/get/pids', methods=['GET'])
+def get():
+    return json.load(open(worker.TRANS_FILES_PATH + "/pids.json")), 200
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -65,26 +102,29 @@ def transcribe():
             raise ValueError('Not accepted header')
 
         # get input file
-        if 'file' in request.files.keys():
-            file = request.files['file']
-            worker.getAudio(file)
-            worker.log.info("Start decoding [Audio duration={}(s)]".format(str(int(len(worker.data) / worker.rate))))
-            data, confidence = decode(is_metadata)
-            worker.log.info("Decoding complete")
-            spk = None
-            if do_spk:
-                spk = speakerdiarization.get(worker.file_path)
-            trans = worker.get_response(data, spk, confidence, is_metadata)
-            response = punctuation.get(trans)
-            worker.clean()
-            worker.log.info("... Complete")
-        else:
+        if 'file' not in request.files.keys():
             raise ValueError('No audio file was uploaded')
 
+        audio_buffer = request.files['file'].read()
+        worker.getAudio(audio_buffer)
+        duration = int(len(worker.data) / worker.rate)
+        if duration > max_duration:
+            filename = str(uuid.uuid4())
+            file_path = worker.TRANS_FILES_PATH + "/" + filename
+        
+            pids = json.load(open(worker.TRANS_FILES_PATH + "/pids.json"))
+            pids['pids'].append({'pid':filename, 'time':strftime("%d/%b/%d %H:%M:%S", gmtime())})
+            with open(worker.TRANS_FILES_PATH + "/pids.json", 'w') as pids_file:
+                json.dump(pids, pids_file)
+
+            _thread.start_new_thread(processing, (is_metadata, do_spk, audio_buffer, file_path,))
+            return "The approximate decoding time is {} seconds. Use this PID={} to get the transcription after decoding.".format(str(int(duration*0.33)), filename), 200
+        response = processing(is_metadata, do_spk, audio_buffer)
+        
         return response, 200
-    except ValueError as error:
+    except ValueError as e:
         worker.log.error(e)
-        return 'Server Error', 400
+        return str(e), 400
     except Exception as e:
         worker.log.error(e)
         return 'Server Error', 500
