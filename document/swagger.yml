@@ -7,7 +7,7 @@ info:
 
 schemes:
   - http
-host: localhost:8888
+host: 127.0.0.1:8888
 basePath: /
 
 paths:
@@ -30,3 +30,38 @@ paths:
       responses:
         200:
           description: Successfully transcribe the audio
+        400:
+          description: Request error
+        500:
+          description: Server error
+  /transcription/{PID}:
+    get:
+      tags:
+        - "Speech-To-Text API"
+      summary: Perform Speech-to-Text
+      consumes:
+      - "multipart/form-data"
+      produces:
+      - "application/json"
+      - "text/plain"
+      parameters: 
+      - name: "PID"
+        in: "path"
+        description: "PID of a transcribe request"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: Get transcription
+        400:
+          description: Invalid PID
+  /get/pids:
+    get:
+      tags:
+        - "Speech-To-Text API"
+      summary: Get PIDs
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Get list of PIDs

@@ -4,6 +4,7 @@
 import configparser
 import logging
 import os
+import io
 import re
 import uuid
 import json
@@ -24,6 +25,7 @@ class Worker:
         self.AM_PATH = '/opt/models/AM'
         self.LM_PATH = '/opt/models/LM'
         self.TEMP_FILE_PATH = '/opt/tmp'
+        self.TRANS_FILES_PATH = '/opt/trans'
         self.CONFIG_FILES_PATH = '/opt/config'
         self.SAVE_AUDIO = False
         self.SERVICE_PORT = 80
@@ -37,6 +39,12 @@ class Worker:
 
         if not os.path.isdir(self.TEMP_FILE_PATH):
             os.mkdir(self.TEMP_FILE_PATH)
+
+        if not os.path.isdir(self.TRANS_FILES_PATH):
+            os.mkdir(self.TRANS_FILES_PATH)
+
+        with open(self.TRANS_FILES_PATH + "/pids.json", 'w') as outfile:
+            json.dump({'pids':[]}, outfile)
 
         # Environment parameters
         if 'SAVE_AUDIO' in os.environ:
@@ -68,11 +76,8 @@ class Worker:
         ### end swagger specific ###
 
     def getAudio(self, file):
-        filename = str(uuid.uuid4())
-        self.file_path = self.TEMP_FILE_PATH+"/"+filename
-        file.save(self.file_path)
         try:
-            file_content = wavio.read(self.file_path)
+            file_content = wavio.read(io.BytesIO(file))
             self.rate = file_content.rate
             self.data = file_content.data
             # if stereo file, convert to mono by computing the mean of the channels
@@ -82,10 +87,12 @@ class Worker:
             self.log.error(e)
             raise ValueError("The uploaded file format is not supported!!!")
 
-    def clean(self):
-        if not self.SAVE_AUDIO:
-            os.remove(self.file_path)
-        del self.data
+    def saveFile(self, file):
+        if self.SAVE_AUDIO:
+            filename = str(uuid.uuid4())
+            self.file_path = self.TEMP_FILE_PATH+"/"+filename
+            file.save(self.file_path)
+            
 
     # re-create config files
     def loadConfig(self):
@@ -184,7 +191,7 @@ class Worker:
                     # Generate final output data
                     return self.process_output_v2(data, speakers)
                 else:
-                    return {'text': data['text'], 'confidence-score': data['conf'], 'words': data['words']}
+                    return {'text': self.parse_text(data['text']), 'confidence-score': data['conf'], 'words': data['words']}
 
             elif 'text' in data:
                 return {'text': data['text'], 'confidence-score': data['conf'], 'words': []}
