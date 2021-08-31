@@ -68,17 +68,17 @@ def processing(is_metadata, do_spk, audio_buffer, file_path=None):
 def healthcheck():
     return "1", 200
 
-@app.route('/transcription/<PID>', methods=['GET'])
-def transcription(PID):
-    file_path = worker.TRANS_FILES_PATH + "/" + str(PID)
+@app.route('/transcription/<jobid>', methods=['GET'])
+def transcription(jobid):
+    file_path = worker.TRANS_FILES_PATH + "/" + str(jobid)
     if os.path.exists(file_path):
         return json.load(open(file_path,)), 200
     else:
-        return "PID {} is invalid".format(str(PID)), 400
+        return "jobid {} is invalid".format(str(jobid)), 400
 
-@app.route('/get/pids', methods=['GET'])
+@app.route('/get/jobids', methods=['GET'])
 def get():
-    return json.load(open(worker.TRANS_FILES_PATH + "/pids.json")), 200
+    return json.load(open(worker.TRANS_FILES_PATH + "/jobids.json")), 200
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -109,16 +109,16 @@ def transcribe():
         worker.getAudio(audio_buffer)
         duration = int(len(worker.data) / worker.rate)
         if duration > max_duration:
-            filename = str(uuid.uuid4())
-            file_path = worker.TRANS_FILES_PATH + "/" + filename
+            jobid = str(uuid.uuid4())
+            file_path = worker.TRANS_FILES_PATH + "/" + jobid
         
-            pids = json.load(open(worker.TRANS_FILES_PATH + "/pids.json"))
-            pids['pids'].append({'pid':filename, 'time':strftime("%d/%b/%d %H:%M:%S", gmtime())})
-            with open(worker.TRANS_FILES_PATH + "/pids.json", 'w') as pids_file:
+            pids = json.load(open(worker.TRANS_FILES_PATH + "/jobids.json"))
+            pids['jobids'].append({'jobid':jobid, 'time':strftime("%d/%b/%d %H:%M:%S", gmtime())})
+            with open(worker.TRANS_FILES_PATH + "/jobids.json", 'w') as pids_file:
                 json.dump(pids, pids_file)
 
             _thread.start_new_thread(processing, (is_metadata, do_spk, audio_buffer, file_path,))
-            return "The approximate decoding time is {} seconds. Use this PID={} to get the transcription after decoding.".format(str(int(duration*0.33)), filename), 200
+            return "The approximate decoding time is {} seconds. Use this jobid={} to get the transcription after decoding.".format(str(int(duration*0.33)), jobid), 200
         response = processing(is_metadata, do_spk, audio_buffer)
         
         return response, 200
