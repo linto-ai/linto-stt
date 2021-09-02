@@ -317,11 +317,10 @@ class SpeakerDiarization:
         self.log.info(self.url) if self.url is not None else self.log.warn(
             "The Speaker Diarization service is not running!")
 
-    def get(self, audio_path):
+    def get(self, audio_buffer):
         try:
             if self.SPEAKER_DIARIZATION_ISON:
-                file = open(audio_path, 'rb')
-                result = requests.post(self.url, files={'file': file})
+                result = requests.post(self.url, files={'file': audio_buffer})
                 if result.status_code != 200:
                     raise ValueError(result.text)
 
