@@ -4,6 +4,10 @@ This service is mandatory in a LinTO platform stack as the main worker for speec
 
 Generally, Automatic Speech Recognition (ASR) is the task of recognition and translation of spoken language into text. Our ASR system takes advantages from the recent advances in machine learning technologies and in particular deep learning ones (TDNN, LSTM, attentation-based architecture). The core of our system consists of two main components: an acoustic model and a decoding graph. A high-performance ASR system relies on an accurate acoustic model as well as a perfect decoding graph.
 
+**NB**: The service works as follows: 
+* If the audio's duration is less that 30 minutes, the service will return the transcription after decoding.
+* Otherwise, the server will return a **jobid** that could be used to get the transcription after decoding using the API **`/transcription/{jobid}`**.
+
 ## Usage
 See documentation : [doc.linto.ai](https://doc.linto.ai)
 
@@ -27,7 +31,7 @@ While there is no specific minimal requirement on the CPU, speech recognition is
 ## Installation
 
 ### Packaged in Docker
-To start the LinSTT service on your local machine or your cloud, you need first to download the source code and set the environment file, as follows:
+To start the STT worker on your local machine or your cloud, you need first to download the source code and set the environment file, as follows:
 
 ```bash
 git clone https://github.com/linto-ai/linto-platform-stt-standalone-worker
@@ -57,7 +61,7 @@ docker pull lintoai/linto-platform-stt-standalone-worker:latest
 NB: You must install docker and docker-compose on your machine.
 
 ## Configuration
-The LinSTT service that will be set-up here require KALDI models, the acoustic model and the decoding graph. Indeed, these models are not included in the repository; you must download them in order to run LinSTT. You can use our pre-trained models from here: [Downloads](https://doc.linto.ai/#/services/linstt_download).
+The STT worker that will be set-up here require KALDI models, the acoustic model and the decoding graph. Indeed, these models are not included in the repository; you must download them in order to run LinSTT. You can use our pre-trained models from here: [Downloads](https://doc.linto.ai/#/services/linstt_download).
 
 1- Download the French acoustic model and the small decoding graph (linstt.v1). You can download the latest version for optimal performance and you should make sure that you have the hardware requirement in terms of RAM.
 
@@ -83,8 +87,10 @@ mv DG_fr-FR ~/linstt_model_storage
 
 4- Configure the environment file `.env` included in this repository
 
+```bash
     AM_PATH=~/linstt_model_storage/AM_fr-FR
     LM_PATH=~/linstt_model_storage/DG_fr-FR
+```
 
 NB: if you want to use the visual user interface of the service, you need also to configure the swagger file `document/swagger.yml` included in this repository. Specifically, in the section `host`, specify the adress of the machine in which the service is deployed.
 
@@ -129,6 +135,32 @@ Convert a speech to text
 >
 >  **{text|Json}** : Return the full transcription or a json object with metadata
 
+
+#### /transcription/{jobid}
+
+Get the transcription using the jobid
+
+### Functionality
+>  `get`  <br>
+> Make a GET request
+>>  <b  style="color:green;">Arguments</b> :
+>>  -  **{String} jobid** jobid - An identifier used to find the corresponding transcription
+>
+>  **{text|Json}** : Return the transcription
+
+
+#### /jobids
+
+List of the transcription jobids
+
+### Functionality
+>  `get`  <br>
+> Make a GET request
+>>  <b  style="color:green;">Arguments</b> :
+>>  - no arguments
+>
+>  **{Json}** : Return a json object with jobids
+
 <!-- tabs:end -->
 
 
@@ -146,3 +178,32 @@ And run the test script:
 ```
 
 To run personal test, you can use swagger interface: `localhost:8888/api-doc/`
+
+
+### Extrat metadata
+If you would like to have a transcription with speaker information and punctuation marks, it's possible thanks to our open-source services:
+
+* Speaker diarization worker: https://github.com/linto-ai/linto-platform-speaker-diarization-worker
+* Text punctuation worker: https://github.com/linto-ai/linto-platform-text-punctuation-worker
+
+To do that, you need first to start either the speaker or punctuation service or you can start both if it's necessary. **Please read the documentation to know how to install, configure, and start these services.**
+
+Once the services are on, you need to configure the STT worker as follows:
+
+1- Edit the environment file `.env` as follows:
+
+* if you started the punctuation worker, the following variables should be used
+
+```bash
+    PUCTUATION_HOST=text-punctuation-worker-host-name
+    PUCTUATION_PORT=worker-port-example-80
+    PUCTUATION_ROUTE=/api/route/path/
+```
+* if you started the speaker diarization worker, the following variables should be used
+
+```bash
+    SPEAKER_DIARIZATION_HOST=speaker-diarization-worker-host-name
+    SPEAKER_DIARIZATION_PORT=worker-port-example-80
+```
+
+2- Start the service using the same command described in section **Execute**
