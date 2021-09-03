@@ -123,7 +123,7 @@ Our service requires an audio file in `Waveform format`. It should has the follo
 
 Convert a speech to text
 
-### Functionality
+#### Functionality
 >  `post`  <br>
 > Make a POST request
 >>  <b  style="color:green;">Arguments</b> :
@@ -140,7 +140,7 @@ Convert a speech to text
 
 Get the transcription using the jobid
 
-### Functionality
+#### Functionality
 >  `get`  <br>
 > Make a GET request
 >>  <b  style="color:green;">Arguments</b> :
@@ -153,7 +153,7 @@ Get the transcription using the jobid
 
 List of the transcription jobids
 
-### Functionality
+#### Functionality
 >  `get`  <br>
 > Make a GET request
 >>  <b  style="color:green;">Arguments</b> :
@@ -180,7 +180,7 @@ And run the test script:
 To run personal test, you can use swagger interface: `localhost:8888/api-doc/`
 
 
-### Extrat metadata
+### Additional metadata
 If you would like to have a transcription with speaker information and punctuation marks, it's possible thanks to our open-source services:
 
 * Speaker diarization worker: https://github.com/linto-ai/linto-platform-speaker-diarization-worker
