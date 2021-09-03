@@ -13,7 +13,7 @@ import uuid
 
 app = Flask("__stt-standelone-worker__")
 
-max_duration = 1800
+max_duration = 10
 
 # instantiate services
 worker = Worker()
@@ -118,7 +118,13 @@ def transcribe():
                 json.dump(pids, pids_file)
 
             _thread.start_new_thread(processing, (is_metadata, do_spk, audio_buffer, file_path,))
-            return "The approximate decoding time is {} seconds. Use this jobid={} to get the transcription after decoding.".format(str(int(duration*0.33)), jobid), 200
+            estdur = str(int(duration*0.33))
+            response = {
+                'jobid': jobid,
+                'decoding_time': '~' + estdur + ' seconds',
+                'message': "Use the jobid to get the transcription after decoding",
+            }
+            return response, 200
         response = processing(is_metadata, do_spk, audio_buffer)
         
         return response, 200
