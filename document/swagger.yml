@@ -7,7 +7,7 @@ info:
 
 schemes:
   - http
-host: 127.0.0.1:8888
+host: localhost:8888
 basePath: /
 
 paths:
@@ -55,7 +55,7 @@ paths:
           description: Get transcription
         400:
           description: Invalid jobid
-  /get/jobids:
+  /jobids:
     get:
       tags:
         - "Speech-To-Text API"
