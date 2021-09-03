@@ -13,7 +13,7 @@ import uuid
 
 app = Flask("__stt-standelone-worker__")
 
-max_duration = 10
+max_duration = 1800
 
 # instantiate services
 worker = Worker()
@@ -27,7 +27,7 @@ model = Model(worker.AM_PATH, worker.LM_PATH,
 spkModel = None
 
 def decode(is_metadata):
-    if is_metadata and len(worker.data) / worker.rate > max_duration :
+    if len(worker.data) / worker.rate > max_duration :
         recognizer = KaldiRecognizer(model, spkModel, worker.rate, is_metadata, True)
         for i in range(0, len(worker.data), int(worker.rate/4)):
             if recognizer.AcceptWaveform(worker.data[i:i + int(worker.rate/4)]):
@@ -76,7 +76,7 @@ def transcription(jobid):
     else:
         return "jobid {} is invalid".format(str(jobid)), 400
 
-@app.route('/get/jobids', methods=['GET'])
+@app.route('/jobids', methods=['GET'])
 def get():
     return json.load(open(worker.TRANS_FILES_PATH + "/jobids.json")), 200
 
@@ -118,7 +118,7 @@ def transcribe():
                 json.dump(pids, pids_file)
 
             _thread.start_new_thread(processing, (is_metadata, do_spk, audio_buffer, file_path,))
-            estdur = str(int(duration*0.33))
+            estdur = str(int(duration*0.3)) if is_metadata else str(int(duration*0.18))
             response = {
                 'jobid': jobid,
                 'decoding_time': '~' + estdur + ' seconds',
