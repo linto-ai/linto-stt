@@ -50,8 +50,12 @@ def processing(is_metadata, do_spk, audio_buffer, file_path=None):
         worker.log.info("Post Processing ...")
         spk = None
         if do_spk:
-            spk = speakerdiarization.get(audio_buffer)
+            spk = speakerdiarization.get(audio_buffer, int(len(worker.data) / worker.rate))
         trans = worker.get_response(data, spk, confidence, is_metadata)
+        
+        if trans is None:
+            raise ValueError('Transcription error')
+
         response = punctuation.get(trans)
         worker.log.info("... Complete")
         if file_path is not None:

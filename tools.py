@@ -182,23 +182,14 @@ class Worker:
         if dataJson is not None:
             data = json.loads(dataJson)
             data['conf'] = confidence
-            if not is_metadata:
-                text = data['text']  # get text from response
-                return self.parse_text(text)
-
-            elif 'words' in data:
-                if speakers is not None:
+            if 'text' in data:
+                if not is_metadata:
+                    text = data['text']  # get text from response
+                    return self.parse_text(text)
+                elif 'words' in data and len(data['words']) > 0:
                     # Generate final output data
-                    return self.process_output_v2(data, speakers)
-                else:
-                    return {'text': self.parse_text(data['text']), 'confidence-score': data['conf'], 'words': data['words']}
-
-            elif 'text' in data:
-                return {'text': data['text'], 'confidence-score': data['conf'], 'words': []}
-            else:
-                return {'text': '', 'confidence-score': 0, 'words': []}
-        else:
-            return {'text': '', 'confidence-score': 0, 'words': []}
+                    return self.process_output(data, speakers)
+        return None
 
     # return a json object including word-data, speaker-data
     def process_output(self, data, spkrs):
@@ -208,54 +199,10 @@ class Worker:
             i = 0
             text_ = ""
             words = []
-            for word in data['words']:
-                if i+1 == len(spkrs):
-                    continue
-                if i+1 < len(spkrs) and word["end"] < spkrs[i+1][0]:
-                    text_ += word["word"] + " "
-                    words.append(word)
-                elif len(words) != 0:
-                    speaker = {}
-                    speaker["start"] = words[0]["start"]
-                    speaker["end"] = words[len(words)-1]["end"]
-                    speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
-                    speaker["words"] = words
 
-                    text.append(
-                        'spk'+str(int(spkrs[i][2]))+' : ' + self.parse_text(text_))
-                    speakers.append(speaker)
-
-                    words = [word]
-                    text_ = word["word"] + " "
-                    i += 1
-                else:
-                    words = [word]
-                    text_ = word["word"] + " "
-                    i += 1
-
-            speaker = {}
-            speaker["start"] = words[0]["start"]
-            speaker["end"] = words[len(words)-1]["end"]
-            speaker["speaker_id"] = 'spk'+str(int(spkrs[i][2]))
-            speaker["words"] = words
-
-            text.append('spk'+str(int(spkrs[i][2])) +
-                        ' : ' + self.parse_text(text_))
-            speakers.append(speaker)
-
-            return {'speakers': speakers, 'text': text, 'confidence-score': data['conf']}
-        except:
-            return {'text': data['text'], 'words': data['words'], 'confidence-score': data['conf'], 'spks': []}
-
-    # return a json object including word-data, speaker-data
-    def process_output_v2(self, data, spkrs):
-        try:
-            speakers = []
-            text = []
-            i = 0
-            text_ = ""
-            words = []
-
+            # Capitalize first word
+            data['words'][0]['word'] = data['words'][0]['word'].capitalize()
+            
             for word in data['words']:
                 if i+1 == len(spkrs):
                     continue
@@ -265,7 +212,7 @@ class Worker:
                 elif len(words) != 0:
                     speaker = {}
                     speaker["start"] = words[0]["start"]
-                    speaker["end"] = words[len(words)-1]["end"]
+                    speaker["end"] = words[-1]["end"]
                     speaker["speaker_id"] = str(spkrs[i]["spk_id"])
                     speaker["words"] = words
 
@@ -281,9 +228,13 @@ class Worker:
                     text_ = word["word"] + " "
                     i += 1
 
+            if i == 0:
+                words = data['words']
+                text_ = data['text'].capitalize()
+
             speaker = {}
             speaker["start"] = words[0]["start"]
-            speaker["end"] = words[len(words)-1]["end"]
+            speaker["end"] = words[-1]["end"]
             speaker["speaker_id"] = str(spkrs[i]["spk_id"])
             speaker["words"] = words
 
@@ -294,7 +245,7 @@ class Worker:
             return {'speakers': speakers, 'text': text, 'confidence-score': data['conf']}
         except Exception as e:
             self.log.error(e)
-            return {'text': data['text'], 'words': data['words'], 'confidence-score': data['conf'], 'spks': []}
+            return {'text': data['text'], 'words': data['words'], 'confidence-score': data['conf'], 'speakers': []}
 
 
 class SpeakerDiarization:
@@ -317,7 +268,14 @@ class SpeakerDiarization:
         self.log.info(self.url) if self.url is not None else self.log.warn(
             "The Speaker Diarization service is not running!")
 
-    def get(self, audio_buffer):
+    def get(self, audio_buffer, duration):
+        emptyReturn = [{
+                        "seg_id":1,
+                        "spk_id":"spk1",
+                        "seg_begin":0,
+                        "seg_end":duration,
+                    }]
+
         try:
             if self.SPEAKER_DIARIZATION_ISON:
                 result = requests.post(self.url, files={'file': audio_buffer})
@@ -337,13 +295,13 @@ class SpeakerDiarization:
                 
                 return speakers
             else:
-                return None
+                return emptyReturn
         except Exception as e:
             self.log.error(str(e))
-            return None
+            return emptyReturn
         except ValueError as error:
             self.log.error(str(error))
-            return None
+            return emptyReturn
 
 
 class Punctuation:
@@ -368,24 +326,24 @@ class Punctuation:
         self.log.info(self.url) if self.url is not None else self.log.warn(
             "The Punctuation service is not running!")
 
-    def get(self, text):
+    def get(self, obj):
         try:
             if self.PUCTUATION_ISON:
-                if isinstance(text, dict):          
-                    if isinstance(text['text'], list):
+                if isinstance(obj, dict):          
+                    if isinstance(obj['text'], list):
                         text_punc = []
-                        for utterance in text['text']:
+                        for utterance in obj['text']:
                             data = utterance.split(':')
                             result = requests.post(self.url, data=data[1].strip().encode('utf-8'), headers={'content-type': 'application/octet-stream'})
                             if result.status_code != 200:
                                 raise ValueError(result.text)
                             
                             text_punc.append(data[0]+": "+result.text)
-                        text['text'] = text_punc
+                        obj['text-punc'] = text_punc
                     else:
-                        result = requests.post(self.url, data=text['text'].strip().encode('utf-8'), headers={'content-type': 'application/octet-stream'})
-                        text['text'] = result.text
-                    return text
+                        result = requests.post(self.url, data=obj['text'].strip().encode('utf-8'), headers={'content-type': 'application/octet-stream'})
+                        obj['text-punc'] = result.text
+                    return obj
                 else:
                     result = requests.post(self.url, data=text.encode('utf-8'), headers={'content-type': 'application/octet-stream'})
                     if result.status_code != 200:
@@ -393,11 +351,11 @@ class Punctuation:
 
                     return result.text
             else:
-                return text
+                return obj
         except Exception as e:
             self.log.error(str(e))
-            return text
+            return obj
         except ValueError as error:
             self.log.error(str(error))
-            return text
+            return obj
 
