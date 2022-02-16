@@ -42,7 +42,7 @@ RUN git clone -b vosk --single-branch https://github.com/alphacep/kaldi /opt/kal
        fi \
     && sed -i 's:-msse -msse2:-msse -msse2:g' kaldi.mk \
     && sed -i 's: -O1 : -O3 :g' kaldi.mk \
-    && make -j 32 online2 lm rnnlm
+    && make -j $(nproc) online2 lm rnnlm
 
 # Install python dependencies
 COPY requirements.txt ./
