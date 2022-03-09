@@ -20,10 +20,8 @@ def decode(audio_data: bytes, model: Model, sampling_rate: int, with_metadata: b
         decoder_result = json.loads(decoder_result_raw)
     except Exception:
         return result
-
     result["text"] = re.sub("<unk> " , "", decoder_result["text"])
-    if "word" in decoder_result:
+    if "result" in decoder_result:
         result["words"] = [w for w in decoder_result["result"] if w["word"] != "<unk>"]
-    if "confidence" in decoder_result:    
-        result["confidence-score"] = sum([w["conf"] for w in words]) / len(words)
+        result["confidence-score"] = sum([w["conf"] for w in result["words"]]) / len(result["words"])    
     return result
