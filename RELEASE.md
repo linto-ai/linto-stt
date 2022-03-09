@@ -1,3 +1,10 @@
+# 3.3.0
+- Added optional streaming route to the http serving mode
+- Added serving mode: websocket
+- Added Dynamic model conversion allowing to use either Vosk Models or Linagora AM/LM models
+- Changer Vosk dependency to alphacep/vosk
+- Updated README.md
+
 # 3.2.1
 - Repository total rework. The goal being to have a simple transcription service embeddable within a micro-service infrastructure. 
 - Changed repository name from linto-platform-stt-standalone-worker to linto-platform-stt.
