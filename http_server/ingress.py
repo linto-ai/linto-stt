@@ -6,18 +6,32 @@ import logging
 import json
 
 from flask import Flask, request, abort, Response, json
+from flask_sock import Sock
 
 from serving import GunicornServing
 from confparser import createParser
 from swagger import setupSwaggerUI
 
-from stt.processing import model
-from stt.processing import decode, formatAudio
+from stt.processing import model, decode, formatAudio
+from stt.processing.streaming import ws_streaming
+
 
 app = Flask("__stt-standalone-worker__")
+app.config["JSON_AS_ASCII"] = False
+app.config["JSON_SORT_KEYS"] = False
 
 logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
 logger = logging.getLogger("__stt-standalone-worker__")
+
+# If websocket streaming route is enabled
+if os.environ.get('ENABLE_STREAMING', False) in [True, "true", 1]:
+    logger.info("Init websocket serving ...")
+    sock = Sock(app)
+    logger.info("Streaming is enabled")
+
+    @sock.route('/streaming')
+    def streaming(ws):
+        ws_streaming(ws, model)
 
 @app.route('/healthcheck', methods=['GET'])
 def healthcheck():
@@ -98,7 +112,7 @@ if __name__ == '__main__':
         logger.warning("Could not setup swagger: {}".format(str(e)))
     
     serving = GunicornServing(app, {'bind': '{}:{}'.format("0.0.0.0", args.service_port),
-                                    'workers': args.workers,})
+                                    'workers': args.workers, 'timeout': 3600})
     logger.info(args)
     try:
         serving.run()

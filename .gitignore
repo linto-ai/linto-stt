@@ -1,1 +1,3 @@
 start_container.sh
+.env
+test/*
