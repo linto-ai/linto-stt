@@ -23,5 +23,6 @@ def decode(audio_data: bytes, model: Model, sampling_rate: int, with_metadata: b
     result["text"] = re.sub("<unk> " , "", decoder_result["text"])
     if "result" in decoder_result:
         result["words"] = [w for w in decoder_result["result"] if w["word"] != "<unk>"]
-        result["confidence-score"] = sum([w["conf"] for w in result["words"]]) / len(result["words"])    
+        if len(result["words"]):
+            result["confidence-score"] = sum([w["conf"] for w in result["words"]]) / len(result["words"])    
     return result
