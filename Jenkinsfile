@@ -48,8 +48,4 @@ pipeline {
             }
         }
     }// end stages
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> next
