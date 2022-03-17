@@ -1,3 +1,20 @@
+# 3.3.0
+- Added optional streaming route to the http serving mode
+- Added serving mode: websocket
+- Added Dynamic model conversion allowing to use either Vosk Models or Linagora AM/LM models
+- Changer Vosk dependency to alphacep/vosk
+- Updated README.md
+
+# 3.2.1
+- Repository total rework. The goal being to have a simple transcription service embeddable within a micro-service infrastructure. 
+- Changed repository name from linto-platform-stt-standalone-worker to linto-platform-stt.
+- Added celery connector for microservice integration.
+- Added launch option to specify serving mode between task and http.
+- Removed diarization functionnality.
+- Removed punctuation functionnality.
+- Removed Async requests/Job management.
+- Updated README to reflect those changes.
+
 # 3.1.1
 - Change Pykaldi with vosk-API (no python wrapper for decoding function, no extrat packages during installation, c++ implementation based on kaldi functions)
 - New feature: Compute a confidence score per transcription
