@@ -1,13 +1,17 @@
 swagger: "2.0"
 
 info:
-  version: 1.0.0
-  title: LinSTT
-  description: A simple way to test LinSTT API, and to learn how to use API
+  version: "1.0.0"
+  title: LinTo-Platform-STT
+  description: Speech To Text API
+  contact:
+    email: "support@linto.ai"
+  license:
+    name: "AGPLv3"
+    url: "https://www.gnu.org/licenses/agpl-3.0.en.html"
 
 schemes:
   - http
-host: localhost:8888
 basePath: /
 
 paths:
@@ -24,7 +28,7 @@ paths:
       parameters: 
       - name: "file"
         in: "formData"
-        description: "Audio File - Waveform Audio File Format is required. Best configuration (16KHz, 16b, mono)"
+        description: "Audio File - WaveFile PCM 16b 16KHz"
         required: true
         type: "file"
       responses:
@@ -34,34 +38,18 @@ paths:
           description: Request error
         500:
           description: Server error
-  /transcription/{jobid}:
+
+  /healthcheck:
     get:
       tags:
-        - "Speech-To-Text API"
-      summary: Perform Speech-to-Text
+        - "Health"
+      summary: Check server health
       consumes:
-      - "multipart/form-data"
-      produces:
       - "application/json"
-      - "text/plain"
-      parameters: 
-      - name: "jobid"
-        in: "path"
-        description: "jobid of a transcribe request"
-        required: true
-        type: "string"
       responses:
         200:
-          description: Get transcription
+          description: Healthcheck passes
         400:
-          description: Invalid jobid
-  /jobids:
-    get:
-      tags:
-        - "Speech-To-Text API"
-      summary: Get jobids
-      produces:
-      - "application/json"
-      responses:
-        200:
-          description: Get list of jobids
+          description: Healthcheck fails
+        500:
+          description: Healthcheck fails

@@ -1,9 +1,9 @@
 pipeline {
     agent any
     environment {
-        DOCKER_HUB_REPO = "lintoai/linto-platform-stt-standalone-worker"
+        DOCKER_HUB_REPO = "lintoai/linto-platform-stt"
         DOCKER_HUB_CRED = 'docker-hub-credentials'
-        
+
         VERSION = ''
     }
 
@@ -48,4 +48,8 @@ pipeline {
             }
         }
     }// end stages
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> next
