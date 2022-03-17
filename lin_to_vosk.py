@@ -3,10 +3,6 @@ import os
 import re
 import configparser
 
-#LANGUAGE_MODEL_PATH= "/home/rbaraglia/training_ground/STT/fr-FR_Big_v2.2.0"
-#ACOUSTIC_MODEL_PATH= "/home/rbaraglia/training_ground/STT/AM_fr-FR_v2.2.0"
-#TARGET_PATH= "/home/rbaraglia/training_ground/STT/generated_model"
-
 LANGUAGE_MODEL_PATH="/opt/LM"
 ACOUSTIC_MODEL_PATH="/opt/AM"
 TARGET_PATH="/opt/model"
