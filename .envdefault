@@ -1,3 +1,23 @@
+<<<<<<< HEAD
 AM_PATH=/path/to/acoustic/models/dir
 LM_PATH=/path/to/language/models/dir
 SWAGGER_PATH=./document/swagger.yml
+=======
+# SERVING PARAMETERS
+SERVICE_MODE=http
+MODEL_TYPE=lin
+
+# HTTP PARAMETERS
+ENABLE_STREAMING=true
+
+# TASK PARAMETERS
+SERVICE_NAME=stt
+SERVICES_BROKER=redis://192.168.0.1:6379
+BROKER_PASS=password
+
+# WEBSOCKET PARAMETERS
+STREAMING_PORT=80
+
+# CONCURRENCY
+CONCURRENCY=2
+>>>>>>> next

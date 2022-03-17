@@ -1,1 +1,7 @@
+<<<<<<< HEAD
 .env
+=======
+start_container.sh
+.env
+test/*
+>>>>>>> next
