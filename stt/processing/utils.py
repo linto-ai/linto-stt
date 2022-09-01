@@ -1,16 +1,17 @@
 import io
 
 import wavio
-from numpy import squeeze, int16
+from numpy import int16, squeeze
+
 
 def load_wave(file_path):
-    ''' Formats audio from a wavFile buffer to a bytebuffer'''
+    """Formats audio from a wavFile buffer to a bytebuffer"""
     audio = squeeze(wavio.read(file_path).data)
     return audio.tobytes()
 
 
 def formatAudio(file_buffer):
-    ''' Formats audio from a wavFile buffer to a numpy array for processing.'''
+    """Formats audio from a wavFile buffer to a numpy array for processing."""
     file_buffer_io = io.BytesIO(file_buffer)
     file_content = wavio.read(file_buffer_io)
     # if stereo file, convert to mono by computing the mean over the channels
