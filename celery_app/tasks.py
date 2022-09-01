@@ -1,15 +1,15 @@
-import os
 import asyncio
+import os
 
-from stt import logger
-from stt.processing import model
 from celery_app.celeryapp import celery
+from stt import logger
+from stt.processing import decode, model
 from stt.processing.utils import load_wave
-from stt.processing import decode
+
 
 @celery.task(name="transcribe_task")
 def transcribe_task(file_name: str, with_metadata: bool):
-    """ transcribe_task """
+    """transcribe_task"""
     logger.info("Received transcription task for {}".format(file_name))
 
     # Load wave
