@@ -58,10 +58,10 @@ async def wssDecode(ws: WebSocketServerProtocol, model: Model):
             await ws.send(ret)
 
 
-def ws_streaming(ws: WSServer, model: Model):
+def ws_streaming(websocket_server: WSServer, model: Model):
     """Sync Decode function endpoint"""
     # Wait for config
-    res = ws.receive(timeout=10)
+    res = websocket_server.receive(timeout=10)
 
     # Timeout
     if res is None:
@@ -71,39 +71,39 @@ def ws_streaming(ws: WSServer, model: Model):
     try:
         config = json.loads(res)["config"]
         sample_rate = config["sample_rate"]
-    except Exception as e:
+    except Exception:
         logger.error("Failed to read stream configuration")
-        ws.close()
+        websocket_server.close()
 
     # Recognizer
     try:
         recognizer = KaldiRecognizer(model, sample_rate)
-    except Exception as e:
+    except Exception:
         logger.error("Failed to load recognizer")
-        ws.close()
+        websocket_server.close()
 
     # Wait for chunks
     while True:
         try:
             # Client data
-            message = ws.receive(timeout=10)
+            message = websocket_server.receive(timeout=10)
             if message is None:  # Timeout
-                ws.close()
+                websocket_server.close()
         except Exception:
             print("Connection closed by client")
             break
         # End frame
         if "eof" in str(message):
             ret = recognizer.FinalResult()
-            ws.send(json.dumps(re.sub("<unk> ", "", ret)))
-            ws.close()
+            websocket_server.send(json.dumps(re.sub("<unk> ", "", ret)))
+            websocket_server.close()
             break
         # Audio chunk
         print("Received chunk")
         if recognizer.AcceptWaveform(message):
             ret = recognizer.Result()
-            ws.send(re.sub("<unk> ", "", ret))
+            websocket_server.send(re.sub("<unk> ", "", ret))
 
         else:
             ret = recognizer.PartialResult()
-            ws.send(re.sub("<unk> ", "", ret))
+            websocket_server.send(re.sub("<unk> ", "", ret))

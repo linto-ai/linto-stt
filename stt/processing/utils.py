@@ -1,7 +1,7 @@
 import io
 
 import wavio
-from numpy import int16, squeeze
+from numpy import int16, squeeze, mean
 
 
 def load_wave(file_path):
@@ -21,5 +21,4 @@ def formatAudio(file_buffer):
         elif file_content.data.shape[1] == 2:
             data = mean(data, axis=1, dtype=int16)
         return data.tobytes(), file_content.rate
-    else:
-        raise Exception("Audio Format not supported.")
+    raise Exception("Audio Format not supported.")

@@ -111,8 +111,8 @@ You need a message broker up and running at MY_SERVICE_BROKER.
 
 ```bash
 docker run --rm \
--v AM_PATH:/opt/models/AM \
--v LM_PATH:/opt/models/LM \
+-v AM_PATH:/opt/AM \
+-v LM_PATH:/opt/LM \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
 --env-file .env \
 linto-platform-stt:latest

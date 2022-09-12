@@ -4,7 +4,8 @@ from flask_swagger_ui import get_swaggerui_blueprint
 
 def setupSwaggerUI(app, args):
     """Setup Swagger UI within the app"""
-    swagger_yml = yaml.load(open(args.swagger_path, "r"), Loader=yaml.Loader)
+    with open(args.swagger_path, "r") as yml_file:
+        swagger_yml = yaml.load(yml_file, Loader=yaml.Loader)
     swaggerui = get_swaggerui_blueprint(
         # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
         args.swagger_prefix + args.swagger_url,

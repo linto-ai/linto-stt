@@ -1,3 +1,8 @@
+# 3.3.1
+- Fixed lin_to_vosk throwing an error on a already existing container.
+- Corrected an error on the README regarding mounting model volumes. 
+- Code styling (PEP 8)
+
 # 3.3.0
 - Added optional streaming route to the http serving mode
 - Added serving mode: websocket
