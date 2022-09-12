@@ -1,35 +1,42 @@
 #!/usr/bin/env python3
+import configparser
 import os
 import re
-import configparser
 
-LANGUAGE_MODEL_PATH="/opt/LM"
-ACOUSTIC_MODEL_PATH="/opt/AM"
-TARGET_PATH="/opt/model"
+LANGUAGE_MODEL_PATH = "/opt/LM"
+ACOUSTIC_MODEL_PATH = "/opt/AM"
+TARGET_PATH = "/opt/model"
+
 
 def lin_to_vosk_format(am_path: str, lm_path: str, target_path: str):
+    if os.path.exists(target_path):
+        print(
+            "Target model folder already exist, assuming model has already been converted. Skipping..."
+        )
+        return
     os.mkdir(target_path)
     # Create directory structure
     print("Create directory structure")
     for subfolder in ["am", "conf", "graph", "ivector", "rescore"]:
         os.mkdir(os.path.join(target_path, subfolder))
-    
+
     # Populate am directory
     # final.mdl
     print("Populate am directory")
     for f in ["final.mdl"]:
         print(f)
-        os.symlink(os.path.join(am_path, f),
-                os.path.join(target_path, "am", f))
+        os.symlink(os.path.join(am_path, f), os.path.join(target_path, "am", f))
 
     # Populate conf directory
     print("Populate conf directory")
     print("mfcc.conf")
-    os.symlink(os.path.join(am_path, "conf", "mfcc.conf"),
-            os.path.join(target_path, "conf", "mfcc.conf"))
-    
+    os.symlink(
+        os.path.join(am_path, "conf", "mfcc.conf"),
+        os.path.join(target_path, "conf", "mfcc.conf"),
+    )
+
     print("model.conf")
-    with open(os.path.join(target_path, "conf", "model.conf"), 'w') as f:
+    with open(os.path.join(target_path, "conf", "model.conf"), "w") as f:
         f.write("--min-active=200\n")
         f.write("--max-active=7000\n")
         f.write("--beam=13.0\n")
@@ -45,38 +52,49 @@ def lin_to_vosk_format(am_path: str, lm_path: str, target_path: str):
     print("Populate graph directory")
     for f in ["HCLG.fst", "words.txt"]:
         print(f)
-        os.symlink(os.path.join(lm_path, f),
-                os.path.join(target_path, "graph", f))
+        os.symlink(os.path.join(lm_path, f), os.path.join(target_path, "graph", f))
 
     print("phones.txt")
-    os.symlink(os.path.join(am_path, "phones.txt"),
-                os.path.join(target_path, "graph", "phones.txt"))
-    
+    os.symlink(
+        os.path.join(am_path, "phones.txt"),
+        os.path.join(target_path, "graph", "phones.txt"),
+    )
+
     # Populate graph/phones directory
     os.mkdir(os.path.join(target_path, "graph", "phones"))
-    
+
     print("Populate graph/phones directory")
-    
+
     print("word_boundary.int")
-    os.symlink(os.path.join(lm_path, "word_boundary.int"), 
-               os.path.join(target_path, "graph", "phones", "word_boundary.int"))
-    
+    os.symlink(
+        os.path.join(lm_path, "word_boundary.int"),
+        os.path.join(target_path, "graph", "phones", "word_boundary.int"),
+    )
+
     # Populate ivector directory
     print("Populate graph/phones directory")
-    for f in ["final.dubm",  "final.ie",  "final.mat",  "global_cmvn.stats",  "online_cmvn.conf"]:
+    for f in [
+        "final.dubm",
+        "final.ie",
+        "final.mat",
+        "global_cmvn.stats",
+        "online_cmvn.conf",
+    ]:
         print(f)
-        os.symlink(os.path.join(am_path, "ivector_extractor", f),
-                   os.path.join(target_path, "ivector", f))
-    
+        os.symlink(
+            os.path.join(am_path, "ivector_extractor", f),
+            os.path.join(target_path, "ivector", f),
+        )
+
     print("splice.conf")
-    with open(os.path.join(am_path, "ivector_extractor", "splice_opts"), 'r') as in_f:
-        with open(os.path.join(target_path, "ivector", "splice.conf"), 'w') as out_f:
+    with open(os.path.join(am_path, "ivector_extractor", "splice_opts"), "r") as in_f:
+        with open(os.path.join(target_path, "ivector", "splice.conf"), "w") as out_f:
             for param in in_f.read().split(" "):
                 out_f.write(f"{param}\n")
 
     # Populate rescore
     # ?
 
+
 if __name__ == "__main__":
     lin_to_vosk_format(ACOUSTIC_MODEL_PATH, LANGUAGE_MODEL_PATH, TARGET_PATH)
-
