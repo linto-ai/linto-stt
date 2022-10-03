@@ -65,7 +65,7 @@ cp .envdefault .env
 ### Serving mode 
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
 
-STT can be use three ways:
+STT can be used three ways:
 * Through an [HTTP API](#http-server) using the **http**'s mode.
 * Through a [message broker](#micro-service-within-linto-platform-stack) using the **task**'s mode.
 * Through a [websocket server](#websocket-server) **websocket**'s mode.
