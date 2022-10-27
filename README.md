@@ -16,7 +16,7 @@ LinTO-Platform-STT accepts two kinds of models:
 * LinTO Acoustic and Languages models.
 * Vosk models.
 
-We provide home-cured models (v2) on [dl.linto.ai](https://doc.linto.ai/#/services/linstt_download).
+We provide home-cured models (v2) on [dl.linto.ai](https://doc.linto.ai/docs/developpers/apis/ASR/models).
 Or you can also use Vosk models available [here](https://alphacephei.com/vosk/models).
 
 ### Docker
