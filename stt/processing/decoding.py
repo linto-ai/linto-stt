@@ -15,8 +15,8 @@ def decode(audio_data: bytes, model: Model, sampling_rate: int, with_metadata: b
     recognizer.AcceptWaveform(audio_data)
     try:
         decoder_result_raw = recognizer.FinalResult()
-    except Exception as e:
-        raise Exception("Failed to decode")
+    except Exception as err:
+        raise Exception("Failed to decode") from err
     try:
         decoder_result = json.loads(decoder_result_raw)
     except Exception:
@@ -24,7 +24,7 @@ def decode(audio_data: bytes, model: Model, sampling_rate: int, with_metadata: b
     result["text"] = re.sub("<unk> ", "", decoder_result["text"])
     if "result" in decoder_result:
         result["words"] = [w for w in decoder_result["result"] if w["word"] != "<unk>"]
-        if len(result["words"]):
+        if result["words"]:
             result["confidence-score"] = sum([w["conf"] for w in result["words"]]) / len(
                 result["words"]
             )

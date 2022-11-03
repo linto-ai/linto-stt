@@ -19,7 +19,10 @@ def createParser() -> argparse.ArgumentParser:
     parser.add_argument("--am_path", type=str, help="Acoustic Model Path", default="/opt/models/AM")
     parser.add_argument("--lm_path", type=str, help="Decoding graph path", default="/opt/models/LM")
     parser.add_argument(
-        "--config_path", type=str, help="Configuration files path", default="/opt/config"
+        "--config_path",
+        type=str,
+        help="Configuration files path",
+        default="/opt/config",
     )
 
     # GUNICORN
