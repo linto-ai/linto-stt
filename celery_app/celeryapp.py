@@ -10,8 +10,8 @@ broker_url = os.environ.get("SERVICES_BROKER")
 if os.environ.get("BROKER_PASS", False):
     components = broker_url.split("//")
     broker_url = f'{components[0]}//:{os.environ.get("BROKER_PASS")}@{components[1]}'
-celery.conf.broker_url = "{}/0".format(broker_url)
-celery.conf.result_backend = "{}/1".format(broker_url)
+celery.conf.broker_url = f"{broker_url}/0"
+celery.conf.result_backend = f"{broker_url}/1"
 celery.conf.update(result_expires=3600, task_acks_late=True, task_track_started=True)
 
 # Queues
@@ -24,7 +24,5 @@ celery.conf.update(
 )
 
 logger.info(
-    "Celery configured for broker located at {} with service name {}".format(
-        broker_url, service_name
-    )
+    f"Celery configured for broker located at {broker_url} with service name {service_name}"
 )

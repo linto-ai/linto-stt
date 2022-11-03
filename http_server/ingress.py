@@ -19,7 +19,8 @@ app.config["JSON_AS_ASCII"] = False
 app.config["JSON_SORT_KEYS"] = False
 
 logging.basicConfig(
-    format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt="%d/%m/%Y %H:%M:%S"
+    format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+    datefmt="%d/%m/%Y %H:%M:%S",
 )
 logger = logging.getLogger("__stt-standalone-worker__")
 
@@ -30,8 +31,8 @@ if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
     logger.info("Streaming is enabled")
 
     @sock.route("/streaming")
-    def streaming(ws):
-        ws_streaming(ws, model)
+    def streaming(web_socket):
+        ws_streaming(web_socket, model)
 
 
 @app.route("/healthcheck", methods=["GET"])
@@ -76,24 +77,22 @@ def transcribe():
 
         if join_metadata:
             return json.dumps(transcription, ensure_ascii=False), 200
-        else:
-            return transcription["text"], 200
-        return response, 200
+        return transcription["text"], 200
 
     except ValueError as error:
         return str(error), 400
-    except Exception as e:
-        logger.error(e)
-        return "Server Error: {}".format(str(e)), 500
+    except Exception as error:
+        logger.error(error)
+        return "Server Error: {}".format(str(error)), 500
 
 
 @app.errorhandler(405)
-def method_not_allowed(error):
+def method_not_allowed(_):
     return "The method is not allowed for the requested URL", 405
 
 
 @app.errorhandler(404)
-def page_not_found(error):
+def page_not_found(_):
     return "The requested URL was not found", 404
 
 
@@ -114,13 +113,13 @@ if __name__ == "__main__":
         if args.swagger_path is not None:
             setupSwaggerUI(app, args)
             logger.debug("Swagger UI set.")
-    except Exception as e:
-        logger.warning("Could not setup swagger: {}".format(str(e)))
+    except Exception as err:
+        logger.warning("Could not setup swagger: {}".format(str(err)))
 
     serving = GunicornServing(
         app,
         {
-            "bind": "{}:{}".format("0.0.0.0", args.service_port),
+            "bind": f"0.0.0.0:{args.service_port}",
             "workers": args.workers,
             "timeout": 3600,
         },
@@ -130,7 +129,7 @@ if __name__ == "__main__":
         serving.run()
     except KeyboardInterrupt:
         logger.info("Process interrupted by user")
-    except Exception as e:
-        logger.error(str(e))
+    except Exception as err:
+        logger.error(str(err))
         logger.critical("Service is shut down (Error)")
-        exit(e)
+        exit(err)
