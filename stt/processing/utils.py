@@ -19,6 +19,8 @@ def formatAudio(file_buffer):
         if file_content.data.shape[1] == 1:
             data = squeeze(file_content.data)
         elif file_content.data.shape[1] == 2:
-            data = mean(data, axis=1, dtype=int16)
+            data = mean(file_content.data, axis=1, dtype=int16)
+        else:
+            raise Exception("Audio Format not supported.")
         return data.tobytes(), file_content.rate
     raise Exception("Audio Format not supported.")
