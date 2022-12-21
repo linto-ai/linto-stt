@@ -1,3 +1,6 @@
+# 3.3.2
+- Fixed use of stereo audio in http serving mode
+
 # 3.3.1
 - Fixed lin_to_vosk throwing an error on a already existing container.
 - Corrected an error on the README regarding mounting model volumes. 
