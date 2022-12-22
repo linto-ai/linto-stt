@@ -1,6 +1,6 @@
 # SERVING PARAMETERS
 SERVICE_MODE=http
-MODEL_TYPE=/opt/model.pt
+MODEL=/opt/model.pt
 LANGUAGE=fr
 
 # TASK PARAMETERS

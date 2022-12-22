@@ -5,10 +5,10 @@ echo "RUNNING STT"
 
 # Check model
 echo "Checking model format ..."
-if [ -z "$MODEL_TYPE" ]
+if [ -z "$MODEL" ]
 then
     echo "Model type not specified, choosing Whisper medium model"
-    export MODEL_TYPE=medium
+    export MODEL=medium
 fi
 
 # Launch parameters, environement variables and dependencies check
