@@ -1,10 +1,11 @@
-import unicodedata
 from dataclasses import dataclass
 import torch
 
 from stt import logger
 from .alignment_model import speechbrain_compute_log_probas as compute_log_probas
 from .alignment_model import speechbrain_get_vocab as get_vocab
+from .utils import flatten
+from .text_normalize import transliterate, remove_punctuation
 
 
 def compute_alignment(audio, transcript, model):
@@ -13,10 +14,12 @@ def compute_alignment(audio, transcript, model):
     emission = compute_log_probas(model, audio)
     labels, blank_id = get_vocab(model)
     labels = labels[:emission.shape[1]]
+    labels[blank_id] = " "
     dictionary = {c: i for i, c in enumerate(labels)}
 
-    tokens = [loose_get_char_index(dictionary, c, blank_id) for c in transcript]
-    tokens = [i for i in tokens if i is not None]
+    tokens = [loose_get_char_index(dictionary, c) for c in transcript]
+    tokens = flatten(tokens)
+    transcript = "".join([labels[i][0] for i in tokens]) # Make sure transcript has the same length as tokens (could be different because of transliteration "œ" -> "oe")
 
     trellis = get_trellis(emission, tokens, blank_id = blank_id)
 
@@ -28,25 +31,32 @@ def compute_alignment(audio, transcript, model):
 
     return labels, emission, trellis, segments, word_segments
 
-def loose_get_char_index(dictionary, c, default):
-        i = dictionary.get(c, None)
+def loose_get_char_index(dictionary, c):
+    i = dictionary.get(c, None)
+    if i is None:
+        # Try with alternative versions of the character
+        tc = transliterate(c)
+        other_char = list(set([c.lower(), c.upper(), tc, tc.lower(), tc.upper()]))
+        for c2 in other_char:
+            i = dictionary.get(c2, None)
+            if i is not None:
+                i = [i]
+                break
+        # Some transliterated versions may correspond to multiple characters
         if i is None:
-            other_char = list(set([c.lower(), c.upper(), transliterate(c), transliterate(c).lower(), transliterate(c).upper()]))
             for c2 in other_char:
-                i = dictionary.get(c2, None)
-                if i is not None:
-                    break
-            if i is None:
-                logger.warn("Cannot find label " + " / ".join(list(set([c] + other_char))))
-                i = default
-        return i
+                if len(c2) > 1:
+                    candidate = [dictionary[c3] for c3 in c2 if c3 in dictionary]
+                    if len(candidate) > 0 and (i is None or len(candidate) > len(i)):
+                        i = candidate
+        # If still not found
+        if i is None:
+            logger.warn("Cannot find label " + " / ".join(list(set([c] + other_char))))
+            i = [] # [default] # Could be [] ...
+    else:
+        i = [i]
+    return i
 
-def transliterate(c):
-    # Transliterates a character to its closest ASCII equivalent.
-    # For example, "é" becomes "e".
-    # This is useful for converting Vietnamese text to ASCII.
-    # See https://stackoverflow.com/a/517974/446579
-    return unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode("ascii")
 
 def get_trellis(emission, tokens, blank_id=0, use_max = False):
     num_frame = emission.size(0)
