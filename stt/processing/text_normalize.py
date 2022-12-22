@@ -30,6 +30,10 @@ def transliterate(c):
     c = re.sub("ß", "ss", c)
     return unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode("ascii")
 
+def remove_emoji(text):
+    # Remove emojis
+    return re.sub(r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]+", "", text)
+
 
 def normalize_text(text: str, lang: str) -> str:
     """ Transform digits into characters... """
