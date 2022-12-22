@@ -7,17 +7,26 @@ LinTO-platform-stt can either be used as a standalone transcription service or d
 
 ### Hardware
 To run the transcription models you'll need:
-* At least 7Go of disk space to build the docker image.
+* At least 8Go of disk space to build the docker image.
 * Up to 7GB of RAM depending on the model used.
 * One CPU per worker. Inference time scales on CPU performances. 
 
 ### Model
-LinTO-Platform-STT accepts two kinds of models:
-* LinTO Acoustic and Languages models.
-* Vosk models.
+LinTO-Platform-STT accepts one Whisper models in the PyTorch format.
 
-We provide home-cured models (v2) on [dl.linto.ai](https://doc.linto.ai/docs/developpers/apis/ASR/models).
-Or you can also use Vosk models available [here](https://alphacephei.com/vosk/models).
+You can download mutli-lingual models with the following links:
+* tiny: "https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt
+* base: https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt
+* small: https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt
+* medium: https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt
+* large-v1: https://openaipublic.azureedge.net/main/whisper/models/e4b87e7e0bf463eb8e6956e646f1e277e901512310def2c24bf0e11bd3c28e9a/large-v1.pt
+* large-v2: https://openaipublic.azureedge.net/main/whisper/models/81f7c96c852ee8fc832187b0132e569d6c3065a3252ed18e56effd0b6a73e524/large-v2.pt
+
+Models specialized for English can also be found:
+* tiny.en: "https://openaipublic.azureedge.net/main/whisper/models/d3dd57d32accea0b295c96e26691aa14d8822fac7d9d27d5dc00b4ca2826dd03/tiny.en.pt
+* base.en: https://openaipublic.azureedge.net/main/whisper/models/25a8566e1d0c1e2231d1c762132cd20e0f96a85d16145c3a00adf5d1ac670ead/base.en.pt
+* small.en: https://openaipublic.azureedge.net/main/whisper/models/f953ad0fd29cacd07d5a9eda5624af0f6bcf2258be67c92b79389873d91e0872/small.en.pt
+* medium.en: https://openaipublic.azureedge.net/main/whisper/models/d7440d1dc186f76616474e0ff0b3b6b879abc9d1a4926b7adfa41db2d497ab4f/medium.en.pt
 
 ### Docker
 The transcription service requires docker up and running.
@@ -39,11 +48,14 @@ or
 
 ```bash
 docker pull lintoai/linto-platform-stt
-```
+``` with the following links
 
 **2- Download the models**
 
-Have the acoustic and language model ready at AM_PATH and LM_PATH if you are using LinTO models. If you are using a Vosk model, have it ready at MODEL.
+Have the Whisper model file ready at ASR_PATH.
+
+You can downloaded with the links mentioned above, if you don't have already a Whisper model.
+If you already used Whisper in the past, you may have models in ~/.cache/whisper.
 
 **3- Fill the .env**
 
@@ -54,12 +66,10 @@ cp .envdefault .env
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
 | SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | http\|task\|websocket |
-| MODEL_TYPE | Type of STT model used. | lin\|vosk |
-| ENABLE_STREAMING | Using http serving mode, enable the /streaming websocket route | true\|false |
+| MODEL_TYPE | Path to the model or type of model used. | ASR_PATH\|small\|medium\|large-v1\|... |
 | SERVICE_NAME | Using the task mode, set the queue's name for task processing | my-stt |
 | SERVICE_BROKER | Using the task mode, URL of the message broker | redis://my-broker:6379 |
 | BROKER_PASS | Using the task mode, broker password | my-password |
-| STREAMING_PORT | Using the websocket mode, the listening port for ingoing WS connexions.  | 80 |
 | CONCURRENCY | Maximum number of parallel requests | >1 |
 
 ### Serving mode 
@@ -82,8 +92,7 @@ The SERVICE_MODE value in the .env should be set to ```http```.
 ```bash
 docker run --rm \
 -p HOST_SERVING_PORT:80 \
--v AM_PATH:/opt/AM \
--v LM_PATH:/opt/LM \
+-v ASR_PATH:/opt/model.pt \
 --env-file .env \
 linto-platform-stt:latest
 ```
@@ -94,9 +103,7 @@ This will run a container providing an [HTTP API](#http-api) binded on the host 
 | Variables | Description | Example |
 |:-|:-|:-|
 | HOST_SERVING_PORT | Host serving port | 80 |
-| AM_PATH | Path to the acoustic model on the host machine mounted to /opt/AM | /my/path/to/models/AM_fr-FR_v2.2.0 |
-| LM_PATH | Path to the language model on the host machine mounted to /opt/LM | /my/path/to/models/fr-FR_big-v2.2.0 |
-| MODEL_PATH | Path to the model (using MODEL_TYPE=vosk) mounted to /opt/model | /my/path/to/models/vosk-model |
+| ASR_PATH | (Optional) Path to the Whisper model on the host machine to /opt/model.pt | /my/path/to/models/medium.pt |
 
 ### Micro-service within LinTO-Platform stack
 The HTTP serving mode connect a celery worker to a message broker.
@@ -111,8 +118,7 @@ You need a message broker up and running at MY_SERVICE_BROKER.
 
 ```bash
 docker run --rm \
--v AM_PATH:/opt/AM \
--v LM_PATH:/opt/LM \
+-v ASR_PATH:/opt/model.pt \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
 --env-file .env \
 linto-platform-stt:latest
@@ -121,18 +127,9 @@ linto-platform-stt:latest
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
-| AM_PATH | Path to the acoustic model on the host machine mounted to /opt/AM | /my/path/to/models/AM_fr-FR_v2.2.0 |
-| LM_PATH | Path to the language model on the host machine mounted to /opt/LM | /my/path/to/models/fr-FR_big-v2.2.0 |
-| MODEL_PATH | Path to the model (using MODEL_TYPE=vosk) mounted to /opt/model | /my/path/to/models/vosk-model |
+| ASR_PATH | (Optional) Path to the Whisper model on the host machine to /opt/model.pt | /my/path/to/models/medium.pt |
 | SHARED_AUDIO_FOLDER | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
 
-
-### Websocket Server
-Websocket server's mode deploy a streaming transcription service only.
-
-The SERVICE_MODE value in the .env should be set to ```websocket```.
-
-Usage is the same as the [http streaming API](#/streaming)
 
 ## Usages
 ### HTTP API
@@ -153,26 +150,19 @@ Transcription API
 Return the transcripted text using "text/plain" or a json object when using "application/json" structure as followed:
 ```json
 {
-  "text" : "This is the transcription",
-  "words" : [
-    {"word":"This", "start": 0.123, "end": 0.453, "conf": 0.9},
-    ...
-  ]
-  "confidence-score": 0.879
+    "text" : "This is the transcription as text",
+    "words": [
+        {
+        "word" : "This",
+        "start": 0.0,
+        "end": 0.124,
+        "conf": 0.82341
+        },
+        ...
+    ],
+    "confidence-score": 0.879
 }
 ```
-
-#### /streaming
-The /streaming route is accessible if the ENABLE_STREAMING environment variable is set to true.
-
-The route accepts websocket connexions. Exchanges are structured as followed:
-1. Client send a json {"config": {"sample_rate":16000}}.
-2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
-3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
-4. Back to 2-
-5. Server send a final result and close the connexion.
-
-> Connexion will be closed and the worker will be freed if no chunk are received for 10s. 
 
 #### /docs
 The /docs route offers a OpenAPI/swagger interface.
@@ -189,17 +179,17 @@ STT-Worker accepts requests with the following arguments:
 On a successfull transcription the returned object is a json object structured as follow:
 ```json
 {
-    "text" : "this is the transcription as text",
+    "text" : "This is the transcription as text",
     "words": [
         {
-        "word" : "this",
+        "word" : "This",
         "start": 0.0,
         "end": 0.124,
-        "conf": 1.0
+        "conf": 0.82341
         },
         ...
     ],
-    "confidence-score": ""
+    "confidence-score": 0.879
 }
 ```
 
@@ -220,5 +210,5 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 ## Acknowlegment.
 
-* [Vosk, speech recognition toolkit](https://alphacephei.com/vosk/).
-* [Kaldi Speech Recognition Toolkit](https://github.com/kaldi-asr/kaldi)
+* [OpenAI Whisper](https://github.com/openai/whisper)
+* [SpeechBrain](https://github.com/speechbrain/speechbrain).

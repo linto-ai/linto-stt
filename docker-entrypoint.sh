@@ -7,21 +7,10 @@ echo "RUNNING STT"
 echo "Checking model format ..."
 if [ -z "$MODEL_TYPE" ]
 then
-    echo "Model type not specified, expecting Vosk Model"
-    export MODEL_TYPE=vosk
+    echo "Model type not specified, choosing Whisper medium model"
+    export MODEL_TYPE=medium
 fi
 
-if  [ "$MODEL_TYPE" = "vosk" ]
-then
-    echo "Using Vosk format's model"
-
-elif [ "$MODEL_TYPE" = "lin" ]
-then
-    echo "Processing model ... "
-    ./lin_to_vosk.py
-else
-    echo "Unknown model type $MODEL_TYPE. Assuming vosk model"
-fi
 # Launch parameters, environement variables and dependencies check
 if [ -z "$SERVICE_MODE" ]
 then
@@ -43,10 +32,6 @@ else
         echo "RUNNING STT CELERY WORKER"
         celery --app=celery_app.celeryapp worker -Ofair --queues=${SERVICE_NAME} -c ${CONCURRENCY} -n ${SERVICE_NAME}_worker@%h
 
-    elif [ "$SERVICE_MODE" == "websocket" ]
-    then
-        echo "Running Websocket server on port ${STREAMING_PORT:=80}"
-        python websocket/websocketserver.py
     else
         echo "ERROR: Wrong serving command: $1"
         exit -1

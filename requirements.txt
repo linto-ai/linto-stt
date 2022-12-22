@@ -1,11 +1,13 @@
 celery[redis,auth,msgpack]>=4.4.7
-numpy>=1.18.5
 flask>=1.1.2
 flask-cors>=3.0.10
-flask-swagger-ui>=3.36.0
 flask-sock
+flask-swagger-ui>=3.36.0
 gunicorn
+num2words
 pyyaml>=5.4.1
-wavio>=0.0.4
 requests>=2.26.0
+speechbrain
+wavio>=0.0.4
 websockets
+git+https://github.com/openai/whisper.git
