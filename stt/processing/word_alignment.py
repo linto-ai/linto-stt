@@ -1,3 +1,6 @@
+"""
+source: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html
+"""
 from dataclasses import dataclass
 import torch
 
@@ -5,7 +8,7 @@ from stt import logger
 from .alignment_model import speechbrain_compute_log_probas as compute_log_probas
 from .alignment_model import speechbrain_get_vocab as get_vocab
 from .utils import flatten
-from .text_normalize import transliterate, remove_punctuation
+from .text_normalize import transliterate
 
 
 def compute_alignment(audio, transcript, model):
@@ -17,9 +20,24 @@ def compute_alignment(audio, transcript, model):
     labels[blank_id] = " "
     dictionary = {c: i for i, c in enumerate(labels)}
 
-    tokens = [loose_get_char_index(dictionary, c) for c in transcript]
+    default = labels.index("-") if "-" in labels else None
+    tokens = [loose_get_char_index(dictionary, c, default) for c in transcript]
     tokens = flatten(tokens)
-    transcript = "".join([labels[i][0] for i in tokens]) # Make sure transcript has the same length as tokens (could be different because of transliteration "œ" -> "oe")
+
+    num_emissions = emission.shape[0]
+    num_repetitions = count_repetitions(tokens)
+    if len(tokens) + num_repetitions > num_emissions:
+        # It will be impossible to find a path...
+        # It can happen when Whisper is lost in a loop (ex: "Ha ha ha ha ...")
+        logger.warn(f"Got too many characters from Whisper. Shrinking to the first characters.")
+        tokens = tokens[:num_emissions]
+        num_repetitions = count_repetitions(tokens)
+        while len(tokens) + num_repetitions > num_emissions:
+            tokens = tokens[:-1]
+            num_repetitions = count_repetitions(tokens)
+
+    # Make sure transcript has the same length as tokens (it could be different just because of transliteration "œ" -> "oe")
+    transcript = "".join([labels[i][0] for i in tokens])
 
     trellis = get_trellis(emission, tokens, blank_id = blank_id)
 
@@ -31,7 +49,10 @@ def compute_alignment(audio, transcript, model):
 
     return labels, emission, trellis, segments, word_segments
 
-def loose_get_char_index(dictionary, c):
+def count_repetitions(tokens):
+    return sum([a==b for a,b in zip(tokens[1:], tokens[:-1])])
+
+def loose_get_char_index(dictionary, c, default = None):
     i = dictionary.get(c, None)
     if i is None:
         # Try with alternative versions of the character
@@ -52,7 +73,7 @@ def loose_get_char_index(dictionary, c):
         # If still not found
         if i is None:
             logger.warn("Cannot find label " + " / ".join(list(set([c] + other_char))))
-            i = [] # [default] # Could be [] ...
+            i = [default] if default is not None else []
     else:
         i = [i]
     return i
@@ -124,7 +145,8 @@ def backtrack(trellis, emission, tokens, blank_id=0):
             if j == 0:
                 break
     else:
-        raise ValueError("Failed to align")
+        logger.warn(f"Failed to align {len(tokens)} tokens")
+        return path
     return path[::-1]
 
 
