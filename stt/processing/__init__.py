@@ -13,9 +13,6 @@ from .load_model import load_whisper_model, load_speechbrain_model
 
 __all__ = ["logger", "decode", "model", "alignment_model", "load_audiofile", "load_wave_buffer"]
 
-# Set logger level
-logger.setLevel(logging.INFO)
-
 # Set device
 device = os.environ.get("DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu")
 try:

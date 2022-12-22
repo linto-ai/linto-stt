@@ -12,6 +12,7 @@ from serving import GunicornServing
 from swagger import setupSwaggerUI
 
 from stt.processing import decode, load_wave_buffer, model, alignment_model
+from stt import logger as stt_logger
 
 app = Flask("__stt-standalone-worker__")
 app.config["JSON_AS_ASCII"] = False
@@ -96,7 +97,9 @@ if __name__ == "__main__":
 
     parser = createParser()
     args = parser.parse_args()
-    logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
+    logger_level = logging.DEBUG if args.debug else logging.INFO
+    logger.setLevel(logger_level)
+    stt_logger.setLevel(logger_level)
     try:
         # Setup SwaggerUI
         if args.swagger_path is not None:
