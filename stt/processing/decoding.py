@@ -13,21 +13,23 @@ from .text_normalize import remove_punctuation, normalize_text, remove_emoji
 # TODO: understand and remove this limitations
 torch.set_num_threads(1)
 
+
 def get_default_language():
     return os.environ.get("LANGUAGE", None)
 
+
 def decode(audio: torch.Tensor,
-    model: whisper.model.Whisper,
-    alignment_model: "Any",
-    with_word_timestamps: bool,
-    language: str = None,
-    beam_size: int = None,
-    no_speech_threshold: float = 0.6,
-    logprob_threshold: float = -1.0,
-    compression_ratio_threshold: float = 2.4,
-    normalize_text_as_words = False,
-    remove_punctuation_from_words = False,
-    ) -> dict:
+           model: whisper.model.Whisper,
+           alignment_model: "Any",
+           with_word_timestamps: bool,
+           language: str = None,
+           beam_size: int = None,
+           no_speech_threshold: float = 0.6,
+           logprob_threshold: float = -1.0,
+           compression_ratio_threshold: float = 2.4,
+           normalize_text_as_words=False,
+           remove_punctuation_from_words=False,
+           ) -> dict:
     """Transcribe the audio data using Whisper with the defined model."""
     result = {"text": "", "confidence-score": 0.0, "words": []}
 
@@ -39,14 +41,14 @@ def decode(audio: torch.Tensor,
     logger.info(f"Transcribing audio with language {language}...")
 
     whisper_res = model.transcribe(audio,
-        language = language,
-        fp16 = fp16,
-        temperature = 0.0, # For deterministic results
-        beam_size = beam_size,
-        no_speech_threshold = no_speech_threshold,
-        logprob_threshold = logprob_threshold,
-        compression_ratio_threshold = compression_ratio_threshold
-    )
+                                   language=language,
+                                   fp16=fp16,
+                                   temperature=0.0,  # For deterministic results
+                                   beam_size=beam_size,
+                                   no_speech_threshold=no_speech_threshold,
+                                   logprob_threshold=logprob_threshold,
+                                   compression_ratio_threshold=compression_ratio_threshold
+                                   )
 
     text = whisper_res["text"]
     text = remove_emoji(text).strip()
@@ -59,7 +61,8 @@ def decode(audio: torch.Tensor,
         language = whisper_res["language"]
 
     result["text"] = text
-    result["confidence-score"] = np.exp(np.array([r["avg_logprob"] for r in segments])).mean() if len(segments) else 0.0
+    result["confidence-score"] = np.exp(np.array([r["avg_logprob"]
+                                        for r in segments])).mean() if len(segments) else 0.0
     if not with_word_timestamps:
         if not normalize_text_as_words:
             text = normalize_text(text, language)
@@ -82,9 +85,11 @@ def decode(audio: torch.Tensor,
             if remove_punctuation_from_words:
                 sub_text = remove_punctuation(sub_text)
             if not sub_text:
-                logger.warn(f"Lost text in segment {segment['start']}-{segment['end']}")
+                logger.warn(
+                    f"Lost text in segment {segment['start']}-{segment['end']}")
                 continue
-            labels, emission, trellis, segments, word_segments = compute_alignment(sub_audio, sub_text, alignment_model)
+            labels, emission, trellis, segments, word_segments = compute_alignment(
+                sub_audio, sub_text, alignment_model)
             ratio = len(sub_audio) / (trellis.size(0) * SAMPLE_RATE)
             sub_words = sub_text.split()
             if len(sub_words) == len(word_segments):
@@ -96,7 +101,8 @@ def decode(audio: torch.Tensor,
                         "conf": segment.score,
                     })
             else:
-                logger.warn(f"Alignment failed. Results might differ on some words.\nNumber of words: {len(sub_words)} != {len(word_segments)}\n>>>\n{sub_words}\n<<<\n{[segment.label for segment in word_segments]}")
+                logger.warn(
+                    f"Alignment failed. Results might differ on some words.\nNumber of words: {len(sub_words)} != {len(word_segments)}\n>>>\n{sub_words}\n<<<\n{[segment.label for segment in word_segments]}")
                 for segment in word_segments:
                     result["words"].append({
                         "word": segment.label,
@@ -106,5 +112,3 @@ def decode(audio: torch.Tensor,
                     })
 
     return result
-
-

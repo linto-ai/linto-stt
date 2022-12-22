@@ -29,7 +29,8 @@ def compute_alignment(audio, transcript, model):
     if len(tokens) + num_repetitions > num_emissions:
         # It will be impossible to find a path...
         # It can happen when Whisper is lost in a loop (ex: "Ha ha ha ha ...")
-        logger.warn(f"Got too many characters from Whisper. Shrinking to the first characters.")
+        logger.warn(
+            f"Got too many characters from Whisper. Shrinking to the first characters.")
         tokens = tokens[:num_emissions]
         num_repetitions = count_repetitions(tokens)
         while len(tokens) + num_repetitions > num_emissions:
@@ -39,25 +40,28 @@ def compute_alignment(audio, transcript, model):
     # Make sure transcript has the same length as tokens (it could be different just because of transliteration "œ" -> "oe")
     transcript = "".join([labels[i][0] for i in tokens])
 
-    trellis = get_trellis(emission, tokens, blank_id = blank_id)
+    trellis = get_trellis(emission, tokens, blank_id=blank_id)
 
-    path = backtrack(trellis, emission, tokens, blank_id = blank_id)
-    
+    path = backtrack(trellis, emission, tokens, blank_id=blank_id)
+
     segments = merge_repeats(transcript, path)
 
     word_segments = merge_words(segments)
 
     return labels, emission, trellis, segments, word_segments
 
-def count_repetitions(tokens):
-    return sum([a==b for a,b in zip(tokens[1:], tokens[:-1])])
 
-def loose_get_char_index(dictionary, c, default = None):
+def count_repetitions(tokens):
+    return sum([a == b for a, b in zip(tokens[1:], tokens[:-1])])
+
+
+def loose_get_char_index(dictionary, c, default=None):
     i = dictionary.get(c, None)
     if i is None:
         # Try with alternative versions of the character
         tc = transliterate(c)
-        other_char = list(set([c.lower(), c.upper(), tc, tc.lower(), tc.upper()]))
+        other_char = list(
+            set([c.lower(), c.upper(), tc, tc.lower(), tc.upper()]))
         for c2 in other_char:
             i = dictionary.get(c2, None)
             if i is not None:
@@ -67,19 +71,21 @@ def loose_get_char_index(dictionary, c, default = None):
         if i is None:
             for c2 in other_char:
                 if len(c2) > 1:
-                    candidate = [dictionary[c3] for c3 in c2 if c3 in dictionary]
+                    candidate = [dictionary[c3]
+                                 for c3 in c2 if c3 in dictionary]
                     if len(candidate) > 0 and (i is None or len(candidate) > len(i)):
                         i = candidate
         # If still not found
         if i is None:
-            logger.warn("Character not correctly handled by alignment model: '" + "' / '".join(list(set([c] + other_char))) + "'")
+            logger.warn("Character not correctly handled by alignment model: '" +
+                        "' / '".join(list(set([c] + other_char))) + "'")
             i = [default] if default is not None else []
     else:
         i = [i]
     return i
 
 
-def get_trellis(emission, tokens, blank_id=0, use_max = False):
+def get_trellis(emission, tokens, blank_id=0, use_max=False):
     num_frame = emission.size(0)
     num_tokens = len(tokens)
 
@@ -97,14 +103,15 @@ def get_trellis(emission, tokens, blank_id=0, use_max = False):
             # Score for staying at the same token
             trellis[t, 1:] + emission[t, blank_id],
             torch.maximum(trellis[t, 1:] + emission[t, tokens],
-            # Score for changing to the next token
-            trellis[t, :-1] + emission[t, tokens])
+                          # Score for changing to the next token
+                          trellis[t, :-1] + emission[t, tokens])
         ) if use_max else torch.logaddexp(
             trellis[t, 1:] + emission[t, blank_id],
             torch.logaddexp(trellis[t, 1:] + emission[t, tokens],
-            trellis[t, :-1] + emission[t, tokens])
+                            trellis[t, :-1] + emission[t, tokens])
         )
     return trellis
+
 
 @dataclass
 class Point:
@@ -135,7 +142,8 @@ def backtrack(trellis, emission, tokens, blank_id=0):
         changed = trellis[t - 1, j - 1] + emission[t - 1, tokens[j - 1]]
 
         # 2. Store the path with frame-wise probability.
-        prob = emission[t - 1, tokens[j - 1] if changed > stayed else 0].exp().item()
+        prob = emission[t - 1, tokens[j - 1]
+                        if changed > stayed else 0].exp().item()
         # Return token index and time index in non-trellis coordinate.
         path.append(Point(j - 1, t - 1, prob))
 
@@ -184,6 +192,7 @@ def merge_repeats(transcript, path):
         i1 = i2
     return segments
 
+
 def merge_words(segments, separator=" "):
     words = []
     i1, i2 = 0, 0
@@ -192,8 +201,10 @@ def merge_words(segments, separator=" "):
             if i1 != i2:
                 segs = segments[i1:i2]
                 word = "".join([seg.label for seg in segs])
-                score = sum(seg.score * seg.length for seg in segs) / sum(seg.length for seg in segs)
-                words.append(Segment(word, segments[i1].start, segments[i2 - 1].end, score))
+                score = sum(seg.score * seg.length for seg in segs) / \
+                    sum(seg.length for seg in segs)
+                words.append(
+                    Segment(word, segments[i1].start, segments[i2 - 1].end, score))
             i1 = i2 + 1
             i2 = i1
         else:

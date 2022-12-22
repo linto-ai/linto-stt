@@ -1,24 +1,29 @@
 import math
 import re
-#import string
+# import string
 import unicodedata
 from num2words import num2words
 
 from stt import logger
 from .utils import flatten
 
-_punctuations = '!"#$%&()*+,/:;<=>?@[\\]^_`{|}~«»¿' # string.punctuation, plus Whisper specific "«»¿", minus apostrophe "'", dash "-", and dot "." (which will be processed as special)
+# string.punctuation, plus Whisper specific "«»¿", minus apostrophe "'", dash "-", and dot "." (which will be processed as special)
+_punctuations = '!"#$%&()*+,/:;<=>?@[\\]^_`{|}~«»¿'
+
 
 def remove_punctuation(text: str) -> str:
     text = text.translate(str.maketrans("", "", _punctuations))
     # We don't remove dots inside words (e.g. "ab@gmail.com")
-    text = re.sub(r"\.(\s)",r"\1", text+" ").strip()
+    text = re.sub(r"\.(\s)", r"\1", text+" ").strip()
     return collapse_whitespace(text)
+
 
 _whitespace_re = re.compile(r'[^\S\r\n]+')
 
+
 def collapse_whitespace(text):
     return re.sub(_whitespace_re, ' ', text).strip()
+
 
 def transliterate(c):
     # Transliterates a character to its closest ASCII equivalent.
@@ -29,6 +34,7 @@ def transliterate(c):
     c = re.sub("Æ", "AE", c)
     c = re.sub("ß", "ss", c)
     return unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode("ascii")
+
 
 def remove_emoji(text):
     # Remove emojis
@@ -42,43 +48,54 @@ def normalize_text(text: str, lang: str) -> str:
     coma = "," if lang in ["fr"] else "\."
     for c in _currencies:
         if c in text:
-            text = re.sub(r"\b(\d+)" + coma + r"(\d+)\s*" + c, r"\1 " + c + r" \2", text)
-    
+            text = re.sub(r"\b(\d+)" + coma + r"(\d+)\s*" +
+                          c, r"\1 " + c + r" \2", text)
+
     # Roman digits
     if re.search(r"[IVX]", text):
         if lang == "en":
-            digits = re.findall(r"\b(?=[XVI])M*(XX{0,3})(I[XV]|V?I{0,3})(º|st|nd|rd|th)?\b", text)
+            digits = re.findall(
+                r"\b(?=[XVI])M*(XX{0,3})(I[XV]|V?I{0,3})(º|st|nd|rd|th)?\b", text)
             digits = ["".join(d) for d in digits]
         elif lang == "fr":
-            digits = re.findall(r"\b(?=[XVI])M*(XX{0,3})(I[XV]|V?I{0,3})(º|ème|eme|e|er|ère)?\b", text)
+            digits = re.findall(
+                r"\b(?=[XVI])M*(XX{0,3})(I[XV]|V?I{0,3})(º|ème|eme|e|er|ère)?\b", text)
             digits = ["".join(d) for d in digits]
         else:
             digits = []
         if digits:
-            digits = sorted(list(set(digits)), reverse=True, key=lambda x: (len(x), x))
+            digits = sorted(list(set(digits)), reverse=True,
+                            key=lambda x: (len(x), x))
             for s in digits:
                 filtered = re.sub("[a-z]", "", s)
                 ordinal = filtered != s
                 digit = roman_to_decimal(filtered)
-                v = undigit(str(digit), lang=lang, to= "ordinal" if ordinal else "cardinal")
+                v = undigit(str(digit), lang=lang,
+                            to="ordinal" if ordinal else "cardinal")
                 text = re.sub(r"\b" + s + r"\b", v, text)
 
     # Ordinal digits
     if lang == "en":
-        digits = re.findall(r"\b\d*1(?:st)|\d*2(?:nd)|\d*3(?:rd)|\d+(?:º|th)\b", text)
+        digits = re.findall(
+            r"\b\d*1(?:st)|\d*2(?:nd)|\d*3(?:rd)|\d+(?:º|th)\b", text)
     elif lang == "fr":
-        digits = re.findall(r"\b1(?:ère|ere|er|re|r)|2(?:nd|nde)|\d+(?:º|ème|eme|e)\b", text)
+        digits = re.findall(
+            r"\b1(?:ère|ere|er|re|r)|2(?:nd|nde)|\d+(?:º|ème|eme|e)\b", text)
     else:
-        logger.warn(f"Language {lang} not supported for normalization. Some words might be mis-localized.")
+        logger.warn(
+            f"Language {lang} not supported for normalization. Some words might be mis-localized.")
         digits = []
     if digits:
-        digits = sorted(list(set(digits)), reverse=True, key=lambda x: (len(x), x))
+        digits = sorted(list(set(digits)), reverse=True,
+                        key=lambda x: (len(x), x))
         for digit in digits:
-            word = undigit(re.findall(r"\d+", digit)[0], to= "ordinal", lang = lang)
+            word = undigit(re.findall(r"\d+", digit)
+                           [0], to="ordinal", lang=lang)
             text = re.sub(r'\b'+str(digit)+r'\b', word, text)
 
     # Cardinal digits
-    digits = re.findall(r"(?:\-?\b[\d/]*\d+(?: \d\d\d)+\b)|(?:\-?\d[/\d]*)",text)
+    digits = re.findall(
+        r"(?:\-?\b[\d/]*\d+(?: \d\d\d)+\b)|(?:\-?\d[/\d]*)", text)
     digits = list(map(lambda s: s.strip(r"[/ ]"), digits))
     digits = list(set(digits))
     digits = digits + flatten([c.split() for c in digits if " " in c])
@@ -90,8 +107,8 @@ def normalize_text(text: str, lang: str) -> str:
             continue
         numslash = len(re.findall("/", digitf))
         if numslash == 0:
-            word = undigit(digitf, lang = lang)
-        elif numslash == 1: # Fraction or date
+            word = undigit(digitf, lang=lang)
+        elif numslash == 1:  # Fraction or date
             i = digitf.index("/")
             is_date = False
             if len(digitf[i+1:]) == 2:
@@ -99,19 +116,22 @@ def normalize_text(text: str, lang: str) -> str:
                     first = int(digitf[:i])
                     second = int(digitf[i+1:])
                     is_date = first > 0 and first < 32 and second > 0 and second < 13
-                except: pass
+                except:
+                    pass
             if is_date:
                 first = digitf[:i].lstrip("0")
-                use_ordinal = (lang == "fr" and first == "1") or (lang != "fr" and first[-1] in ["1", "2", "3"])
-                first = undigit(first, lang = lang, to="ordinal" if use_ordinal else "cardinal")
+                use_ordinal = (lang == "fr" and first == "1") or (
+                    lang != "fr" and first[-1] in ["1", "2", "3"])
+                first = undigit(first, lang=lang,
+                                to="ordinal" if use_ordinal else "cardinal")
                 second = _int_to_month[second]
             else:
-                first = undigit(digitf[:i], lang = lang)
-                second = undigit(digitf[i+1:], to="denominator", lang = lang)
+                first = undigit(digitf[:i], lang=lang)
+                second = undigit(digitf[i+1:], to="denominator", lang=lang)
                 if float(digitf[:i]) > 2. and second[-1] != "s":
                     second += "s"
             word = first + " " + second
-        elif numslash == 2: # Maybe a date
+        elif numslash == 2:  # Maybe a date
             i1 = digitf.index("/")
             i2 = digitf.index("/", i1+1)
             is_date = False
@@ -121,18 +141,24 @@ def normalize_text(text: str, lang: str) -> str:
                     second = int(digitf[i1+1:i2])
                     third = int(digitf[i2+1:])
                     is_date = first > 0 and first < 32 and second > 0 and second < 13 and third > 1000
-                except: pass
-            third = undigit(digitf[i2+1:], lang = lang)
+                except:
+                    pass
+            third = undigit(digitf[i2+1:], lang=lang)
             if is_date:
                 first = digitf[:i].lstrip("0")
-                use_ordinal = (lang == "fr" and first == "1") or (lang != "fr" and first[-1] in ["1", "2", "3"])
-                first = undigit(first, lang = lang, to="ordinal" if use_ordinal else "cardinal")
-                second = _int_to_month.get(lang, {}).get(int(digitf[i1+1:i2]), digitf[i1+1:i2])
+                use_ordinal = (lang == "fr" and first == "1") or (
+                    lang != "fr" and first[-1] in ["1", "2", "3"])
+                first = undigit(first, lang=lang,
+                                to="ordinal" if use_ordinal else "cardinal")
+                second = _int_to_month.get(lang, {}).get(
+                    int(digitf[i1+1:i2]), digitf[i1+1:i2])
                 word = " ".join([first, second, third])
             else:
-                word = " / ".join([undigit(s, lang = lang) for s in digitf.split('/')])
+                word = " / ".join([undigit(s, lang=lang)
+                                  for s in digitf.split('/')])
         else:
-            word = " / ".join([undigit(s, lang = lang) for s in digitf.split('/')])
+            word = " / ".join([undigit(s, lang=lang)
+                              for s in digitf.split('/')])
         if " " in digit:
             text = re.sub(r'\b'+str(digit)+r'\b', " "+word+" ", text)
         else:
@@ -145,37 +171,52 @@ def normalize_text(text: str, lang: str) -> str:
 
     return collapse_whitespace(text)
 
+
 def undigit(str, lang, to="cardinal"):
-    str = re.sub(" ","", str)
+    str = re.sub(" ", "", str)
     if to == "denominator":
-        assert lang == "fr"
-        if str == "2": return "demi"
-        if str == "3": return "tiers"
-        if str == "4": return "quart"
+        if lang == "fr":
+            if str == "2":
+                return "demi"
+            if str == "3":
+                return "tiers"
+            if str == "4":
+                return "quart"
+        elif lang == "en":
+            if str == "2":
+                return "half"
+            if str == "4":
+                return "quarter"
+        elif lang == "es":
+            if str == "2":
+                return "mitad"
+            if str == "3":
+                return "tercio"
         to = "ordinal"
     if str.startswith("0") and to == "cardinal":
         numZeros = len(re.findall(r"0+", str)[0])
         if numZeros < len(str):
-            return numZeros * (my_num2words(0, lang=lang, to="cardinal")+" ") + my_num2words(float(str), lang=lang, to=to)
-    return my_num2words(float(str), lang=lang, to=to)
+            return numZeros * (robust_num2words(0, lang=lang)+" ") + robust_num2words(float(str), lang=lang, to=to)
+    return robust_num2words(float(str), lang=lang, to=to)
 
 
-def my_num2words(x, lang, to = "cardinal", orig = ""):
+def robust_num2words(x, lang, to="cardinal", orig=""):
     """
     Bugfix for num2words
     """
     try:
+        res = num2words(x, lang=lang, to=to)
         if lang == "fr" and to == "ordinal":
-            return num2words(x, lang=lang, to=to).replace("vingtsième", "vingtième")
-        else:
-            return num2words(x, lang=lang, to=to)
+            res = res.replace("vingtsième", "vingtième")
+        return res
     except OverflowError:
-        if x == math.inf: # !
-            return " ".join(my_num2words(xi, lang=lang, to=to) for xi in orig)
-        if x == -math.inf: # !
-            return "moins " + my_num2words(-x, lang=lang, to=to, orig=orig.replace("-" , ""))
+        if x == math.inf:  # !
+            return " ".join(robust_num2words(xi, lang=lang, to=to) for xi in orig)
+        if x == -math.inf:  # !
+            return "moins " + robust_num2words(-x, lang=lang, to=to, orig=orig.replace("-", ""))
         # TODO: print a warning
-        return my_num2words(x//10, lang=lang, to=to)
+        return robust_num2words(x//10, lang=lang, to=to)
+
 
 def roman_to_decimal(str):
     def value(r):
@@ -214,6 +255,7 @@ def roman_to_decimal(str):
             i = i + 1
     return res
 
+
 _int_to_month = {
     "fr": {
         1: "janvier",
@@ -251,10 +293,10 @@ _symbol_to_word = {
     "fr": {
         "%": "pour cents",
         "÷": "divisé par",
-        "\*": "fois", # ?
+        "\*": "fois",  # ?
         "×": "fois",
         "±": "plus ou moins",
-        "\+": "plus",        
+        "\+": "plus",
         "&": "et",
         "@": "arobase",
         "m²": "mètres carrés",
@@ -275,15 +317,15 @@ _symbol_to_word = {
         "£": "livres",
         "¥": "yens",
         # Below: not in Whisper tokens
-        #"₩": "wons",
-        #"₽": "roubles",
-        #"₹": "roupies",
-        #"₺": "liras",
-        #"₪": "shekels",
-        #"₴": "hryvnias",
-        #"₮": "tugriks",
-        #"℃": "degrés Celsius",
-        #"℉": "degrés Fahrenheit",
+        # "₩": "wons",
+        # "₽": "roubles",
+        # "₹": "roupies",
+        # "₺": "liras",
+        # "₪": "shekels",
+        # "₴": "hryvnias",
+        # "₮": "tugriks",
+        # "℃": "degrés Celsius",
+        # "℉": "degrés Fahrenheit",
         # "Ω": "ohms",
         # "Ω": "ohms",
         # "K": "kelvins",
@@ -292,7 +334,7 @@ _symbol_to_word = {
     "en": {
         "%": "percent",
         "÷": "divided by",
-        "\*": "times", # ?
+        "\*": "times",  # ?
         "×": "times",
         "±": "plus or minus",
         "\+": "plus",
@@ -317,4 +359,3 @@ _symbol_to_word = {
         "¥": "yens",
     }
 }
-
