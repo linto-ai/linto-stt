@@ -29,7 +29,7 @@ if get_default_language() not in available_languages:
     raise RuntimeError(f"Langaue {get_default_language()} is not available. Available languages are: {available_languages}")
 
 # Load ASR model
-model_type = os.environ.get("MODEL_TYPE", "medium")
+model_type = os.environ.get("MODEL", "medium")
 logger.info(f"Loading Whisper model {model_type} ({'local' if os.path.isfile(model_type) else 'remote'})...")
 start = time()
 try:

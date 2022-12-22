@@ -66,11 +66,31 @@ cp .envdefault .env
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
 | SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | http\|task\|websocket |
-| MODEL_TYPE | Path to the model or type of model used. | ASR_PATH\|small\|medium\|large-v1\|... |
+| MODEL | Path to the model or type of model used. | ASR_PATH\|small\|medium\|large-v1\|... |
+| LANGUAGE | (Optional) Language to recognize | fr\|en\|... |
 | SERVICE_NAME | Using the task mode, set the queue's name for task processing | my-stt |
 | SERVICE_BROKER | Using the task mode, URL of the message broker | redis://my-broker:6379 |
 | BROKER_PASS | Using the task mode, broker password | my-password |
 | CONCURRENCY | Maximum number of parallel requests | >1 |
+
+The language is a code of two or three letters. The list of languages supported by Whisper are:
+```
+af(afrikaans), am(amharic), ar(arabic), as(assamese), az(azerbaijani),
+ba(bashkir), be(belarusian), bg(bulgarian), bn(bengali), bo(tibetan), br(breton), bs(bosnian),
+ca(catalan), cs(czech), cy(welsh), da(danish), de(german), el(greek), en(english), es(spanish),
+et(estonian), eu(basque), fa(persian), fi(finnish), fo(faroese), fr(french), gl(galician),
+gu(gujarati), ha(hausa), haw(hawaiian), he(hebrew), hi(hindi), hr(croatian), ht(haitian creole),
+hu(hungarian), hy(armenian), id(indonesian), is(icelandic), it(italian), ja(japanese),
+jw(javanese), ka(georgian), kk(kazakh), km(khmer), kn(kannada), ko(korean), la(latin),
+lb(luxembourgish), ln(lingala), lo(lao), lt(lithuanian), lv(latvian), mg(malagasy), mi(maori),
+mk(macedonian), ml(malayalam), mn(mongolian), mr(marathi), ms(malay), mt(maltese), my(myanmar),
+ne(nepali), nl(dutch), nn(nynorsk), no(norwegian), oc(occitan), pa(punjabi), pl(polish),
+ps(pashto), pt(portuguese), ro(romanian), ru(russian), sa(sanskrit), sd(sindhi), si(sinhala),
+sk(slovak), sl(slovenian), sn(shona), so(somali), sq(albanian), sr(serbian), su(sundanese),
+sv(swedish), sw(swahili), ta(tamil), te(telugu), tg(tajik), th(thai), tk(turkmen), tl(tagalog),
+tr(turkish), tt(tatar), uk(ukrainian), ur(urdu), uz(uzbek), vi(vietnamese), yi(yiddish),
+yo(yoruba), zh(chinese)
+```
 
 ### Serving mode 
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
@@ -122,9 +142,8 @@ docker run --rm \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
 --env-file .env \
 linto-platform-stt:latest
-```
+```| LANGUAGE | (Optional) Language to recognize | fr\|en\|... |
 
-**Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
 | ASR_PATH | (Optional) Path to the Whisper model on the host machine to /opt/model.pt | /my/path/to/models/medium.pt |
