@@ -72,7 +72,7 @@ def loose_get_char_index(dictionary, c, default = None):
                         i = candidate
         # If still not found
         if i is None:
-            logger.warn("Cannot find label " + " / ".join(list(set([c] + other_char))))
+            logger.warn("Character not correctly handled by alignment model: '" + "' / '".join(list(set([c] + other_char))) + "'")
             i = [default] if default is not None else []
     else:
         i = [i]
