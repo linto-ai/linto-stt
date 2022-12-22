@@ -38,3 +38,9 @@ def load_wave_buffer(file_buffer):
     audio = torch.from_numpy(file_content.data.astype(np.float32)/32768)
     audio = audio.transpose(0,1)
     return conform_audio(audio, sample_rate)
+
+def flatten(l):
+    """
+    flatten a list of lists
+    """
+    return [item for sublist in l for item in sublist]
