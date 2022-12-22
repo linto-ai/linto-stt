@@ -1,3 +1,6 @@
+# 4.0.0
+- Integration of Whisper
+
 # 3.3.1
 - Fixed lin_to_vosk throwing an error on a already existing container.
 - Corrected an error on the README regarding mounting model volumes. 

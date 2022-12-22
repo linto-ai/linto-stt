@@ -11,8 +11,7 @@ from flask_sock import Sock
 from serving import GunicornServing
 from swagger import setupSwaggerUI
 
-from stt.processing import decode, formatAudio, model
-from stt.processing.streaming import ws_streaming
+from stt.processing import decode, load_wave_buffer, model, alignment_model
 
 app = Flask("__stt-standalone-worker__")
 app.config["JSON_AS_ASCII"] = False
@@ -23,16 +22,6 @@ logging.basicConfig(
     datefmt="%d/%m/%Y %H:%M:%S",
 )
 logger = logging.getLogger("__stt-standalone-worker__")
-
-# If websocket streaming route is enabled
-if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
-    logger.info("Init websocket serving ...")
-    sock = Sock(app)
-    logger.info("Streaming is enabled")
-
-    @sock.route("/streaming")
-    def streaming(web_socket):
-        ws_streaming(web_socket, model)
 
 
 @app.route("/healthcheck", methods=["GET"])
@@ -63,11 +52,11 @@ def transcribe():
         # get input file
         if "file" in request.files.keys():
             file_buffer = request.files["file"].read()
-            audio_data, sampling_rate = formatAudio(file_buffer)
+            audio_data = load_wave_buffer(file_buffer)
             start_t = time()
 
             # Transcription
-            transcription = decode(audio_data, model, sampling_rate, join_metadata)
+            transcription = decode(audio_data, model, alignment_model, join_metadata)
             logger.debug("Transcription complete (t={}s)".format(time() - start_t))
 
             logger.debug("... Complete")
