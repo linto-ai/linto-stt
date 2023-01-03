@@ -8,6 +8,7 @@ num2words
 pyyaml>=5.4.1
 requests>=2.26.0
 speechbrain
+transformers
 wavio>=0.0.4
 websockets
 git+https://github.com/openai/whisper.git

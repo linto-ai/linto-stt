@@ -4,6 +4,29 @@ import os
 import requests
 import huggingface_hub
 import speechbrain as sb
+import transformers
+import torchaudio
+
+# Source: https://github.com/m-bain/whisperX (in whisperx/transcribe.py)
+ALIGNMENT_MODELS = {
+    "fr": "/opt/linSTT_speechbrain_fr-FR_v1.0.0",
+    # "fr": "VOXPOPULI_ASR_BASE_10K_FR",
+    "en": "WAV2VEC2_ASR_BASE_960H",
+    # "en": "jonatasgrosman/wav2vec2-large-xlsr-53-english",
+    "de": "VOXPOPULI_ASR_BASE_10K_DE",
+    "es": "VOXPOPULI_ASR_BASE_10K_ES",
+    "it": "VOXPOPULI_ASR_BASE_10K_IT",
+    "nl": "jonatasgrosman/wav2vec2-large-xlsr-53-dutch",
+    "ja": "jonatasgrosman/wav2vec2-large-xlsr-53-japanese",
+    "zh": "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn",
+    "uk": "Yehor/wav2vec2-xls-r-300m-uk-with-small-lm",
+}
+
+
+def get_alignment_model(language):
+    source = os.environ.get("ALIGNMENT_MODEL")
+    if not source:
+        return ALIGNMENT_MODELS.get(language, ALIGNMENT_MODELS["fr"])
 
 
 def load_whisper_model(model_type_or_file, device="cpu", download_root="/opt"):
@@ -14,6 +37,20 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root="/opt"):
     model.eval()
     model.requires_grad_(False)
     return model
+
+
+def load_alignment_model(source, device="cpu", download_root="/opt"):
+
+    if source in torchaudio.pipelines.__all__:
+        return load_torchaudio_model(source, device=device, download_root=download_root)
+    try:
+        return load_transformers_model(source, device=device, download_root=download_root)
+    except Exception as err1:
+        try:
+            return load_speechbrain_model(source, device=device, download_root=download_root)
+        except Exception as err2:
+            raise Exception(
+                f"Failed to load alignment model:\n<<< transformers <<<\n{str(err1)}\n<<< speechbrain <<<\n{str(err2)}") from err2
 
 
 def load_speechbrain_model(source, device="cpu", download_root="/opt"):
@@ -42,6 +79,36 @@ def load_speechbrain_model(source, device="cpu", download_root="/opt"):
     model.train(False)
     model.requires_grad_(False)
     return model
+
+
+def load_transformers_model(source, device="cpu", download_root="/opt"):
+
+    model = transformers.Wav2Vec2ForCTC.from_pretrained(source).to(device)
+    processor = transformers.Wav2Vec2Processor.from_pretrained(source)
+
+    model.eval()
+    model.requires_grad_(False)
+    return model, processor
+
+
+def load_torchaudio_model(source, device="cpu", download_root="/opt"):
+
+    bundle = torchaudio.pipelines.__dict__[source]
+    model = bundle.get_model().to(device)
+    labels = bundle.get_labels()
+
+    model.eval()
+    model.requires_grad_(False)
+    return model, labels
+
+
+def get_model_type(model):
+    if not isinstance(model, tuple):
+        return "speechbrain"
+    assert len(model) == 2, "Invalid model type"
+    if isinstance(model[0], transformers.Wav2Vec2ForCTC):
+        return "transformers"
+    return "torchaudio"
 
 
 def make_yaml_overrides(yaml_file, key_values):

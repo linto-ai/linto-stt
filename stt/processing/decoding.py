@@ -9,12 +9,13 @@ import torch
 from stt import logger
 from .word_alignment import compute_alignment
 from .text_normalize import remove_punctuation, normalize_text, remove_emoji
+from .load_model import load_alignment_model, get_alignment_model
 
 # TODO: understand and remove this limitations
 torch.set_num_threads(1)
 
 
-def get_default_language():
+def get_language():
     return os.environ.get("LANGUAGE", None)
 
 
@@ -36,7 +37,7 @@ def decode(audio: torch.Tensor,
     fp16 = model.device != torch.device("cpu")
 
     if language is None:
-        language = get_default_language()
+        language = get_language()
 
     logger.info(f"Transcribing audio with language {language}...")
 
@@ -59,6 +60,8 @@ def decode(audio: torch.Tensor,
     segments = whisper_res["segments"]
     if language is None:
         language = whisper_res["language"]
+    if alignment_model is None:
+        alignment_model = load_alignment_model(get_alignment_model(language), device=model.device)
 
     result["text"] = text
     result["confidence-score"] = np.exp(np.array([r["avg_logprob"]

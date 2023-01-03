@@ -5,8 +5,7 @@ from dataclasses import dataclass
 import torch
 
 from stt import logger
-from .alignment_model import speechbrain_compute_log_probas as compute_log_probas
-from .alignment_model import speechbrain_get_vocab as get_vocab
+from .alignment_model import compute_logprobas, get_vocab
 from .utils import flatten
 from .text_normalize import transliterate
 
@@ -14,10 +13,9 @@ from .text_normalize import transliterate
 def compute_alignment(audio, transcript, model):
     """ Compute the alignment of the audio and a transcript, for a given model that returns log-probabilities on the charset defined the transcript."""
 
-    emission = compute_log_probas(model, audio)
+    emission = compute_logprobas(model, audio)
     labels, blank_id = get_vocab(model)
     labels = labels[:emission.shape[1]]
-    labels[blank_id] = " "
     dictionary = {c: i for i, c in enumerate(labels)}
 
     default = labels.index("-") if "-" in labels else None

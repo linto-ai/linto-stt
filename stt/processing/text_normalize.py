@@ -169,6 +169,8 @@ def normalize_text(text: str, lang: str) -> str:
     for k, v in symbol_table.items():
         text = re.sub(k, " "+v+" ", text)
 
+    text = re.sub(r" \.",".", text)
+
     return collapse_whitespace(text)
 
 

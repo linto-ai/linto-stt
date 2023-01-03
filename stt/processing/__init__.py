@@ -6,13 +6,16 @@ import torch
 import whisper
 
 from stt import logger
-from stt.processing.decoding import decode, get_default_language
+from stt.processing.decoding import decode, get_language
 from stt.processing.utils import load_wave_buffer, load_audiofile
 
-from .load_model import load_whisper_model, load_speechbrain_model
+from .load_model import load_whisper_model, load_alignment_model, get_alignment_model, get_model_type
 
 __all__ = ["logger", "decode", "model", "alignment_model",
            "load_audiofile", "load_wave_buffer"]
+
+# Set informative log
+logger.setLevel(logging.INFO)
 
 # Set device
 device = os.environ.get(
@@ -23,11 +26,12 @@ except Exception as err:
     raise Exception("Failed to set device: {}".format(str(err))) from err
 
 # Check language
+language = get_language()
 available_languages = [
     k for k, v in whisper.tokenizer.LANGUAGES.items()] + [None]
-if get_default_language() not in available_languages:
+if language not in available_languages:
     raise RuntimeError(
-        f"Language {get_default_language()} is not available. Available languages are: {available_languages}")
+        f"Language {get_language()} is not available. Available languages are: {available_languages}")
 
 # Load ASR model
 model_type = os.environ.get("MODEL", "medium")
@@ -42,10 +46,9 @@ except Exception as err:
 logger.info("Model loaded. (t={}s)".format(time() - start))
 
 # Load alignment model
-alignment_model_type = os.environ.get(
-    "ALIGNMENT_MODEL_TYPE", "/opt/linSTT_speechbrain_fr-FR_v1.0.0")
-logger.info(f"Loading alignment model...")
+alignment_model_name = get_alignment_model(language)
+logger.info(f"Loading alignment model {alignment_model_name} ({'local' if os.path.isfile(alignment_model_name) else 'remote'})...")
 start = time()
-alignment_model = load_speechbrain_model(
-    alignment_model_type, device=device, download_root="/opt")
-logger.info("Alignment Model loaded. (t={}s)".format(time() - start))
+alignment_model = load_alignment_model(
+    alignment_model_name, device=device, download_root="/opt")
+logger.info(f"Alignment Model of type {get_model_type(alignment_model)} loaded. (t={time() - start}s)")
