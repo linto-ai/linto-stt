@@ -76,6 +76,17 @@ def decode(audio: torch.Tensor,
         # Compute word timestamps
         result["words"] = []
         max_t = audio.shape[0]
+
+        # Ensure that the segments start / end time are increasing
+        # (because there is no guarantee with Whisper)
+        previous_start = 0.0
+        for segment in segments:
+            if segment["start"] < previous_start:
+                segment["start"] = previous_start
+            if segment["end"] <= segment["start"]:
+                segment["end"] = segment["start"] + 1.0
+            previous_start = segment["end"]
+
         for segment in segments:
             offset = segment["start"]
             start = min(max_t, round(segment["start"] * SAMPLE_RATE))
