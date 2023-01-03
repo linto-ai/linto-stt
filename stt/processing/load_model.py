@@ -7,6 +7,9 @@ import speechbrain as sb
 import transformers
 import torchaudio
 
+import time
+from stt import logger
+
 # Source: https://github.com/m-bain/whisperX (in whisperx/transcribe.py)
 ALIGNMENT_MODELS = {
     "fr": "/opt/linSTT_speechbrain_fr-FR_v1.0.0",
@@ -26,31 +29,43 @@ ALIGNMENT_MODELS = {
 def get_alignment_model(language):
     source = os.environ.get("ALIGNMENT_MODEL")
     if not source:
-        return ALIGNMENT_MODELS.get(language, ALIGNMENT_MODELS["fr"])
+        return ALIGNMENT_MODELS.get(language, None)
 
 
 def load_whisper_model(model_type_or_file, device="cpu", download_root="/opt"):
+
+    start = time.time()
 
     model = whisper.load_model(model_type_or_file, device=device,
                                download_root=os.path.join(download_root, "whisper"))
 
     model.eval()
     model.requires_grad_(False)
+
+    logger.info("Whisper Model loaded. (t={}s)".format(time.time() - start))
+
     return model
 
 
 def load_alignment_model(source, device="cpu", download_root="/opt"):
 
+    start = time.time()
+
     if source in torchaudio.pipelines.__all__:
-        return load_torchaudio_model(source, device=device, download_root=download_root)
-    try:
-        return load_transformers_model(source, device=device, download_root=download_root)
-    except Exception as err1:
+        model = load_torchaudio_model(source, device=device, download_root=download_root)
+    else:
         try:
-            return load_speechbrain_model(source, device=device, download_root=download_root)
-        except Exception as err2:
-            raise Exception(
-                f"Failed to load alignment model:\n<<< transformers <<<\n{str(err1)}\n<<< speechbrain <<<\n{str(err2)}") from err2
+            model = load_transformers_model(source, device=device, download_root=download_root)
+        except Exception as err1:
+            try:
+                model = load_speechbrain_model(source, device=device, download_root=download_root)
+            except Exception as err2:
+                raise Exception(
+                    f"Failed to load alignment model:\n<<< transformers <<<\n{str(err1)}\n<<< speechbrain <<<\n{str(err2)}") from err2
+
+    logger.info(f"Alignment Model of type {get_model_type(model)} loaded. (t={time.time() - start}s)")
+
+    return model
 
 
 def load_speechbrain_model(source, device="cpu", download_root="/opt"):

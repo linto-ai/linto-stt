@@ -1,6 +1,5 @@
 import os
 import logging
-from time import time
 
 import torch
 import whisper
@@ -35,20 +34,20 @@ if language not in available_languages:
 
 # Load ASR model
 model_type = os.environ.get("MODEL", "medium")
-logger.info(
-    f"Loading Whisper model {model_type} ({'local' if os.path.isfile(model_type) else 'remote'})...")
-start = time()
+logger.info(f"Loading Whisper model {model_type} ({'local' if os.path.exists(model_type) else 'remote'})...")
 try:
     model = load_whisper_model(model_type, device=device)
 except Exception as err:
     raise Exception(
         "Failed to load transcription model: {}".format(str(err))) from err
-logger.info("Model loaded. (t={}s)".format(time() - start))
 
 # Load alignment model
 alignment_model_name = get_alignment_model(language)
-logger.info(f"Loading alignment model {alignment_model_name} ({'local' if os.path.isfile(alignment_model_name) else 'remote'})...")
-start = time()
-alignment_model = load_alignment_model(
-    alignment_model_name, device=device, download_root="/opt")
-logger.info(f"Alignment Model of type {get_model_type(alignment_model)} loaded. (t={time() - start}s)")
+if alignment_model_name:
+    logger.info(
+        f"Loading alignment model {alignment_model_name} ({'local' if os.path.exists(alignment_model_name) else 'remote'})...")
+    alignment_model = load_alignment_model(
+        alignment_model_name, device=device, download_root="/opt")
+else:
+    logger.info("No alignment model preloaded")
+    alignment_model = {}  # Alignement model(s) will be loaded on the fly

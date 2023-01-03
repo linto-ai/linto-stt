@@ -60,8 +60,16 @@ def decode(audio: torch.Tensor,
     segments = whisper_res["segments"]
     if language is None:
         language = whisper_res["language"]
-    if alignment_model is None:
-        alignment_model = load_alignment_model(get_alignment_model(language), device=model.device)
+        logger.info(f"Detected language: {language}")
+    if isinstance(alignment_model, dict):
+        # Load alignment model on the fly
+        if language not in alignment_model:
+            alignment_model_name = get_alignment_model(language)
+            logger.info(f"Loading alignment model {alignment_model_name} ({'local' if os.path.exists(alignment_model_name) else 'remote'})...")
+            alignment_model[language] = load_alignment_model(alignment_model_name, device=model.device, download_root="/opt")
+        spec_alignment_model = alignment_model[language]
+    else:
+        spec_alignment_model = alignment_model
 
     result["text"] = text
     result["confidence-score"] = np.exp(np.array([r["avg_logprob"]
@@ -103,7 +111,7 @@ def decode(audio: torch.Tensor,
                     f"Lost text in segment {segment['start']}-{segment['end']}")
                 continue
             labels, emission, trellis, segments, word_segments = compute_alignment(
-                sub_audio, sub_text, alignment_model)
+                sub_audio, sub_text, spec_alignment_model)
             ratio = len(sub_audio) / (trellis.size(0) * SAMPLE_RATE)
             sub_words = sub_text.split()
             if len(sub_words) == len(word_segments):
