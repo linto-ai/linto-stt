@@ -1,4 +1,5 @@
-import os 
+import os
+import shutil
 import urllib.request
 import zipfile
 
@@ -14,7 +15,9 @@ def load_alignment_model(name, download_root = "/opt"):
             # Download model
             url = f"https://dl.linto.ai/downloads/model-distribution/acoustic-models/fr-FR/{name}.zip"
             destzip = destdir+".zip"
-            if not os.path.exists(destzip):
+            if os.path.exists(os.path.basename(destzip)):
+                shutil.move(os.path.basename(destzip), destzip)
+            if not os.path.exists(destzip):                
                 print("Downloading", url, "into", destdir)
                 os.makedirs(download_root, exist_ok=True)
                 urllib.request.urlretrieve(url, destzip)
