@@ -12,21 +12,23 @@ To run the transcription models you'll need:
 * One CPU per worker. Inference time scales on CPU performances. 
 
 ### Model
-LinTO-Platform-STT accepts one Whisper models in the PyTorch format.
+LinTO-Platform-STT works with two models:
+* A Whisper model to perform Automatic Speech Recognition, which must be in the PyTorch format.
+* A wav2vec model to perform word alignment, which can be in the format of SpeechBrain, HuggingFace's Transformers or TorchAudio
 
-You can download mutli-lingual models with the following links:
-* tiny: "https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt
-* base: https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt
-* small: https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt
-* medium: https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt
-* large-v1: https://openaipublic.azureedge.net/main/whisper/models/e4b87e7e0bf463eb8e6956e646f1e277e901512310def2c24bf0e11bd3c28e9a/large-v1.pt
-* large-v2: https://openaipublic.azureedge.net/main/whisper/models/81f7c96c852ee8fc832187b0132e569d6c3065a3252ed18e56effd0b6a73e524/large-v2.pt
+The wav2vec model can be specified either
+* with a string corresponding to a `torchaudio` pipeline (e.g. "WAV2VEC2_ASR_BASE_960H") or
+* with a string corresponding to a HuggingFace repository of a wav2vec model (e.g. "jonatasgrosman/wav2vec2-large-xlsr-53-english"), or
+* with a path corresponding to a folder with a SpeechBrain model
 
-Models specialized for English can also be found:
-* tiny.en: "https://openaipublic.azureedge.net/main/whisper/models/d3dd57d32accea0b295c96e26691aa14d8822fac7d9d27d5dc00b4ca2826dd03/tiny.en.pt
-* base.en: https://openaipublic.azureedge.net/main/whisper/models/25a8566e1d0c1e2231d1c762132cd20e0f96a85d16145c3a00adf5d1ac670ead/base.en.pt
-* small.en: https://openaipublic.azureedge.net/main/whisper/models/f953ad0fd29cacd07d5a9eda5624af0f6bcf2258be67c92b79389873d91e0872/small.en.pt
-* medium.en: https://openaipublic.azureedge.net/main/whisper/models/d7440d1dc186f76616474e0ff0b3b6b879abc9d1a4926b7adfa41db2d497ab4f/medium.en.pt
+Default models are provided for the following languages:
+* French (fr)
+* English (en)
+* Spanish (es)
+* German (de)
+* Dutch (nl)
+* Japanese (ja)
+* Chinese (zh)
 
 ### Docker
 The transcription service requires docker up and running.
@@ -48,14 +50,29 @@ or
 
 ```bash
 docker pull lintoai/linto-platform-stt
-``` with the following links
+```
 
 **2- Download the models**
 
 Have the Whisper model file ready at ASR_PATH.
 
-You can downloaded with the links mentioned above, if you don't have already a Whisper model.
 If you already used Whisper in the past, you may have models in ~/.cache/whisper.
+
+You can download mutli-lingual Whisper models with the following links:
+* tiny: "https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt
+* base: https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt
+* small: https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt
+* medium: https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt
+* large-v1: https://openaipublic.azureedge.net/main/whisper/models/e4b87e7e0bf463eb8e6956e646f1e277e901512310def2c24bf0e11bd3c28e9a/large-v1.pt
+* large-v2: https://openaipublic.azureedge.net/main/whisper/models/81f7c96c852ee8fc832187b0132e569d6c3065a3252ed18e56effd0b6a73e524/large-v2.pt
+
+Whisper models specialized for English can also be found here:
+* tiny.en: "https://openaipublic.azureedge.net/main/whisper/models/d3dd57d32accea0b295c96e26691aa14d8822fac7d9d27d5dc00b4ca2826dd03/tiny.en.pt
+* base.en: https://openaipublic.azureedge.net/main/whisper/models/25a8566e1d0c1e2231d1c762132cd20e0f96a85d16145c3a00adf5d1ac670ead/base.en.pt
+* small.en: https://openaipublic.azureedge.net/main/whisper/models/f953ad0fd29cacd07d5a9eda5624af0f6bcf2258be67c92b79389873d91e0872/small.en.pt
+* medium.en: https://openaipublic.azureedge.net/main/whisper/models/d7440d1dc186f76616474e0ff0b3b6b879abc9d1a4926b7adfa41db2d497ab4f/medium.en.pt
+
+If may also want to download a specific wav2vec model for word alignment.
 
 **3- Fill the .env**
 
@@ -65,8 +82,9 @@ cp .envdefault .env
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
-| SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | http\|task\|websocket |
-| MODEL | Path to the model or type of model used. | ASR_PATH\|small\|medium\|large-v1\|... |
+| SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | http\|task |
+| MODEL | Path to the Whisper model, or type of Whisper model used. | ASR_PATH\|small\|medium\|large-v1\|... |
+| ALIGNMENT_MODEL | (Optional) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | WAV2VEC_PATH\|jonatasgrosman/wav2vec2-large-xlsr-53-english\|WAV2VEC2_ASR_BASE_960H |
 | LANGUAGE | (Optional) Language to recognize | fr\|en\|... |
 | SERVICE_NAME | Using the task mode, set the queue's name for task processing | my-stt |
 | SERVICE_BROKER | Using the task mode, URL of the message broker | redis://my-broker:6379 |
@@ -95,10 +113,9 @@ yo(yoruba), zh(chinese)
 ### Serving mode 
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
 
-STT can be used three ways:
+STT can be used in two ways:
 * Through an [HTTP API](#http-server) using the **http**'s mode.
 * Through a [message broker](#micro-service-within-linto-platform-stack) using the **task**'s mode.
-* Through a [websocket server](#websocket-server) **websocket**'s mode.
 
 Mode is specified using the .env value or environment variable ```SERVING_MODE```.
 ```bash
@@ -119,11 +136,20 @@ linto-platform-stt:latest
 
 This will run a container providing an [HTTP API](#http-api) binded on the host HOST_SERVING_PORT port.
 
+You may also want to mount your cache folder CACHE_PATH (e.g. "~/.cache") ```-v CACHE_PATH:/root/.cache```
+in order to avoid downloading models each time.
+
+Also if you want to specifiy a custom alignment model already downloaded in a folder WAV2VEC_PATH,
+you can add option ```-v WAV2VEC_PATH:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
+
+
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
 | HOST_SERVING_PORT | Host serving port | 80 |
-| ASR_PATH | (Optional) Path to the Whisper model on the host machine to /opt/model.pt | /my/path/to/models/medium.pt |
+| ASR_PATH | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
+| CACHE_PATH | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| WAV2VEC_PATH | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
 ### Micro-service within LinTO-Platform stack
 The HTTP serving mode connect a celery worker to a message broker.
@@ -142,12 +168,20 @@ docker run --rm \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
 --env-file .env \
 linto-platform-stt:latest
-```| LANGUAGE | (Optional) Language to recognize | fr\|en\|... |
+```
+
+You may also want to mount your cache folder CACHE_PATH (e.g. "~/.cache") ```-v CACHE_PATH:/root/.cache```
+in order to avoid downloading models each time.
+
+Also if you want to specifiy a custom alignment model already downloaded in a folder WAV2VEC_PATH,
+you can add option ```-v WAV2VEC_PATH:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
 
 | Variables | Description | Example |
 |:-|:-|:-|
-| ASR_PATH | (Optional) Path to the Whisper model on the host machine to /opt/model.pt | /my/path/to/models/medium.pt |
 | SHARED_AUDIO_FOLDER | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
+| ASR_PATH | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
+| CACHE_PATH | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| WAV2VEC_PATH | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
 
 ## Usages
