@@ -151,6 +151,8 @@ def compute_logits_transformers(model_and_processor, audios, max_len):
 
     l = padded_batch.input_values.shape[1]
 
+    use_mask = hasattr(padded_batch, "attention_mask")
+
     with torch.inference_mode():
         if l > max_len:
             # Split batch in smaller chunks
@@ -159,12 +161,17 @@ def compute_logits_transformers(model_and_processor, audios, max_len):
             logits = []
             for i in range(0, l, max_len):
                 j = min(i + max_len, l)
-                logits.append(model(padded_batch.input_values[:, i:j].to(device),
+                if use_mask:
+                    logits.append(model(padded_batch.input_values[:, i:j].to(device),
                                     attention_mask=padded_batch.attention_mask[:, i:j].to(device)).logits)
+                else:
+                    logits.append(model(padded_batch.input_values[:, i:j].to(device)).logits)
             logits = torch.cat(logits, dim=1)
-        else:
+        elif use_mask:
             logits = model(padded_batch.input_values.to(device),
                            attention_mask=padded_batch.attention_mask.to(device)).logits
+        else:
+            logits = model(padded_batch.input_values.to(device)).logits
 
     return logits.cpu().detach()
 
