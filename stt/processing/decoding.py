@@ -115,22 +115,34 @@ def decode(audio: torch.Tensor,
             ratio = len(sub_audio) / (trellis.size(0) * SAMPLE_RATE)
             sub_words = sub_text.split()
             if len(sub_words) == len(word_segments):
-                for word, segment in zip(sub_words, word_segments):
+                for word, seg in zip(sub_words, word_segments):
                     result["words"].append({
                         "word": word,
-                        "start": segment.start * ratio + offset,
-                        "end": segment.end * ratio + offset,
-                        "conf": segment.score,
+                        "start": seg.start * ratio + offset,
+                        "end": seg.end * ratio + offset,
+                        "conf": seg.score,
                     })
             else:
                 logger.warn(
-                    f"Alignment failed. Results might differ on some words.\nNumber of words: {len(sub_words)} != {len(word_segments)}\n>>>\n{sub_words}\n<<<\n{[segment.label for segment in word_segments]}")
-                for segment in word_segments:
+                    f"Alignment failed. Some words might be mis-rendered.\nNumber of words: {len(sub_words)} != {len(word_segments)}\n>>>\n{sub_words}\n<<<\n{[segment.label for segment in word_segments]}")
+                for seg in word_segments:
                     result["words"].append({
-                        "word": segment.label,
-                        "start": segment.start * ratio + offset,
-                        "end": segment.end * ratio + offset,
-                        "conf": segment.score,
+                        "word": seg.label,
+                        "start": seg.start * ratio + offset,
+                        "end": seg.end * ratio + offset,
+                        "conf": seg.score,
                     })
+            # Glue the words inside a segment
+            previous_start = offset
+            words = result["words"]
+            for i, word in enumerate(words):
+                if i == 0:
+                    word["start"] = segment["start"]
+                else:
+                    word["start"] = words[i-1]["end"]
+                if i == len(words) - 1:
+                    word["end"] = segment["end"]
+                else:
+                    word["end"] = .5 * (words[i+1]["start"] + word["end"])
 
     return result
