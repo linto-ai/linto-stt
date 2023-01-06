@@ -174,6 +174,12 @@ def compute_logits_torchaudio(model_and_labels, audios, max_len):
 
     model, _ = model_and_labels
 
+    # Get the device where is running the model
+    device = "cpu"
+    for p in model.parameters():
+        device = p.device
+        break
+    
     all_logits = []
 
     with torch.inference_mode():
@@ -186,10 +192,10 @@ def compute_logits_torchaudio(model_and_labels, audios, max_len):
                 logits = []
                 for i in range(0, l, max_len):
                     j = min(i + max_len, l)
-                    logits.append(model(audio[i:j].unsqueeze(0))[0])
+                    logits.append(model(audio[i:j].unsqueeze(0).to(device))[0])
                 logits = torch.cat(logits, dim=1)
             else:
-                logits, _ = model(audio.unsqueeze(0))
+                logits, _ = model(audio.unsqueeze(0).to(device))
 
             all_logits.append(logits.cpu().detach())
 
