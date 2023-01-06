@@ -44,6 +44,7 @@ def remove_emoji(text):
 def normalize_text(text: str, lang: str) -> str:
     """ Transform digits into characters... """
 
+
     # Reorder currencies (1,20€ -> 1 € 20)
     coma = "," if lang in ["fr"] else "\."
     for c in _currencies:
@@ -62,12 +63,14 @@ def normalize_text(text: str, lang: str) -> str:
                 r"\b(?=[XVI])M*(XX{0,3})(I[XV]|V?I{0,3})(º|ème|eme|e|er|ère)?\b", text)
             digits = ["".join(d) for d in digits]
         else:
-            digits = []
+            digits = re.findall(
+                r"\b(?=[XVI])M*(XX{0,3})(I[XV]|V?I{0,3})\b", text)
+            digits = ["".join(d) for d in digits]
         if digits:
             digits = sorted(list(set(digits)), reverse=True,
                             key=lambda x: (len(x), x))
             for s in digits:
-                filtered = re.sub("[a-z]", "", s)
+                filtered = re.sub("[a-zèº]", "", s)
                 ordinal = filtered != s
                 digit = roman_to_decimal(filtered)
                 v = undigit(str(digit), lang=lang,
@@ -83,7 +86,7 @@ def normalize_text(text: str, lang: str) -> str:
             r"\b1(?:ère|ere|er|re|r)|2(?:nd|nde)|\d+(?:º|ème|eme|e)\b", text)
     else:
         logger.warn(
-            f"Language {lang} not supported for normalization. Some words might be mis-localized.")
+            f"Language {lang} not supported for some normalization. Some words might be mis-localized.")
         digits = []
     if digits:
         digits = sorted(list(set(digits)), reverse=True,
