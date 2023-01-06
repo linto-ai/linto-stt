@@ -11,7 +11,7 @@ from .word_alignment import compute_alignment
 from .text_normalize import remove_punctuation, normalize_text, remove_emoji
 from .load_model import load_alignment_model, get_alignment_model
 
-# TODO: understand and remove this limitations
+# This is to avoid hanging in a multi-threaded environment
 torch.set_num_threads(1)
 
 

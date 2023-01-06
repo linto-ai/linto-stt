@@ -9,6 +9,7 @@ from .alignment_model import compute_logprobas, get_vocab
 from .utils import flatten
 from .text_normalize import transliterate
 
+_unknown_chars = []
 
 def compute_alignment(audio, transcript, model):
     """ Compute the alignment of the audio and a transcript, for a given model that returns log-probabilities on the charset defined the transcript."""
@@ -54,6 +55,7 @@ def count_repetitions(tokens):
 
 
 def loose_get_char_index(dictionary, c, default=None):
+    global _unknown_chars
     i = dictionary.get(c, None)
     if i is None:
         # Try with alternative versions of the character
@@ -75,8 +77,10 @@ def loose_get_char_index(dictionary, c, default=None):
                         i = candidate
         # If still not found
         if i is None:
-            logger.warn("Character not correctly handled by alignment model: '" +
-                        "' / '".join(list(set([c] + other_char))) + "'")
+            if c not in _unknown_chars:
+                logger.warn("Character not correctly handled by alignment model: '" +
+                            "' / '".join(list(set([c] + other_char))) + "'")
+                _unknown_chars.append(c)
             i = [default] if default is not None else []
     else:
         i = [i]

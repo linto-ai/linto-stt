@@ -23,6 +23,7 @@ try:
     device = torch.device(device)
 except Exception as err:
     raise Exception("Failed to set device: {}".format(str(err))) from err
+logger.info(f"Using device {device}")
 
 # Check language
 language = get_language()
@@ -31,6 +32,7 @@ available_languages = [
 if language not in available_languages:
     raise RuntimeError(
         f"Language {get_language()} is not available. Available languages are: {available_languages}")
+logger.info(f"Using language {language}")
 
 # Load ASR model
 model_type = os.environ.get("MODEL", "medium")

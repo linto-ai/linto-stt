@@ -82,14 +82,14 @@ cp .envdefault .env
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
-| SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | http\|task |
-| MODEL | Path to the Whisper model, or type of Whisper model used. | ASR_PATH\|small\|medium\|large-v1\|... |
-| ALIGNMENT_MODEL | (Optional) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | WAV2VEC_PATH\|jonatasgrosman/wav2vec2-large-xlsr-53-english\|WAV2VEC2_ASR_BASE_960H |
-| LANGUAGE | (Optional) Language to recognize | fr\|en\|... |
+| SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | http \| task |
+| MODEL | Path to the Whisper model, or type of Whisper model used. | \<ASR_PATH\> \| medium \| large-v1 \| ... |
+| ALIGNMENT_MODEL | (Optional) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | \<WAV2VEC_PATH\> \| WAV2VEC2_ASR_BASE_960H \| jonatasgrosman/wav2vec2-large-xlsr-53-english \| ... |
+| LANGUAGE | (Optional) Language to recognize | fr \| en \| ... |
 | SERVICE_NAME | Using the task mode, set the queue's name for task processing | my-stt |
 | SERVICE_BROKER | Using the task mode, URL of the message broker | redis://my-broker:6379 |
 | BROKER_PASS | Using the task mode, broker password | my-password |
-| CONCURRENCY | Maximum number of parallel requests | >1 |
+| CONCURRENCY | Maximum number of parallel requests | 3 |
 
 The language is a code of two or three letters. The list of languages supported by Whisper are:
 ```
@@ -142,11 +142,10 @@ in order to avoid downloading models each time.
 Also if you want to specifiy a custom alignment model already downloaded in a folder WAV2VEC_PATH,
 you can add option ```-v WAV2VEC_PATH:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
 
-
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
-| HOST_SERVING_PORT | Host serving port | 80 |
+| HOST_SERVING_PORT | Host serving port | 8080 |
 | ASR_PATH | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
 | CACHE_PATH | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
 | WAV2VEC_PATH | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
@@ -176,6 +175,7 @@ in order to avoid downloading models each time.
 Also if you want to specifiy a custom alignment model already downloaded in a folder WAV2VEC_PATH,
 you can add option ```-v WAV2VEC_PATH:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
 
+**Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
 | SHARED_AUDIO_FOLDER | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
@@ -265,3 +265,5 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 * [OpenAI Whisper](https://github.com/openai/whisper)
 * [SpeechBrain](https://github.com/speechbrain/speechbrain).
+* [TorchAudio](https://github.com/pytorch/audio)
+* [HuggingFace Transformers](https://github.com/huggingface/transformers)
