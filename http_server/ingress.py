@@ -2,16 +2,15 @@
 
 import json
 import logging
-import os
-from time import time
+import time
 
 from confparser import createParser
 from flask import Flask, Response, abort, json, request
 from flask_sock import Sock
-from serving import GunicornServing
+from serving import GeventServing, GunicornServing
 from swagger import setupSwaggerUI
 
-from stt.processing import decode, load_wave_buffer, model, alignment_model
+from stt.processing import decode, load_wave_buffer, model, alignment_model, use_gpu
 from stt import logger as stt_logger
 
 app = Flask("__stt-standalone-worker__")
@@ -41,29 +40,29 @@ def transcribe():
         logger.info("Transcribe request received")
 
         # get response content type
-        logger.debug(request.headers.get("accept").lower())
+        # logger.debug(request.headers.get("accept").lower())
         if request.headers.get("accept").lower() == "application/json":
             join_metadata = True
         elif request.headers.get("accept").lower() == "text/plain":
             join_metadata = False
         else:
             raise ValueError("Not accepted header")
-        logger.debug("Metadata: {}".format(join_metadata))
+        # logger.debug("Metadata: {}".format(join_metadata))
 
         # get input file
-        if "file" in request.files.keys():
-            file_buffer = request.files["file"].read()
-            audio_data = load_wave_buffer(file_buffer)
-            start_t = time()
-
-            # Transcription
-            transcription = decode(audio_data, model, alignment_model, join_metadata)
-            logger.debug("Transcription complete (t={}s)".format(time() - start_t))
-
-            logger.debug("... Complete")
-
-        else:
+        if "file" not in request.files.keys():
             raise ValueError("No audio file was uploaded")
+
+        file_buffer = request.files["file"].read()
+        audio_data = load_wave_buffer(file_buffer)
+        start_t = time.time()
+
+        # Transcription
+        transcription = decode(
+            audio_data, model, alignment_model, join_metadata)
+        logger.debug("Transcription complete (t={}s)".format(time.time() - start_t))
+
+        logger.debug(f"END {id}: {time.time()}")
 
         if join_metadata:
             return json.dumps(transcription, ensure_ascii=False), 200
@@ -108,7 +107,16 @@ if __name__ == "__main__":
     except Exception as err:
         logger.warning("Could not setup swagger: {}".format(str(err)))
 
-    serving = GunicornServing(
+    logger.info(f"Using {args.workers} workers")
+    
+    if use_gpu:
+        serving_type = GeventServing
+        logger.debug("Serving with gevent")
+    else:
+        serving_type = GunicornServing
+        logger.debug("Serving with gunicorn")
+
+    serving = serving_type(
         app,
         {
             "bind": f"0.0.0.0:{args.service_port}",

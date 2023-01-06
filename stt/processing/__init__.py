@@ -10,19 +10,19 @@ from stt.processing.utils import load_wave_buffer, load_audiofile
 
 from .load_model import load_whisper_model, load_alignment_model, get_alignment_model, get_model_type
 
-__all__ = ["logger", "decode", "model", "alignment_model",
+__all__ = ["logger", "use_gpu", "decode", "model", "alignment_model",
            "load_audiofile", "load_wave_buffer"]
 
 # Set informative log
 logger.setLevel(logging.INFO)
 
 # Set device
-device = os.environ.get(
-    "DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu")
+device = os.environ.get("DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu")
 try:
     device = torch.device(device)
 except Exception as err:
     raise Exception("Failed to set device: {}".format(str(err))) from err
+use_gpu = device.type == "cuda"
 logger.info(f"Using device {device}")
 
 # Check language
