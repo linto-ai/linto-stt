@@ -10,19 +10,35 @@ import torchaudio
 import time
 from stt import logger
 
-# Source: https://github.com/m-bain/whisperX (in whisperx/transcribe.py)
+# Sources:
+# * https://github.com/m-bain/whisperX (in whisperx/transcribe.py)
+# * https://pytorch.org/audio/stable/pipelines.html
+# * https://huggingface.co/jonatasgrosman
+
 ALIGNMENT_MODELS = {
-    "fr": "/opt/linSTT_speechbrain_fr-FR_v1.0.0",
-    # "fr": "VOXPOPULI_ASR_BASE_10K_FR",
     "en": "WAV2VEC2_ASR_BASE_960H",
     # "en": "jonatasgrosman/wav2vec2-large-xlsr-53-english",
+    "fr": "VOXPOPULI_ASR_BASE_10K_FR",
+    # "fr": "jonatasgrosman/wav2vec2-large-xlsr-53-french",
     "de": "VOXPOPULI_ASR_BASE_10K_DE",
+    # "de": "jonatasgrosman/wav2vec2-large-xlsr-53-german",
     "es": "VOXPOPULI_ASR_BASE_10K_ES",
+    # "it": "jonatasgrosman/wav2vec2-large-xlsr-53-spanish",
     "it": "VOXPOPULI_ASR_BASE_10K_IT",
+    # "it": "jonatasgrosman/wav2vec2-large-xlsr-53-italian",
+    "pt": "jonatasgrosman/wav2vec2-large-xlsr-53-portuguese",
     "nl": "jonatasgrosman/wav2vec2-large-xlsr-53-dutch",
+    "pl": "jonatasgrosman/wav2vec2-large-xlsr-53-polish",
+    "fi": "jonatasgrosman/wav2vec2-large-xlsr-53-finnish",
+    "hu": "jonatasgrosman/wav2vec2-large-xlsr-53-hungarian",
+    "el": "jonatasgrosman/wav2vec2-large-xlsr-53-greek",
+    "fa": "jonatasgrosman/wav2vec2-large-xlsr-53-persian",
+    "ar": "jonatasgrosman/wav2vec2-large-xlsr-53-arabic",
+    "ru": "jonatasgrosman/wav2vec2-large-xlsr-53-russian",
+    "uk": "Yehor/wav2vec2-xls-r-300m-uk-with-small-lm",
     "ja": "jonatasgrosman/wav2vec2-large-xlsr-53-japanese",
     "zh": "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn",
-    "uk": "Yehor/wav2vec2-xls-r-300m-uk-with-small-lm",
+    "vi": "nguyenvulebinh/wav2vec2-base-vietnamese-250h",
 }
 
 

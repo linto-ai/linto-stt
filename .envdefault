@@ -1,8 +1,9 @@
 # SERVING PARAMETERS
 SERVICE_MODE=http
-MODEL=/opt/model.pt
-#ALIGNMENT_MODEL=/opt/linSTT_speechbrain_fr-FR_v1.0.0
 LANGUAGE=fr
+MODEL=/opt/model.pt
+#ALIGNMENT_MODEL=/opt/alignment_model
+#DEVICE=cuda:0
 
 # TASK PARAMETERS
 SERVICE_NAME=stt

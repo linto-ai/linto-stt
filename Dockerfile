@@ -1,8 +1,6 @@
 FROM python:3.9
 LABEL maintainer="jlouradour@linagora.com"
 
-ARG KALDI_MKL
-
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         wget \
@@ -27,14 +25,7 @@ RUN rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
 COPY requirements.txt ./
-RUN pip install --force-reinstall --no-cache-dir -r requirements.txt
-
-# Download alignment model
-COPY load_alignment_model.py ./
-RUN python3 load_alignment_model.py
-
-# Cleaning
-RUN rm requirements.txt load_alignment_model.py
+RUN pip install --force-reinstall --no-cache-dir -r requirements.txt && rm requirements.txt
 
 WORKDIR /usr/src/app
 
