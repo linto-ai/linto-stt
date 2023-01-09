@@ -162,20 +162,26 @@ def normalize_text(text: str, lang: str) -> str:
         else:
             word = " / ".join([undigit(s, lang=lang)
                               for s in digitf.split('/')])
-        if " " in digit:
-            text = re.sub(r'\b'+str(digit)+r'\b', " "+word+" ", text)
-        else:
-            text = re.sub(str(digit), " "+word+" ", text)
+        text = replace_keeping_word_boundaries(digit, word, text)
 
     # Symbols (currencies, percent...)
     symbol_table = _symbol_to_word.get(lang, {})
     for k, v in symbol_table.items():
-        text = re.sub(k, " "+v+" ", text)
+        text = replace_keeping_word_boundaries(k, v, text)
 
-    text = re.sub(r" \.",".", text)
+    # Remove extra spaces before punctuation
+    # text = re.sub(r" ([\.,!:;])",r"\1",text)
 
     return collapse_whitespace(text)
 
+
+def replace_keeping_word_boundaries(orig, dest, text):
+    if orig in text:
+        text = re.sub(r"(\W)"+orig+r"(\W)", r"\1"+dest+r"\2", text)
+        text = re.sub(orig+r"(\W)", " "+dest+r"\1", text)
+        text = re.sub(r"(\W)"+orig, r"\1"+dest+" ", text)
+        text = re.sub(orig, " "+dest+" ", text)
+    return text
 
 def undigit(str, lang, to="cardinal"):
     str = re.sub(" ", "", str)
