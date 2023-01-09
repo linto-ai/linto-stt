@@ -114,27 +114,21 @@ def decode(audio: torch.Tensor,
                 sub_audio, sub_text, spec_alignment_model)
             ratio = len(sub_audio) / (trellis.size(0) * SAMPLE_RATE)
             sub_words = sub_text.split()
-            if len(sub_words) == len(word_segments):
-                for word, seg in zip(sub_words, word_segments):
-                    result["words"].append({
-                        "word": word,
-                        "start": seg.start * ratio + offset,
-                        "end": seg.end * ratio + offset,
-                        "conf": seg.score,
-                    })
-            else:
+            words = []
+            use_original_words = True
+            if len(sub_words) != len(word_segments):
                 logger.warn(
                     f"Alignment failed. Some words might be mis-rendered.\nNumber of words: {len(sub_words)} != {len(word_segments)}\n>>>\n{sub_words}\n<<<\n{[segment.label for segment in word_segments]}")
-                for seg in word_segments:
-                    result["words"].append({
-                        "word": seg.label,
-                        "start": seg.start * ratio + offset,
-                        "end": seg.end * ratio + offset,
-                        "conf": seg.score,
-                    })
+                assert len(word_segments) < len(sub_words)
+                use_original_words = False
+            for word, seg in zip(sub_words, word_segments):
+                words.append({
+                    "word": word if use_original_words else seg.label,
+                    "start": seg.start * ratio + offset,
+                    "end": seg.end * ratio + offset,
+                    "conf": seg.score,
+                })
             # Glue the words inside a segment
-            previous_start = offset
-            words = result["words"]
             for i, word in enumerate(words):
                 if i == 0:
                     word["start"] = segment["start"]
@@ -144,5 +138,7 @@ def decode(audio: torch.Tensor,
                     word["end"] = segment["end"]
                 else:
                     word["end"] = .5 * (words[i+1]["start"] + word["end"])
+            # Accumulate results
+            result["words"] += words
 
     return result
