@@ -45,7 +45,8 @@ ALIGNMENT_MODELS = {
 def get_alignment_model(language):
     source = os.environ.get("ALIGNMENT_MODEL")
     if not source:
-        return ALIGNMENT_MODELS.get(language, None)
+        source = ALIGNMENT_MODELS.get(language, None)
+    return source
 
 
 def load_whisper_model(model_type_or_file, device="cpu", download_root="/opt"):
