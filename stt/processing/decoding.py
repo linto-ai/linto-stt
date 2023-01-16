@@ -2,6 +2,7 @@ import os
 
 import whisper
 from whisper.audio import SAMPLE_RATE
+import whisper_timestamped
 
 import numpy as np
 import torch
@@ -16,7 +17,7 @@ torch.set_num_threads(1)
 
 
 def get_language():
-    return os.environ.get("LANGUAGE", None)
+    return os.environ.get("STT_LANGUAGE", None)
 
 
 def decode(audio: torch.Tensor,
@@ -41,15 +42,23 @@ def decode(audio: torch.Tensor,
 
     logger.info(f"Transcribing audio with language {language}...")
 
-    whisper_res = model.transcribe(audio,
-                                   language=language,
-                                   fp16=fp16,
-                                   temperature=0.0,  # For deterministic results
-                                   beam_size=beam_size,
-                                   no_speech_threshold=no_speech_threshold,
-                                   logprob_threshold=logprob_threshold,
-                                   compression_ratio_threshold=compression_ratio_threshold
-                                   )
+    kwargs = dict(
+        language=language,
+        fp16=fp16,
+        temperature=0.0,  # For deterministic results
+        beam_size=beam_size,
+        no_speech_threshold=no_speech_threshold,
+        logprob_threshold=logprob_threshold,
+        compression_ratio_threshold=compression_ratio_threshold
+    )
+
+    if alignment_model is None:
+        # Use Whisper cross-attention weights
+        return format_whisper_timestamped_response(
+            whisper_timestamped.transcribe(model, audio, **kwargs)
+        )
+
+    whisper_res = model.transcribe(audio, **kwargs)
 
     text = whisper_res["text"]
     text = remove_emoji(text).strip()
@@ -70,6 +79,7 @@ def decode(audio: torch.Tensor,
         spec_alignment_model = alignment_model[language]
     else:
         spec_alignment_model = alignment_model
+
 
     result["text"] = text
     result["confidence-score"] = np.exp(np.array([r["avg_logprob"]
@@ -142,3 +152,34 @@ def decode(audio: torch.Tensor,
             result["words"] += words
 
     return result
+
+def format_whisper_timestamped_response(transcription):
+    """Format Whisper response."""
+    
+    # NOCOMMIT
+    import json
+    print(json.dumps(transcription, indent=2, ensure_ascii=False))
+
+    for i, seg in enumerate(transcription["segments"][:-1]):
+            for expected_keys in ["start", "end", "words", "avg_logprob"]:
+                assert expected_keys in seg, f"Missing '{expected_keys}' in segment {i} (that has keys {list(seg.keys())})"
+
+    text = transcription["text"].strip()
+
+    segments = []
+
+    for seg in transcription["segments"]:
+        seg_proba = np.exp(seg["avg_logprob"])
+        for word in seg["words"]:
+            segments.append({
+                "text": word["text"],
+                "start": word["start"],
+                "end": word["end"],
+                "conf": seg_proba, # Same proba for all words within the segment
+            })
+
+    return {
+        "text": text,
+        "confidence-score": np.mean([np.exp(seg["avg_logprob"]) for seg in transcription["segments"]]),
+        "segments": segments
+    }

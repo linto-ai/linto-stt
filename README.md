@@ -85,7 +85,7 @@ cp .envdefault .env
 | SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | http \| task |
 | MODEL | Path to the Whisper model, or type of Whisper model used. | \<ASR_PATH\> \| medium \| large-v1 \| ... |
 | ALIGNMENT_MODEL | (Optional) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | \<WAV2VEC_PATH\> \| WAV2VEC2_ASR_BASE_960H \| jonatasgrosman/wav2vec2-large-xlsr-53-english \| ... |
-| LANGUAGE | (Optional) Language to recognize | fr \| en \| ... |
+| STT_LANGUAGE | (Optional) Language to recognize | fr \| en \| ... |
 | SERVICE_NAME | Using the task mode, set the queue's name for task processing | my-stt |
 | SERVICE_BROKER | Using the task mode, URL of the message broker | redis://my-broker:6379 |
 | BROKER_PASS | Using the task mode, broker password | my-password |

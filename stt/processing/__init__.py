@@ -27,11 +27,14 @@ logger.info(f"Using device {device}")
 
 # Check language
 language = get_language()
-available_languages = [
-    k for k, v in whisper.tokenizer.LANGUAGES.items()] + [None]
+available_languages = \
+    list(whisper.tokenizer.LANGUAGES.keys()) + \
+    [k.title() for k in whisper.tokenizer.TO_LANGUAGE_CODE.keys()] + \
+    [None]
 if language not in available_languages:
-    raise RuntimeError(
-        f"Language {get_language()} is not available. Available languages are: {available_languages}")
+    raise ValueError(f"Language {get_language()} is not available. Available languages are: {available_languages}")
+if isinstance(language, str):
+    language = whisper.tokenizer.TO_LANGUAGE_CODE.get(language.lower(), language)
 logger.info(f"Using language {language}")
 
 # Load ASR model
@@ -44,12 +47,13 @@ except Exception as err:
         "Failed to load transcription model: {}".format(str(err))) from err
 
 # Load alignment model
-alignment_model_name = get_alignment_model(language)
-if alignment_model_name:
+alignment_model = get_alignment_model(os.environ.get("ALIGNMENT_MODEL"), language)
+if alignment_model:
     logger.info(
-        f"Loading alignment model {alignment_model_name} ({'local' if os.path.exists(alignment_model_name) else 'remote'})...")
-    alignment_model = load_alignment_model(
-        alignment_model_name, device=device, download_root="/opt")
+        f"Loading alignment model {alignment_model} ({'local' if os.path.exists(alignment_model) else 'remote'})...")
+    alignment_model = load_alignment_model(alignment_model, device=device, download_root="/opt")
+elif alignment_model is None:
+    logger.info("Alignment will be done using Whisper cross-attention weights")
 else:
-    logger.info("No alignment model preloaded")
+    logger.info("No alignment model preloaded. It will be loaded on the fly depending on the detected language.")
     alignment_model = {}  # Alignement model(s) will be loaded on the fly

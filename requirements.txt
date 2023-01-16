@@ -12,4 +12,5 @@ speechbrain
 transformers
 wavio>=0.0.4
 websockets
-git+https://github.com/openai/whisper.git
+# git+https://github.com/openai/whisper.git
+git+https://github.com/Jeronymous/whisper-timestamped.git

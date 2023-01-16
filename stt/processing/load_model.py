@@ -42,11 +42,21 @@ ALIGNMENT_MODELS = {
 }
 
 
-def get_alignment_model(language):
-    source = os.environ.get("ALIGNMENT_MODEL")
-    if not source:
-        source = ALIGNMENT_MODELS.get(language, None)
-    return source
+def get_alignment_model(alignment_model_name, language, force = False):
+    if alignment_model_name in ["wav2vec", "wav2vec2"]:
+        if language is None:
+            # Will load alignment model on the fly depending on detected language
+            return {}
+        elif language in ALIGNMENT_MODELS:
+            return ALIGNMENT_MODELS[language]
+        elif force:
+            raise ValueError(f"No wav2vec alignment model for language '{language}'.")
+        else:
+            logger.warn(f"No wav2vec alignment model for language '{language}'. Fallback to English.")
+            return ALIGNMENT_MODELS["en"]
+    elif alignment_model_name in whisper.tokenizer.LANGUAGES.keys():
+        return get_alignment_model("wav2vec", alignment_model_name, force = True)
+    return alignment_model_name
 
 
 def load_whisper_model(model_type_or_file, device="cpu", download_root="/opt"):
