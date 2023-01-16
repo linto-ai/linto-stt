@@ -155,10 +155,6 @@ def decode(audio: torch.Tensor,
 
 def format_whisper_timestamped_response(transcription):
     """Format Whisper response."""
-    
-    # NOCOMMIT
-    import json
-    print(json.dumps(transcription, indent=2, ensure_ascii=False))
 
     for i, seg in enumerate(transcription["segments"][:-1]):
             for expected_keys in ["start", "end", "words", "avg_logprob"]:
