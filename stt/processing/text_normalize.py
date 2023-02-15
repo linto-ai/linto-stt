@@ -127,7 +127,7 @@ def normalize_text(text: str, lang: str) -> str:
                     lang != "fr" and first[-1] in ["1", "2", "3"])
                 first = undigit(first, lang=lang,
                                 to="ordinal" if use_ordinal else "cardinal")
-                second = _int_to_month[second]
+                second = _int_to_month.get(lang, {}).get(second,digitf[i+1:])
             else:
                 first = undigit(digitf[:i], lang=lang)
                 second = undigit(digitf[i+1:], to="denominator", lang=lang)
@@ -148,7 +148,7 @@ def normalize_text(text: str, lang: str) -> str:
                     pass
             third = undigit(digitf[i2+1:], lang=lang)
             if is_date:
-                first = digitf[:i].lstrip("0")
+                first = digitf[:i1].lstrip("0")
                 use_ordinal = (lang == "fr" and first == "1") or (
                     lang != "fr" and first[-1] in ["1", "2", "3"])
                 first = undigit(first, lang=lang,
@@ -370,3 +370,4 @@ _symbol_to_word = {
         "¥": "yens",
     }
 }
+
