@@ -26,6 +26,9 @@ def decode(audio: torch.Tensor,
            with_word_timestamps: bool,
            language: str = None,
            beam_size: int = None,
+           best_of: int = None,
+           temperature: float = 0.0,
+           condition_on_previous_text: bool = False,
            no_speech_threshold: float = 0.6,
            logprob_threshold: float = -1.0,
            compression_ratio_threshold: float = 2.4,
@@ -45,8 +48,10 @@ def decode(audio: torch.Tensor,
     kwargs = dict(
         language=language,
         fp16=fp16,
-        temperature=0.0,  # For deterministic results
+        temperature=temperature,
         beam_size=beam_size,
+        best_of=best_of,
+        condition_on_previous_text=condition_on_previous_text,
         no_speech_threshold=no_speech_threshold,
         logprob_threshold=logprob_threshold,
         compression_ratio_threshold=compression_ratio_threshold
@@ -58,6 +63,10 @@ def decode(audio: torch.Tensor,
             whisper_timestamped.transcribe(model, audio, **kwargs)
         )
 
+    # Force deterministic results
+    torch.manual_seed(1234)
+    torch.cuda.manual_seed_all(1234)
+    
     whisper_res = model.transcribe(audio, **kwargs)
 
     text = whisper_res["text"]
