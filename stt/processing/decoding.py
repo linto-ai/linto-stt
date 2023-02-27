@@ -17,8 +17,17 @@ torch.set_num_threads(1)
 
 
 def get_language():
-    return os.environ.get("STT_LANGUAGE", None)
-
+    """
+    Get the language from the environment variable LANGUAGE, and format as expected by Whisper.
+    """
+    language = os.environ.get("LANGUAGE", "*")
+    # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
+    if len(language) > 2 and language[2] == "-":
+        language = language.split("-")[0]
+    # "*" means "all languages"
+    if language == "*":
+        language = None
+    return language
 
 def decode(audio: torch.Tensor,
            model: whisper.model.Whisper,

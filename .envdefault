@@ -1,8 +1,14 @@
 # SERVING PARAMETERS
 SERVICE_MODE=http
-STT_LANGUAGE=fr
 MODEL=/opt/model.pt
+
+# LANGUAGE can be in different formats: en, en-US, English, ...
+# If not set or "*", the language will be detected automatically.
+LANGUAGE=*
+
 #DEVICE=cuda:0
+
+# Only used for alignement using wav2vec models
 #ALIGNMENT_MODEL=fr
 #ALIGNMENT_MODEL=wav2vec
 #ALIGNMENT_MODEL=/opt/alignment_model

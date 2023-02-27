@@ -82,16 +82,19 @@ cp .envdefault .env
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
-| SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | http \| task |
-| MODEL | Path to the Whisper model, or type of Whisper model used. | \<ASR_PATH\> \| medium \| large-v1 \| ... |
-| ALIGNMENT_MODEL | (Optional) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | \<WAV2VEC_PATH\> \| WAV2VEC2_ASR_BASE_960H \| jonatasgrosman/wav2vec2-large-xlsr-53-english \| ... |
-| STT_LANGUAGE | (Optional) Language to recognize | fr \| en \| ... |
-| SERVICE_NAME | Using the task mode, set the queue's name for task processing | my-stt |
-| SERVICE_BROKER | Using the task mode, URL of the message broker | redis://my-broker:6379 |
-| BROKER_PASS | Using the task mode, broker password | my-password |
-| CONCURRENCY | Maximum number of parallel requests | 3 |
+| SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` |
+| MODEL | Path to the Whisper model, or type of Whisper model used. | \<ASR_PATH\> \| `medium` \| `large-v1` \| ... |
+| ALIGNMENT_MODEL | (Optional) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | \<WAV2VEC_PATH\> \| `WAV2VEC2_ASR_BASE_960H` \| `jonatasgrosman/wav2vec2-large-xlsr-53-english` \| ... |
+| LANGUAGE | (Optional) Language to recognize | `*` \| `fr` \| `fr-FR` \| `French` \| `en` \| `en-US` \| `English` \| ... |
+| SERVICE_NAME | Using the task mode, set the queue's name for task processing | `my-stt` |
+| SERVICE_BROKER | Using the task mode, URL of the message broker | `redis://my-broker:6379` |
+| BROKER_PASS | Using the task mode, broker password | `my-password` |
+| CONCURRENCY | Maximum number of parallel requests | `3` |
 
-The language is a code of two or three letters. The list of languages supported by Whisper are:
+If `*` is used for the `LANGUAGE` environment variable, or if `LANGUAGE` is not defined,
+automatic language detection will be performed by Whisper.
+
+The language can be a code of two or three letters. The list of languages supported by Whisper are:
 ```
 af(afrikaans), am(amharic), ar(arabic), as(assamese), az(azerbaijani),
 ba(bashkir), be(belarusian), bg(bulgarian), bn(bengali), bo(tibetan), br(breton), bs(bosnian),
