@@ -25,7 +25,7 @@ RUN rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
 COPY requirements.txt ./
-RUN pip install --force-reinstall --no-cache-dir -r requirements.txt && rm requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
 
 WORKDIR /usr/src/app
 
