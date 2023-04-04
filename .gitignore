@@ -2,3 +2,4 @@ start_container.sh
 .env*
 test/*
 tmp*
+__pycache__
