@@ -1,4 +1,4 @@
-import whisper
+import whisper_timestamped as whisper
 
 import os
 import requests

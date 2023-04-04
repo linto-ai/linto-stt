@@ -2,13 +2,13 @@ import os
 import logging
 
 import torch
-import whisper
+import whisper_timestamped as whisper
 
 from stt import logger
 from stt.processing.decoding import decode, get_language
 from stt.processing.utils import load_wave_buffer, load_audiofile
 
-from .load_model import load_whisper_model, load_alignment_model, get_alignment_model, get_model_type
+from .load_model import load_whisper_model, load_alignment_model, get_alignment_model
 
 __all__ = ["logger", "use_gpu", "decode", "model", "alignment_model",
            "load_audiofile", "load_wave_buffer"]
@@ -32,7 +32,7 @@ available_languages = \
     [k.title() for k in whisper.tokenizer.TO_LANGUAGE_CODE.keys()] + \
     [None]
 if language not in available_languages:
-    raise ValueError(f"Language {get_language()} is not available. Available languages are: {available_languages}")
+    raise ValueError(f"Language '{get_language()}' is not available. Available languages are: {available_languages}")
 if isinstance(language, str):
     language = whisper.tokenizer.TO_LANGUAGE_CODE.get(language.lower(), language)
 logger.info(f"Using language {language}")
@@ -46,7 +46,7 @@ except Exception as err:
     raise Exception(
         "Failed to load transcription model: {}".format(str(err))) from err
 
-# Load alignment model
+# Load alignment model (if any)
 alignment_model = get_alignment_model(os.environ.get("ALIGNMENT_MODEL"), language)
 if alignment_model:
     logger.info(
