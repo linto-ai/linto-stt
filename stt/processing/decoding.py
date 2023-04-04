@@ -45,7 +45,6 @@ def decode(audio: torch.Tensor,
            remove_punctuation_from_words=False,
            ) -> dict:
     """Transcribe the audio data using Whisper with the defined model."""
-    result = {"text": "", "confidence-score": 0.0, "words": []}
 
     fp16 = model.device != torch.device("cpu")
 
@@ -99,9 +98,11 @@ def decode(audio: torch.Tensor,
         spec_alignment_model = alignment_model
 
 
+    result = {}
     result["text"] = text
-    result["confidence-score"] = np.exp(np.array([r["avg_logprob"]
-                                        for r in segments])).mean() if len(segments) else 0.0
+    result["language"] = language
+    result["confidence-score"] = np.exp(np.array([r["avg_logprob"] for r in segments])).mean() if len(segments) else 0.0
+
     if not with_word_timestamps:
         if not normalize_text_as_words:
             text = normalize_text(text, language)
@@ -175,25 +176,27 @@ def format_whisper_timestamped_response(transcription):
     """Format Whisper response."""
 
     for i, seg in enumerate(transcription["segments"][:-1]):
-            for expected_keys in ["start", "end", "words", "avg_logprob"]:
-                assert expected_keys in seg, f"Missing '{expected_keys}' in segment {i} (that has keys {list(seg.keys())})"
+        for expected_keys in ["start", "end", "words", "avg_logprob"]:
+            assert expected_keys in seg, f"Missing '{expected_keys}' in segment {i} (that has keys {list(seg.keys())})"
 
     text = transcription["text"].strip()
 
-    segments = []
+    words = []
 
-    for seg in transcription["segments"]:
-        seg_proba = np.exp(seg["avg_logprob"])
-        for word in seg["words"]:
-            segments.append({
-                "text": word["text"],
+    segments = transcription.get("segments", [])
+
+    for seg in segments:
+        for word in seg.get("words", []):
+            words.append({
+                "word": word["text"],
                 "start": word["start"],
                 "end": word["end"],
-                "conf": seg_proba, # Same proba for all words within the segment
+                "conf": word["confidence"],
             })
 
     return {
         "text": text,
-        "confidence-score": np.mean([np.exp(seg["avg_logprob"]) for seg in transcription["segments"]]),
-        "segments": segments
+        "language": transcription["language"],
+        "confidence-score": np.exp(np.array([r["avg_logprob"] for r in segments])).mean() if len(segments) else 0.0,
+        "words": words,
     }
