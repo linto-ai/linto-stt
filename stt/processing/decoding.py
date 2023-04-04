@@ -67,9 +67,11 @@ def decode(audio: torch.Tensor,
 
     if alignment_model is None:
         # Use Whisper cross-attention weights
-        return format_whisper_timestamped_response(
-            whisper_timestamped.transcribe(model, audio, **kwargs)
-        )
+        whisper_res = whisper_timestamped.transcribe(model, audio, **kwargs)
+        if language is None:
+            language = whisper_res["language"]
+            logger.info(f"Detected language: {language}")
+        return format_whisper_timestamped_response(whisper_res)
 
     # Force deterministic results
     torch.manual_seed(1234)
