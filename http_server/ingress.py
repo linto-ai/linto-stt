@@ -17,10 +17,6 @@ app = Flask("__stt-standalone-worker__")
 app.config["JSON_AS_ASCII"] = False
 app.config["JSON_SORT_KEYS"] = False
 
-logging.basicConfig(
-    format="%(asctime)s %(name)s %(levelname)s: %(message)s",
-    datefmt="%d/%m/%Y %H:%M:%S",
-)
 logger = logging.getLogger("__stt-standalone-worker__")
 
 
@@ -37,7 +33,7 @@ def oas_docs():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
-        logger.info(f"Transcribe request received {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}")
+        logger.info(f"Transcribe request received")
 
         # get response content type
         # logger.debug(request.headers.get("accept").lower())

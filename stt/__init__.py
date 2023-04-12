@@ -1,8 +1,8 @@
 import logging
 
 logging.basicConfig(
-    format="%(asctime)s %(name)s %(levelname)s: %(message)s",
-    datefmt="%d/%m/%Y %H:%M:%S",
+    format="[%(asctime)s,%(msecs)03d %(name)s] %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("__stt__")
 
