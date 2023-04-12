@@ -1,13 +1,15 @@
 """
-source: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html
+Credits: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html
 """
+from stt import logger, USE_TORCH
 from dataclasses import dataclass
-import torch
 
-from stt import logger
 from .alignment_model import compute_logprobas, get_vocab
 from .utils import flatten
 from .text_normalize import transliterate
+
+if USE_TORCH:
+    import torch
 
 _unknown_chars = []
 

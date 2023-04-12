@@ -1,14 +1,20 @@
-import whisper_timestamped as whisper
-
 import os
 import requests
-import huggingface_hub
-import speechbrain as sb
-import transformers
-import torchaudio
-
 import time
-from stt import logger
+
+from stt import logger, USE_CTRANSLATE2, USE_TORCH
+from .utils import LANGUAGES
+
+if USE_CTRANSLATE2:
+    import faster_whisper as whisper
+else:
+    import whisper_timestamped as whisper
+
+if USE_TORCH:
+    import huggingface_hub
+    import speechbrain as sb
+    import transformers
+    import torchaudio
 
 # Sources:
 # * https://github.com/m-bain/whisperX (in whisperx/transcribe.py)
@@ -42,20 +48,24 @@ ALIGNMENT_MODELS = {
 }
 
 
-def get_alignment_model(alignment_model_name, language, force = False):
+def get_alignment_model(alignment_model_name, language, force=False):
     if alignment_model_name in ["wav2vec", "wav2vec2"]:
         if language is None:
-            # Will load alignment model on the fly depending on detected language
+            # Will load alignment model on the fly depending
+            # on detected language
             return {}
         elif language in ALIGNMENT_MODELS:
             return ALIGNMENT_MODELS[language]
         elif force:
-            raise ValueError(f"No wav2vec alignment model for language '{language}'.")
+            raise ValueError(
+                f"No wav2vec alignment model for language '{language}'.")
         else:
-            logger.warn(f"No wav2vec alignment model for language '{language}'. Fallback to English.")
+            logger.warn(
+                f"No wav2vec alignment model for language '{language}'. Fallback to English."
+            )
             return ALIGNMENT_MODELS["en"]
-    elif alignment_model_name in whisper.tokenizer.LANGUAGES.keys():
-        return get_alignment_model("wav2vec", alignment_model_name, force = True)
+    elif alignment_model_name in LANGUAGES.keys():
+        return get_alignment_model("wav2vec", alignment_model_name, force=True)
     return alignment_model_name
 
 
@@ -63,11 +73,27 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root="/opt"):
 
     start = time.time()
 
-    model = whisper.load_model(model_type_or_file, device=device,
-                               download_root=os.path.join(download_root, "whisper"))
+    if USE_CTRANSLATE2:
+        if not os.path.isdir(model_type_or_file):
+            # To specify the cache directory
+            model_type_or_file = whisper.utils.download_model(
+                model_type_or_file,
+                output_dir=os.path.join(download_root, "huggingface/hub")
+            )
+        model = whisper.WhisperModel(model_type_or_file, device=device,
+                                     # vvv TODO
+                                     compute_type="default",
+                                    #  cpu_threads=0,
+                                    #  num_workers=1,
+                                     )
 
-    model.eval()
-    model.requires_grad_(False)
+    else:
+        model = whisper.load_model(
+            model_type_or_file, device=device,
+            download_root=os.path.join(download_root, "whisper")
+        )
+        model.eval()
+        model.requires_grad_(False)
 
     logger.info("Whisper Model loaded. (t={}s)".format(time.time() - start))
 
@@ -76,21 +102,29 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root="/opt"):
 
 def load_alignment_model(source, device="cpu", download_root="/opt"):
 
+    if not USE_TORCH:
+        raise NotImplementedError(
+            "Alignement model not available without Torch")
+
     start = time.time()
 
     if source in torchaudio.pipelines.__all__:
-        model = load_torchaudio_model(source, device=device, download_root=download_root)
+        model = load_torchaudio_model(
+            source, device=device, download_root=download_root)
     else:
         try:
-            model = load_transformers_model(source, device=device, download_root=download_root)
+            model = load_transformers_model(
+                source, device=device, download_root=download_root)
         except Exception as err1:
             try:
-                model = load_speechbrain_model(source, device=device, download_root=download_root)
+                model = load_speechbrain_model(
+                    source, device=device, download_root=download_root)
             except Exception as err2:
                 raise Exception(
                     f"Failed to load alignment model:\n<<< transformers <<<\n{str(err1)}\n<<< speechbrain <<<\n{str(err2)}") from err2
 
-    logger.info(f"Alignment Model of type {get_model_type(model)} loaded. (t={time.time() - start}s)")
+    logger.info(
+        f"Alignment Model of type {get_model_type(model)} loaded. (t={time.time() - start}s)")
 
     return model
 

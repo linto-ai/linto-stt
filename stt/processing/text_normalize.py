@@ -2,7 +2,6 @@ import math
 import re
 # import string
 import unicodedata
-from num2words import num2words
 
 from stt import logger
 from .utils import flatten
@@ -43,7 +42,6 @@ def remove_emoji(text):
 
 def normalize_text(text: str, lang: str) -> str:
     """ Transform digits into characters... """
-
 
     # Reorder currencies (1,20€ -> 1 € 20)
     coma = "," if lang in ["fr"] else "\."
@@ -215,6 +213,7 @@ def robust_num2words(x, lang, to="cardinal", orig=""):
     """
     Bugfix for num2words
     """
+    from num2words import num2words
     try:
         res = num2words(x, lang=lang, to=to)
         if lang == "fr" and to == "ordinal":

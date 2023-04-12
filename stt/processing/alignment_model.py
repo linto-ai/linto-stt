@@ -1,11 +1,12 @@
-import math
-import torch
-import torch.nn.utils.rnn as rnn_utils
-
-from stt import logger
+from stt import logger, USE_TORCH
+from .utils import SAMPLE_RATE
 from .load_model import get_model_type
 
-import whisper
+import math
+
+if USE_TORCH:
+    import torch
+    import torch.nn.utils.rnn as rnn_utils
 
 ################################################################################
 # Get list of labes (and blank_id) from model
@@ -135,7 +136,7 @@ def compute_logits_transformers(model_and_processor, audios, max_len):
     model, processor = model_and_processor
 
     # can be different from processor.feature_extractor.sampling_rate
-    sample_rate = whisper.audio.SAMPLE_RATE
+    sample_rate = SAMPLE_RATE
     device = model.device
 
     audios = [audio.numpy() for audio in audios]

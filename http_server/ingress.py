@@ -5,13 +5,13 @@ import logging
 import time
 
 from confparser import createParser
-from flask import Flask, Response, abort, json, request
-from flask_sock import Sock
-from serving import GeventServing, GunicornServing
+from flask import Flask, json, request
+from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
 
-from stt.processing import decode, load_wave_buffer, model, alignment_model, use_gpu
+from stt.processing import decode, load_wave_buffer, model, alignment_model
 from stt import logger as stt_logger
+from stt import SHOULD_USE_GEVENT
 
 app = Flask("__stt-standalone-worker__")
 app.config["JSON_AS_ASCII"] = False
@@ -37,7 +37,7 @@ def oas_docs():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
-        logger.info("Transcribe request received")
+        logger.info(f"Transcribe request received {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}")
 
         # get response content type
         # logger.debug(request.headers.get("accept").lower())
@@ -46,33 +46,31 @@ def transcribe():
         elif request.headers.get("accept").lower() == "text/plain":
             join_metadata = False
         else:
-            raise ValueError("Not accepted header")
+            raise ValueError(f"Not accepted header (accept={request.headers.get('accept')} should be either application/json or text/plain)")
         # logger.debug("Metadata: {}".format(join_metadata))
 
         # get input file
         if "file" not in request.files.keys():
-            raise ValueError("No audio file was uploaded")
+            raise ValueError(f"No audio file was uploaded (missing 'file' key)")
 
         file_buffer = request.files["file"].read()
-        audio_data = load_wave_buffer(file_buffer)
         start_t = time.time()
+        audio_data = load_wave_buffer(file_buffer)
 
         # Transcription
         transcription = decode(
             audio_data, model, alignment_model, join_metadata)
         logger.debug("Transcription complete (t={}s)".format(time.time() - start_t))
 
-        logger.debug(f"END {id}: {time.time()}")
-
         if join_metadata:
             return json.dumps(transcription, ensure_ascii=False), 200
         return transcription["text"], 200
 
-    except ValueError as error:
-        return str(error), 400
     except Exception as error:
-        logger.error(error)
-        return "Server Error: {}".format(str(error)), 500
+        import traceback
+        print(traceback.format_exc())
+        logger.error(repr(error))
+        return "Server Error: {}".format(str(error)), 400 if isinstance(error, ValueError) else 500
 
 
 @app.errorhandler(405)
@@ -109,7 +107,7 @@ if __name__ == "__main__":
 
     logger.info(f"Using {args.workers} workers")
     
-    if use_gpu:
+    if SHOULD_USE_GEVENT: # TODO: get rid of this
         serving_type = GeventServing
         logger.debug("Serving with gevent")
     else:
