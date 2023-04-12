@@ -1,5 +1,5 @@
 import os
-
+import time
 import numpy as np
 import copy
 
@@ -49,11 +49,17 @@ def decode(audio,
 
     logger.info(f"Transcribing audio with language {language}...")
 
+    start_t = time.time()
+
     if USE_CTRANSLATE2:
         kwargs.pop("alignment_model")
-        return decode_ct2(**kwargs)
+        res = decode_ct2(**kwargs)
     else:
-        return decode_torch(**kwargs)
+        res = decode_torch(**kwargs)
+
+    logger.info("Transcription complete (t={}s)".format(time.time() - start_t))
+    
+    return res
 
 
 def decode_ct2(audio,
