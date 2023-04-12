@@ -19,11 +19,11 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root="/opt"):
                 model_type_or_file,
                 output_dir=os.path.join(download_root, "huggingface/hub")
             )
-        model = whisper.WhisperModel(model_type_or_file, device=device,
-                                     # vvv TODO
+        model = whisper.WhisperModel(model_type_or_file,
+                                     device=device,
                                      compute_type="default",
-                                    #  cpu_threads=0,
-                                    #  num_workers=1,
+                                     cpu_threads=0, # Can be controled with OMP_NUM_THREADS
+                                     num_workers=1,
                                      )
 
     else:
