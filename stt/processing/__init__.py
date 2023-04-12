@@ -5,7 +5,8 @@ from stt import logger
 from .decoding import decode, get_language
 from .utils import get_device, LANGUAGES, load_wave_buffer, load_audiofile
 
-from .load_model import load_whisper_model, load_alignment_model, get_alignment_model
+from .load_model import load_whisper_model
+from .alignment_model import load_alignment_model, get_alignment_model
 
 __all__ = ["logger", "decode", "model", "alignment_model",
            "load_audiofile", "load_wave_buffer"]

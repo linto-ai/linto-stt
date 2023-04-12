@@ -5,8 +5,8 @@ import copy
 
 from stt import logger, USE_CTRANSLATE2
 from .utils import SAMPLE_RATE
-from .load_model import load_alignment_model, get_alignment_model
 from .text_normalize import remove_punctuation, normalize_text, remove_emoji, _punctuations
+from .alignment_model import get_alignment_model, load_alignment_model
 from .word_alignment import compute_alignment
 
 if not USE_CTRANSLATE2:
