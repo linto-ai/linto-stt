@@ -5,6 +5,7 @@ flask-sock
 flask-swagger-ui>=3.36.0
 gevent
 gunicorn
+lockfile
 num2words
 pyyaml>=5.4.1
 requests>=2.26.0

@@ -1,4 +1,4 @@
-from stt import logger, USE_TORCH
+from stt import logger, USE_TORCH, USE_TORCHAUDIO
 from .utils import SAMPLE_RATE, LANGUAGES
 
 import os
@@ -9,9 +9,17 @@ import requests
 if USE_TORCH:
     import torch
     import torch.nn.utils.rnn as rnn_utils
-    import huggingface_hub
-    import speechbrain as sb
-    import transformers
+    try:
+        import speechbrain as sb
+        import huggingface_hub
+    except ImportError:
+        pass
+    try:
+        import transformers
+    except ImportError:
+        pass
+
+if USE_TORCHAUDIO:
     import torchaudio
 
 ################################################################################
@@ -77,7 +85,7 @@ def load_alignment_model(source, device="cpu", download_root="/opt"):
 
     start = time.time()
 
-    if source in torchaudio.pipelines.__all__:
+    if (source in torchaudio.pipelines.__all__) if USE_TORCHAUDIO else False:
         model = load_torchaudio_model(
             source, device=device, download_root=download_root)
     else:

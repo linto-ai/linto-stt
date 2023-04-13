@@ -4,7 +4,7 @@ import numpy as np
 import copy
 
 from stt import logger, USE_CTRANSLATE2
-from .utils import SAMPLE_RATE
+from .utils import SAMPLE_RATE, get_language
 from .text_normalize import remove_punctuation, normalize_text, remove_emoji, _punctuations
 from .alignment_model import get_alignment_model, load_alignment_model
 from .word_alignment import compute_alignment
@@ -12,20 +12,6 @@ from .word_alignment import compute_alignment
 if not USE_CTRANSLATE2:
     import torch 
     import whisper_timestamped
-
-
-def get_language():
-    """
-    Get the language from the environment variable LANGUAGE, and format as expected by Whisper.
-    """
-    language = os.environ.get("LANGUAGE", "*")
-    # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
-    if len(language) > 2 and language[2] == "-":
-        language = language.split("-")[0]
-    # "*" means "all languages"
-    if language == "*":
-        language = None
-    return language
 
 
 def decode(audio,
@@ -47,7 +33,7 @@ def decode(audio,
 
     kwargs = copy.copy(locals())
 
-    logger.info(f"Transcribing audio with language {language}...")
+    logger.info("Transcribing audio with " + (f"language {language}" if language else "automatic language detection") + "...")
 
     start_t = time.time()
 
@@ -123,7 +109,7 @@ def decode_torch(audio,
 
     if alignment_model is None:
         # Use Whisper cross-attention weights
-        whisper_res = whisper_timestamped.transcribe(model, audio, **kwargs)
+        whisper_res = whisper_timestamped.transcribe(model, audio, verbose=None, **kwargs)
         if language is None:
             language = whisper_res["language"]
             logger.info(f"Detected language: {language}")
@@ -133,7 +119,7 @@ def decode_torch(audio,
     torch.manual_seed(1234)
     torch.cuda.manual_seed_all(1234)
     
-    whisper_res = model.transcribe(audio, **kwargs)
+    whisper_res = model.transcribe(audio, verbose=None, **kwargs)
 
     text = whisper_res["text"]
     text = remove_emoji(text).strip()
@@ -294,9 +280,13 @@ def format_faster_whisper_response(segments, info,
                         words[-1]["confidence"].append(word.probability)
                         _, words[-1]["end"] = checked_timestamps(words[-1]["end"], word.end)
                     continue
-                words.append(
-                    {"text": word.word, "confidence": [word.probability]} | dict(zip(("start", "end"), checked_timestamps(word.start, word.end)))
-                )
+                start, end = checked_timestamps(word.start, word.end)
+                words.append({
+                    "text": word.word,
+                    "confidence": [word.probability],
+                    "start": start,
+                    "end": end
+                })
 
             for word in words:
                 word["text"] = word["text"].strip()

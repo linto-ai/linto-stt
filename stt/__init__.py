@@ -9,18 +9,21 @@ logger = logging.getLogger("__stt__")
 try:
     import faster_whisper
     USE_CTRANSLATE2 = True
-except ImportError:
+except ImportError as err:
+    try:
+        import whisper
+    except:
+        raise err
     USE_CTRANSLATE2 = False
 
 try:
-    import torch, torchaudio
+    import torch
     USE_TORCH = True
 except ImportError:
     USE_TORCH = False
 
-# TODO: Get rid of that
-if USE_TORCH:
-    SHOULD_USE_GEVENT = torch.cuda.is_available()
-    torch.set_num_threads(1)
-else:
-    SHOULD_USE_GEVENT = USE_CTRANSLATE2
+try:
+    import torchaudio
+    USE_TORCHAUDIO = True
+except ImportError:
+    USE_TORCHAUDIO = False

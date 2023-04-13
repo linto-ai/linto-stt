@@ -1,4 +1,4 @@
-from stt import USE_CTRANSLATE2, USE_TORCH
+from stt import USE_CTRANSLATE2, USE_TORCH, USE_TORCHAUDIO
 
 import io
 import wavio
@@ -12,8 +12,10 @@ if USE_CTRANSLATE2:
     import faster_whisper
 else:
     import torch
-    import torchaudio
     import whisper
+
+if USE_TORCHAUDIO:
+    import torchaudio
 
 def has_cuda():
     if USE_CTRANSLATE2:
@@ -31,10 +33,33 @@ def get_device():
             raise Exception("Failed to set device: {}".format(str(err))) from err
     return device, use_gpu
 
+def get_language():
+    """
+    Get the language from the environment variable LANGUAGE, and format as expected by Whisper.
+    """
+    language = os.environ.get("LANGUAGE", "*")
+    # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
+    if len(language) > 2 and language[2] == "-":
+        language = language.split("-")[0]
+    # "*" means "all languages"
+    if language == "*":
+        language = None
+    # Convert French -> fr
+    if isinstance(language, str) and language not in LANGUAGES:
+        language = {v: k for k, v in LANGUAGES.items()}.get(language.lower(), language)
+        # Raise an exception for unknown languages
+        if language not in LANGUAGES:
+            available_languages = \
+                list(LANGUAGES.keys()) + \
+                [k[0].upper() + k[1:] for k in LANGUAGES.values()] + \
+                ["*", None]
+            raise ValueError(f"Language '{language}' is not available. Available languages are: {available_languages}")
+    return language
+
 def conform_audio(audio, sample_rate=16_000):
     if sample_rate != SAMPLE_RATE:
-        if not USE_TORCH:
-            raise NotImplementedError("Resampling not available without Torch")
+        if not USE_TORCHAUDIO:
+            raise NotImplementedError("Resampling not available without torchaudio")
         # Down or Up sample to the right sampling rate
         audio = torchaudio.transforms.Resample(sample_rate, SAMPLE_RATE)(audio)
     if audio.shape[0] > 1:

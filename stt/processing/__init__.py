@@ -1,9 +1,10 @@
 import os
 import logging
+from lockfile import FileLock
 
-from stt import logger
-from .decoding import decode, get_language
-from .utils import get_device, LANGUAGES, load_wave_buffer, load_audiofile
+from stt import logger, USE_CTRANSLATE2
+from .decoding import decode
+from .utils import get_device, get_language, load_wave_buffer, load_audiofile
 
 from .load_model import load_whisper_model
 from .alignment_model import load_alignment_model, get_alignment_model
@@ -11,6 +12,23 @@ from .alignment_model import load_alignment_model, get_alignment_model
 __all__ = ["logger", "decode", "model", "alignment_model",
            "load_audiofile", "load_wave_buffer"]
 
+class LazyLoadedModel:
+
+    def __init__(self, model_type, device):
+        self.model_type = model_type
+        self.device = device
+        self._model = None
+        if USE_CTRANSLATE2:
+            # May download model here
+            load_whisper_model(self.model_type, device=self.device)
+
+    def __getattr__(self, name):
+        if self._model is None:
+            lockfile = os.path.basename(self.model_type)
+            with FileLock(lockfile):
+                self._model = load_whisper_model(self.model_type, device=self.device)
+        return getattr(self._model, name)
+    
 # Set informative log
 logger.setLevel(logging.INFO)
 
@@ -20,21 +38,14 @@ logger.info(f"Using device {device}")
 
 # Check language
 language = get_language()
-available_languages = \
-    list(LANGUAGES.keys()) + \
-    [k.lower() for k in LANGUAGES.values()] + \
-    [None]
-if language not in available_languages:
-    raise ValueError(f"Language '{get_language()}' is not available. Available languages are: {available_languages}")
-if isinstance(language, str) and language not in LANGUAGES:
-    language = {v: k for k, v in LANGUAGES.items()}[language.lower()]
 logger.info(f"Using language {language}")
 
 # Load ASR model
 model_type = os.environ.get("MODEL", "medium")
 logger.info(f"Loading Whisper model {model_type} ({'local' if os.path.exists(model_type) else 'remote'})...")
 try:
-    model = load_whisper_model(model_type, device=device)
+    model = LazyLoadedModel(model_type, device=device)
+    # model = load_whisper_model(model_type, device=device)
 except Exception as err:
     raise Exception(
         "Failed to load transcription model: {}".format(str(err))) from err

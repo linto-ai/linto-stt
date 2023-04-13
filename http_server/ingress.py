@@ -9,9 +9,8 @@ from flask import Flask, json, request
 from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
 
-from stt.processing import decode, load_wave_buffer, model, alignment_model
+from stt.processing import decode, load_wave_buffer, model, alignment_model, use_gpu
 from stt import logger as stt_logger
-from stt import SHOULD_USE_GEVENT
 
 app = Flask("__stt-standalone-worker__")
 app.config["JSON_AS_ASCII"] = False
@@ -102,7 +101,7 @@ if __name__ == "__main__":
 
     logger.info(f"Using {args.workers} workers")
     
-    if SHOULD_USE_GEVENT: # TODO: get rid of this
+    if use_gpu: # TODO: get rid of this?
         serving_type = GeventServing
         logger.debug("Serving with gevent")
     else:
