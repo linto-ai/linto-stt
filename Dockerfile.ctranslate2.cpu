@@ -4,8 +4,8 @@ LABEL maintainer="jlouradour@linagora.com"
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg
 
 # Install python dependencies
-COPY requirements.torch.txt ./
-RUN pip install --no-cache-dir -r requirements.torch.txt && rm requirements.torch.txt
+COPY requirements.ctranslate2.txt ./
+RUN pip install --no-cache-dir -r requirements.ctranslate2.txt && rm requirements.ctranslate2.txt
 
 WORKDIR /usr/src/app
 

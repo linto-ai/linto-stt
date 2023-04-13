@@ -1,27 +1,7 @@
 FROM python:3.9
 LABEL maintainer="jlouradour@linagora.com"
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        wget \
-        nano \
-        bzip2 \
-        unzip \
-        xz-utils \
-        sox \
-        ffmpeg \
-        g++ \
-        make \
-        cmake \
-        git \
-        zlib1g-dev \
-        automake \
-        autoconf \
-        libtool \
-        pkg-config \
-        ca-certificates
-
-RUN rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg
 
 # Force CPU versions of torch
 RUN pip3 install \
