@@ -1,22 +1,39 @@
+############################################
 # SERVING PARAMETERS
+############################################
+# "http" or "task"
 SERVICE_MODE=http
-MODEL=/opt/model.pt
 
-# LANGUAGE can be in different formats: en, en-US, English, ...
-# If not set or "*", the language will be detected automatically.
+# Below: used when SERVICE_MODE=task
+SERVICE_NAME=stt
+SERVICES_BROKER=redis://172.17.0.1:6379
+BROKER_PASS=
+
+############################################
+# STT MODELING PARAMETERS
+############################################
+
+# The model can be a path to a model, or a model name ("tiny", "base", "small", "medium", "large-v1" or "large-v2")
+MODEL=medium
+
+# The language can be in different formats: "en", "en-US", "English", ...
+# If not set or set to "*", the language will be detected automatically.
 LANGUAGE=*
 
-#DEVICE=cuda:0
+# An alignment wav2vec model can be used to get word timestamps.
+# It can be a path to a model, a language code (fr, en, ...), or "wav2vec" to automatically chose a model for the language
+# This option is experimental (and not implemented with ctranslate2).
+# ALIGNMENT_MODEL=wav2vec
 
-# Only used for alignement using wav2vec models
-#ALIGNMENT_MODEL=fr
-#ALIGNMENT_MODEL=wav2vec
-#ALIGNMENT_MODEL=/opt/alignment_model
+############################################
+# EFFICIENCY PARAMETERS
+############################################
 
-# TASK PARAMETERS
-SERVICE_NAME=stt
-SERVICES_BROKER=redis://192.168.0.1:6379
-BROKER_PASS=password
+# Device to use. It can be "cuda" to force/check GPU, "cpu" to force computation on CPU, or a specific GPU ("cuda:0", "cuda:1", ...)
+# DEVICE=cuda:0
 
-# CONCURRENCY
+# Number of threads per worker when running on CPU
+OMP_NUM_THREADS=4
+
+# Number of workers
 CONCURRENCY=2
