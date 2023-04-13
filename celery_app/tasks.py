@@ -3,7 +3,7 @@ import os
 
 from celery_app.celeryapp import celery
 from stt import logger
-from stt.processing import decode, model, alignment_model
+from stt.processing import decode, MODEL, ALIGNMENT_MODEL
 from stt.processing.utils import load_audiofile
 
 
@@ -22,7 +22,7 @@ def transcribe_task(file_name: str, with_metadata: bool):
 
     # Decode
     try:
-        result = decode(file_content, model, alignment_model, with_metadata)
+        result = decode(file_content, MODEL, ALIGNMENT_MODEL, with_metadata)
     except Exception as err:
         logger.error(f"Failed to decode: {repr(err)}")
         raise Exception(f"Failed to decode {file_path}") from err

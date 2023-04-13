@@ -9,7 +9,7 @@ from flask import Flask, json, request
 from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
 
-from stt.processing import decode, load_wave_buffer, model, alignment_model, use_gpu
+from stt.processing import decode, load_wave_buffer, MODEL, ALIGNMENT_MODEL, USE_GPU
 from stt import logger as stt_logger
 
 app = Flask("__stt-standalone-worker__")
@@ -54,7 +54,7 @@ def transcribe():
 
         # Transcription
         transcription = decode(
-            audio_data, model, alignment_model, join_metadata)
+            audio_data, MODEL, ALIGNMENT_MODEL, join_metadata)
 
         if join_metadata:
             return json.dumps(transcription, ensure_ascii=False), 200
@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     logger.info(f"Using {args.workers} workers")
     
-    if use_gpu: # TODO: get rid of this?
+    if USE_GPU: # TODO: get rid of this?
         serving_type = GeventServing
         logger.debug("Serving with gevent")
     else:
