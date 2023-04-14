@@ -18,6 +18,9 @@ class LazyLoadedModel:
         self.model_type = model_type
         self.device = device
         self._model = None
+        if USE_CTRANSLATE2:
+            # This may download the model, and test the device
+            load_whisper_model(self.model_type, device=self.device)
 
     def __getattr__(self, name):
         if self._model is None:
@@ -30,7 +33,6 @@ class LazyLoadedModel:
 logger.setLevel(logging.INFO)
 
 # Set device
-os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID' # GPU in the right order
 device, USE_GPU = get_device()
 logger.info(f"Using device {device}")
 

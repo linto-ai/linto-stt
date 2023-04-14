@@ -26,7 +26,21 @@ def has_cuda():
 def get_device():
     device = os.environ.get("DEVICE", "cuda" if has_cuda() else "cpu")
     use_gpu = "cuda" in device
-    if not USE_CTRANSLATE2:
+    
+    # The following is to have GPU in the right order (as nvidia-smi show them)
+    # But somehow it does not work with ctranslate2: 
+    # see https://github.com/guillaumekln/faster-whisper/issues/150
+    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID' # GPU in the right order
+    
+    if USE_CTRANSLATE2:
+        try:
+            if device.startswith("cuda:"):
+                _ = [int(dev) for dev in device[5:].split(",")]
+            else:
+                assert device in ["cpu", "cuda"]
+        except:
+            raise ValueError(f"Invalid DEVICE '{device}' (should be 'cpu' or 'cuda' or 'cuda:<index> or 'cuda:<index1>,<index2>,...')")
+    else:
         try:
             device = torch.device(device)
         except Exception as err:

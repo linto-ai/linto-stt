@@ -43,15 +43,21 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
         else:
             compute_types = ["int8_float16", "float16", "float32"]
 
+        device_index = 0
+        if device.startswith("cuda:"):
+            device_index = [int(dev) for dev in device[5:].split(",")]
+            device = "cuda"
+
         model = None
         for i, compute_type in enumerate(compute_types):
             try:
                 model = faster_whisper.WhisperModel(
                     model_type_or_file,
                     device=device,
+                    device_index=device_index,
                     compute_type=compute_type,
-                    cpu_threads=0,  # Can be controled with OMP_NUM_THREADS
-                    num_workers=1,
+                    # cpu_threads=0,  # Can be controled with OMP_NUM_THREADS
+                    # num_workers=1,
                     # download_root=os.path.join(download_root, f"huggingface/hub/models--guillaumekln--faster-whisper-{model_type_or_file}"),
                 )
                 break
