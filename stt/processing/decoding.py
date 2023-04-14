@@ -2,6 +2,7 @@ import os
 import time
 import numpy as np
 import copy
+from typing import Tuple, Union
 
 from stt import logger, USE_CTRANSLATE2
 from .utils import SAMPLE_RATE, get_language
@@ -13,6 +14,15 @@ if not USE_CTRANSLATE2:
     import torch 
     import whisper_timestamped
 
+if "USE_ACCURATE":
+    default_beam_size = 5
+    default_best_of = 5
+    default_temperature = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
+else:
+    default_beam_size = None
+    default_best_of = None
+    default_temperature = 0.0
+
 
 def decode(audio,
            model,
@@ -20,9 +30,9 @@ def decode(audio,
            with_word_timestamps: bool,
            language: str = None,
            remove_punctuation_from_words=False,
-           beam_size: int = None,
-           best_of: int = None,
-           temperature: float = 0.0,
+           beam_size: int = default_beam_size,
+           best_of: int = default_best_of,
+           temperature: Union[float, Tuple[float, ...]] = default_temperature,
            condition_on_previous_text: bool = False,
            no_speech_threshold: float = 0.6,
            compression_ratio_threshold: float = 2.4,

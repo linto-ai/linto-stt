@@ -38,14 +38,29 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
             elif not os.path.exists(default_cache_root):
                 os.symlink(download_root, default_cache_root)
 
-        model = faster_whisper.WhisperModel(
-            model_type_or_file,
-            device=device,
-            compute_type="default",
-            cpu_threads=0,  # Can be controled with OMP_NUM_THREADS
-            num_workers=1,
-            # download_root=os.path.join(download_root, f"huggingface/hub/models--guillaumekln--faster-whisper-{model_type_or_file}"),
-        )
+        if device == "cpu":
+            compute_types = ["int8", "float32"]
+        else:
+            compute_types = ["int8_float16", "float16", "float32"]
+
+        model = None
+        for i, compute_type in enumerate(compute_types):
+            try:
+                model = faster_whisper.WhisperModel(
+                    model_type_or_file,
+                    device=device,
+                    compute_type=compute_type,
+                    cpu_threads=0,  # Can be controled with OMP_NUM_THREADS
+                    num_workers=1,
+                    # download_root=os.path.join(download_root, f"huggingface/hub/models--guillaumekln--faster-whisper-{model_type_or_file}"),
+                )
+                break
+            except ValueError as err:
+                # On some old GPU we may have the error
+                # "ValueError: Requested int8_float16 compute type, 
+                # but the target device or backend do not support efficient int8_float16 computation."
+                if i == len(compute_types) - 1:
+                    raise err
 
     else:
         model = whisper.load_model(
