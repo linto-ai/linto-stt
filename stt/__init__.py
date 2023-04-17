@@ -1,3 +1,4 @@
+import os
 import logging
 
 logging.basicConfig(
@@ -5,6 +6,11 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("__stt__")
+
+# The following is to have GPU in the right order (as nvidia-smi show them)
+# It is important to set that before loading ctranslate2 
+# see https://github.com/guillaumekln/faster-whisper/issues/150
+os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID' # GPU in the right order
 
 try:
     import faster_whisper

@@ -18,9 +18,6 @@ class LazyLoadedModel:
         self.model_type = model_type
         self.device = device
         self._model = None
-        if USE_CTRANSLATE2:
-            # This may download the model, and test the device
-            load_whisper_model(self.model_type, device=self.device)
 
     def __getattr__(self, name):
         if self._model is None:

@@ -26,12 +26,7 @@ def has_cuda():
 def get_device():
     device = os.environ.get("DEVICE", "cuda" if has_cuda() else "cpu")
     use_gpu = "cuda" in device
-    
-    # The following is to have GPU in the right order (as nvidia-smi show them)
-    # But somehow it does not work with ctranslate2: 
-    # see https://github.com/guillaumekln/faster-whisper/issues/150
-    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID' # GPU in the right order
-    
+        
     if USE_CTRANSLATE2:
         try:
             if device.startswith("cuda:"):
