@@ -41,7 +41,7 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
         if device == "cpu":
             compute_types = ["int8", "float32"]
         else:
-            compute_types = ["int8_float16", "float16", "float32"]
+            compute_types = ["int8", "int8_float16", "float16", "float32"]
 
         device_index = 0
         if device.startswith("cuda:"):
