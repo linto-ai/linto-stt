@@ -306,7 +306,7 @@ def format_faster_whisper_response(segments, info,
             "text": segment.text.strip(),
             "start": start,
             "end": end,
-            "avg_logprob": segment.avg_log_prob,
+            "avg_logprob": segment.avg_logprob,
             "words": words
         })
 
@@ -315,7 +315,7 @@ def format_faster_whisper_response(segments, info,
     transcription = {
         "text": " ".join(segment["text"] for segment in segments_list),
         "language": language,
-        "confidence": round(np.exp(np.mean([segment.avg_log_prob for segment in segments])), 2),
+        "confidence": round(np.exp(np.mean([segment["avg_logprob"] for segment in segments_list])), 2),
         "segments": segments_list,
     }
     return format_whisper_timestamped_response(transcription, remove_punctuation_from_words=remove_punctuation_from_words)
