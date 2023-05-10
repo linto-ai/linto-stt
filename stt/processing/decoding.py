@@ -14,7 +14,10 @@ if not USE_CTRANSLATE2:
     import torch 
     import whisper_timestamped
 
-if "USE_ACCURATE":
+USE_ACCURATE = True
+USE_VAD = True
+
+if USE_ACCURATE:
     default_beam_size = 5
     default_best_of = 5
     default_temperature = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
@@ -71,13 +74,14 @@ def decode_ct2(audio,
         kwargs["beam_size"] = 1
     if kwargs.get("best_of") is None:
         kwargs["best_of"] = 1
-
+    
     segments, info = model.transcribe(
         audio,
         word_timestamps=with_word_timestamps,
         language=language,
         # Careful with the following options
         max_initial_timestamp=10000.0,
+        vad_filter=USE_VAD,
         **kwargs)
 
     segments = list(segments)
@@ -114,7 +118,8 @@ def decode_torch(audio,
         best_of=best_of,
         condition_on_previous_text=condition_on_previous_text,
         no_speech_threshold=no_speech_threshold,
-        compression_ratio_threshold=compression_ratio_threshold
+        compression_ratio_threshold=compression_ratio_threshold,
+        vad=USE_VAD,
     )
 
     if alignment_model is None:
@@ -309,8 +314,6 @@ def format_faster_whisper_response(segments, info,
             "avg_logprob": segment.avg_logprob,
             "words": words
         })
-
-    assert len(segments_list)
     
     transcription = {
         "text": " ".join(segment["text"] for segment in segments_list),
