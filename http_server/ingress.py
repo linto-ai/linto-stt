@@ -62,7 +62,7 @@ def transcribe():
 
     except Exception as error:
         import traceback
-        print(traceback.format_exc())
+        logger.error(traceback.format_exc())
         logger.error(repr(error))
         return "Server Error: {}".format(str(error)), 400 if isinstance(error, ValueError) else 500
 

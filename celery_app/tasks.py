@@ -17,14 +17,18 @@ def transcribe_task(file_name: str, with_metadata: bool):
     try:
         file_content = load_audiofile(file_path)
     except Exception as err:
-        logger.error(f"Failed to load ressource: {repr(err)}")
-        raise Exception(f"Could not open ressource {file_path}") from err
+        import traceback
+        msg = f"{traceback.format_exc()}\nFailed to load ressource {file_path}"
+        logger.error(msg)
+        raise Exception(msg) # from err
 
     # Decode
     try:
         result = decode(file_content, MODEL, ALIGNMENT_MODEL, with_metadata)
     except Exception as err:
-        logger.error(f"Failed to decode: {repr(err)}")
-        raise Exception(f"Failed to decode {file_path}") from err
+        import traceback
+        msg = f"{traceback.format_exc()}\nFailed to decode {file_path}"
+        logger.error(msg)
+        raise Exception(msg) # from err
 
     return result
