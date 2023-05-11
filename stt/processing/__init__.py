@@ -19,13 +19,20 @@ class LazyLoadedModel:
         self.device = device
         self._model = None
 
-    def __getattr__(self, name):
+    def check_loaded(self):
         if self._model is None:
             lockfile = os.path.basename(self.model_type)
             with FileLock(lockfile):
                 self._model = load_whisper_model(self.model_type, device=self.device)
+
+    def __getattr__(self, name):
+        self.check_loaded()
         return getattr(self._model, name)
     
+    def __call__(self, *args, **kwargs):
+        self.check_loaded()
+        return self._model(*args, **kwargs)
+
 # Set informative log
 logger.setLevel(logging.INFO)
 
