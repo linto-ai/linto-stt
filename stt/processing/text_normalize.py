@@ -8,6 +8,7 @@ from .utils import flatten
 
 # string.punctuation, plus Whisper specific "«»¿", minus apostrophe "'", dash "-", and dot "." (which will be processed as special)
 _punctuations = '!"#$%&()*+,/:;<=>?@[\\]^_`{|}~«»¿'
+_punctuations_plus = _punctuations + "'-"
 
 
 def remove_punctuation(text: str) -> str:

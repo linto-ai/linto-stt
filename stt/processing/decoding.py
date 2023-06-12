@@ -6,7 +6,7 @@ from typing import Tuple, Union
 
 from stt import logger, USE_CTRANSLATE2
 from .utils import SAMPLE_RATE, get_language
-from .text_normalize import remove_punctuation, normalize_text, remove_emoji, _punctuations
+from .text_normalize import remove_punctuation, normalize_text, remove_emoji, _punctuations_plus
 from .alignment_model import get_alignment_model, load_alignment_model
 from .word_alignment import compute_alignment
 
@@ -289,9 +289,9 @@ def format_faster_whisper_response(segments, info,
         words = []
         if segment.words:
             for word in segment.words:
-                if len(words) and (not(word.word.strip()) or word.word.strip()[0] in _punctuations):
+                if len(words) and (not(word.word.strip()) or word.word.strip()[0] in _punctuations_plus):
                     words[-1]["text"] += word.word
-                    if word.word.strip() not in _punctuations:
+                    if word.word.strip() not in _punctuations_plus:
                         words[-1]["confidence"].append(word.probability)
                         _, words[-1]["end"] = checked_timestamps(words[-1]["end"], word.end)
                     continue

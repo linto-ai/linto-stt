@@ -1,3 +1,6 @@
+# 4.0.1
+- Fix punctuations
+
 # 4.0.0
 - Integration of Whisper
 
