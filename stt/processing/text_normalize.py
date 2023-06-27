@@ -6,8 +6,8 @@ import unicodedata
 from stt import logger
 from .utils import flatten
 
-# string.punctuation, plus Whisper specific "«»¿", minus apostrophe "'", dash "-", and dot "." (which will be processed as special)
-_punctuations = '!"#$%&()*+,/:;<=>?@[\\]^_`{|}~«»¿'
+# Punctuation marks
+_punctuations = '.!?,:;¿。，！？：、…؟،؛'
 _punctuations_plus = _punctuations + "'-"
 
 
