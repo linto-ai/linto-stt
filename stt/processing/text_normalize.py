@@ -7,7 +7,7 @@ from stt import logger
 from .utils import flatten
 
 # Punctuation marks
-_punctuations = '.!?,:;¿。，！？：、…؟،؛'
+_punctuations = '!,.:;?¿،؛؟…、。！，：？' # + '"”' + ')]}'
 _punctuations_plus = _punctuations + "'-"
 
 
