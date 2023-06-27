@@ -1,3 +1,6 @@
+# 4.0.2
+- Do not considers symbols like "$" as punctuation marks
+
 # 4.0.1
 - Fix punctuations
 
