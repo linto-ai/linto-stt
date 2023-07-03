@@ -6,24 +6,42 @@ import unicodedata
 from stt import logger
 from .utils import flatten
 
-# Punctuation marks
-_punctuations = '!,.:;?¿،؛؟…、。！，：？' # + '"”' + ')]}'
-_punctuations_plus = _punctuations + "'-"
+# All punctuations and symbols EXCEPT:
+# * apostrophe (') and hyphen (-)
+# * underscore (_)
+# * currency symbols ($, €, £, ...) -> \p{Sc}
+# * math symbols (%, +, ×). ex: C++
+# * misc (#, @). ex: C#, @user
+# and the space character (which can separate several series of punctuation marks)
+# Example of punctuations that can output models like Whisper: !,.:;?¿،؛؟…、。！，：？>/]:!(~\u200b[ா「«»“”"< ?;…,*」.)'
+_punctuation_regex = r"[^\w\p{Sc}" + re.escape("'-_%+×#@&") + "]"
+_leading_punctuations_regex = r"^" + _punctuation_regex + r"+"
+_trailing_punctuations_regex = _punctuation_regex + r"+$"
+
+# A list of symbols that can be an isolated words and not in the exclusion list above
+# * &
+# * candidates not retained: §, <, =, >, ≤, ≥
+_maybe_word_regex = None # r"[" + re.escape("&") + r"]$"
 
 
-def remove_punctuation(text: str) -> str:
-    text = text.translate(str.maketrans("", "", _punctuations))
-    # We don't remove dots inside words (e.g. "ab@gmail.com")
-    text = re.sub(r"\.(\s)", r"\1", text+" ").strip()
-    return collapse_whitespace(text)
-
-
-_whitespace_re = re.compile(r'[^\S\r\n]+')
-
-
-def collapse_whitespace(text):
-    return re.sub(_whitespace_re, ' ', text).strip()
-
+def remove_punctuation(text: str, ensure_no_spaces_in_words: bool=False) -> str:
+    text = text.strip()
+    # Note: we don't remove dots inside words (e.g. "ab@gmail.com")
+    new_text = re.sub(_leading_punctuations_regex, "", text) #.lstrip()
+    new_text = re.sub(_trailing_punctuations_regex, "", new_text) #.rstrip()
+    # Let punctuation marks that are alone
+    if not new_text:
+        if _maybe_word_regex and re.match(_maybe_word_regex, text):
+            new_text = text
+        else:
+            new_text = ""
+    # Ensure that there is no space in the middle of a word
+    if ensure_no_spaces_in_words and " " in new_text:
+        new_text, tail = new_text.split(" ", 1)
+        # OK if the tail only contains non alphanumeric characters (then we just keep the first part)
+        assert not re.search(r"[^\W\d\'\-_]", tail), f"Got unexpected word containing space: {text}"
+        return remove_punctuation(new_text, ensure_no_spaces_in_words=ensure_no_spaces_in_words)
+    return new_text
 
 def transliterate(c):
     # Transliterates a character to its closest ASCII equivalent.
