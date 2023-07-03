@@ -6,7 +6,7 @@ from typing import Tuple, Union
 
 from stt import logger, USE_CTRANSLATE2
 from .utils import SAMPLE_RATE, get_language
-from .text_normalize import remove_punctuation, normalize_text, remove_emoji, _punctuations_plus
+from .text_normalize import remove_punctuation, normalize_text, remove_emoji
 from .alignment_model import get_alignment_model, load_alignment_model
 from .word_alignment import compute_alignment
 
@@ -264,8 +264,11 @@ def format_whisper_timestamped_response(transcription, remove_punctuation_from_w
     }
 
 
-def format_faster_whisper_response(segments, info,
-                                   remove_punctuation_from_words=False):
+def format_faster_whisper_response(
+    segments, info,
+    remove_punctuation_from_words=False,
+    glue_punctuations="'-&@.,",
+    ):
 
     language = info.language
     duration = info.duration
@@ -289,13 +292,13 @@ def format_faster_whisper_response(segments, info,
         words = []
         if segment.words:
             for word in segment.words:
-                if len(words) and (not(word.word.strip()) or word.word.strip()[0] in _punctuations_plus):
-                    words[-1]["text"] += word.word
-                    if word.word.strip() not in _punctuations_plus:
-                        words[-1]["confidence"].append(word.probability)
-                        _, words[-1]["end"] = checked_timestamps(words[-1]["end"], word.end)
-                    continue
                 start, end = checked_timestamps(word.start, word.end)
+                word_strip = word.word.strip()
+                if glue_punctuations and len(word_strip)>1 and word_strip[0] in glue_punctuations:
+                    words[-1]["text"] += word.word.lstrip()
+                    words[-1]["confidence"].append(word.probability)
+                    words[-1]["end"] = end
+                    continue
                 words.append({
                     "text": word.word,
                     "confidence": [word.probability],
