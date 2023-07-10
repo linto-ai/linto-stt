@@ -113,7 +113,7 @@ if __name__ == "__main__":
         {
             "bind": f"0.0.0.0:{args.service_port}",
             "workers": args.workers,
-            "timeout": 3600,
+            "timeout": 3600 * 24,
         },
     )
     logger.info(args)
