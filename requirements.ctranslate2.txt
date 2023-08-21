@@ -10,5 +10,5 @@ pyyaml>=5.4.1
 requests>=2.26.0
 wavio>=0.0.4
 websockets
-ctranslate2==3.16.1
-faster_whisper==0.6.0
+ctranslate2==3.18.0
+faster_whisper==0.7.1
