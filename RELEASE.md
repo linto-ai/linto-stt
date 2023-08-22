@@ -1,3 +1,6 @@
+# 4.0.4
+- Add integration of Whisper models from transformers
+
 # 4.0.3
 - Tune punctuation heuristics
 
