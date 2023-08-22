@@ -1,7 +1,7 @@
 FROM python:3.9
 LABEL maintainer="jlouradour@linagora.com"
 
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg git
 
 # Install python dependencies
 COPY requirements.ctranslate2.txt ./

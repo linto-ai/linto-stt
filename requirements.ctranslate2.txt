@@ -11,4 +11,5 @@ requests>=2.26.0
 wavio>=0.0.4
 websockets
 ctranslate2==3.18.0
-faster_whisper==0.7.1
+#faster_whisper==0.7.1
+git+https://github.com/linto-ai/faster-whisper.git@d9cffcaad763def754124977cc66150f0efcd7ea
