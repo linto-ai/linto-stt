@@ -1,5 +1,6 @@
 # 4.0.4
 - Add integration of Whisper models from transformers
+- Add support of prompt from Whisper models (env variable PROMPT)
 
 # 4.0.3
 - Tune punctuation heuristics

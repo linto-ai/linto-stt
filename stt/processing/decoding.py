@@ -26,6 +26,7 @@ else:
     default_best_of = None
     default_temperature = 0.0
 
+default_initial_prompt = os.environ.get("PROMPT", None)
 
 def decode(audio,
            model,
@@ -39,6 +40,7 @@ def decode(audio,
            condition_on_previous_text: bool = False,
            no_speech_threshold: float = 0.6,
            compression_ratio_threshold: float = 2.4,
+           initial_prompt: str = default_initial_prompt,
            ) -> dict:
 
     if language is None:
