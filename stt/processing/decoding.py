@@ -296,7 +296,7 @@ def format_faster_whisper_response(
             for word in segment.words:
                 start, end = checked_timestamps(word.start, word.end)
                 word_strip = word.word.strip()
-                if glue_punctuations and len(word_strip)>1 and word_strip[0] in glue_punctuations:
+                if glue_punctuations and len(words) and len(word_strip)>1 and word_strip[0] in glue_punctuations:
                     words[-1]["text"] += word.word.lstrip()
                     words[-1]["confidence"].append(word.probability)
                     words[-1]["end"] = max(words[-1]["end"], end)
