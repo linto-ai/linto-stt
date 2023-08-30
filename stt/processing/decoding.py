@@ -26,6 +26,7 @@ else:
     default_best_of = None
     default_temperature = 0.0
 
+default_initial_prompt = os.environ.get("PROMPT", None)
 
 def decode(audio,
            model,
@@ -39,6 +40,7 @@ def decode(audio,
            condition_on_previous_text: bool = False,
            no_speech_threshold: float = 0.6,
            compression_ratio_threshold: float = 2.4,
+           initial_prompt: str = default_initial_prompt,
            ) -> dict:
 
     if language is None:
@@ -294,7 +296,7 @@ def format_faster_whisper_response(
             for word in segment.words:
                 start, end = checked_timestamps(word.start, word.end)
                 word_strip = word.word.strip()
-                if glue_punctuations and len(word_strip)>1 and word_strip[0] in glue_punctuations:
+                if glue_punctuations and len(words) and len(word_strip)>1 and word_strip[0] in glue_punctuations:
                     words[-1]["text"] += word.word.lstrip()
                     words[-1]["confidence"].append(word.probability)
                     words[-1]["end"] = max(words[-1]["end"], end)

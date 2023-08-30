@@ -1,3 +1,8 @@
+# 4.0.4
+- Add integration of Whisper models from transformers
+- Add support of prompt from Whisper models (env variable PROMPT)
+- Fix possible failure when a Whisper segment starts with a punctuation
+
 # 4.0.3
 - Tune punctuation heuristics
 
