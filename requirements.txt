@@ -9,3 +9,4 @@ pyyaml>=5.4.1
 wavio>=0.0.4
 requests>=2.26.0
 websockets
+werkzeug>=3.0.1 # not directly required, pinned by Snyk to avoid a vulnerability
