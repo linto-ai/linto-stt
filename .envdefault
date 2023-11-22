@@ -13,7 +13,7 @@ BROKER_PASS=
 # STT MODELING PARAMETERS
 ############################################
 
-# The model can be a path to a model, or a model name ("tiny", "base", "small", "medium", "large-v1" or "large-v2")
+# The model can be a path to a model, or a model name ("tiny", "base", "small", "medium", "large-v1", "large-v2" or "large-v3")
 MODEL=medium
 
 # The language can be in different formats: "en", "en-US", "English", ...

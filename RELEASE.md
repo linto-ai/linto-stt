@@ -1,3 +1,6 @@
+# 4.0.5
+- Support of Whisper large-v3 model
+
 # 4.0.4
 - Add integration of Whisper models from transformers
 - Add support of prompt from Whisper models (env variable PROMPT)
