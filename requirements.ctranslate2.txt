@@ -10,6 +10,6 @@ pyyaml>=5.4.1
 requests>=2.26.0
 wavio>=0.0.4
 websockets
-ctranslate2==3.18.0
-#faster_whisper==0.7.1
-git+https://github.com/linto-ai/faster-whisper.git@d9cffcaad763def754124977cc66150f0efcd7ea
+#faster_whisper==0.10.0
+# This is version faster_whisper==0.9.0 + prompt propagation + fix for large-v3
+git+https://github.com/linto-ai/faster-whisper.git@aad9e7508b528e79be2a9975ac79ef8317f02a6d

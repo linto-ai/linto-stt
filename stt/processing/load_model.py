@@ -52,7 +52,7 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
             device = "cuda"
 
         if not os.path.isfile(os.path.join(model_type_or_file, "model.bin")) and \
-            model_type_or_file not in ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2"]:
+            not max([model_type_or_file.startswith(prefix) for prefix in ["tiny", "base", "small", "medium", "large"]]):
 
             # Convert transformer model
 
