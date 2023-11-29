@@ -56,6 +56,7 @@ def decode(audio,
         kwargs.pop("alignment_model")
         res = decode_ct2(**kwargs)
     else:
+        print("OK")
         res = decode_torch(**kwargs)
 
     logger.info("Transcription complete (t={}s)".format(time.time() - start_t))
@@ -107,6 +108,7 @@ def decode_torch(audio,
                  no_speech_threshold,
                  compression_ratio_threshold,
                  normalize_text_as_words=False,
+                 initial_prompt=None,
                  ):
     """Transcribe the audio data using Whisper with the defined model."""
 
@@ -122,6 +124,7 @@ def decode_torch(audio,
         no_speech_threshold=no_speech_threshold,
         compression_ratio_threshold=compression_ratio_threshold,
         vad=USE_VAD,
+        initial_prompt=initial_prompt,
     )
 
     if alignment_model is None:
