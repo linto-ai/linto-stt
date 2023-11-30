@@ -1,10 +1,9 @@
 pipeline {
     agent any
     environment {
-        DOCKER_HUB_REPO = "lintoai/linto-platform-stt"
+        DOCKER_HUB_REPO_KALDI   = "lintoai/linto-platform-stt-kaldi"
+        DOCKER_HUB_REPO_WHISPER = "lintoai/linto-platform-stt-whisper"
         DOCKER_HUB_CRED = 'docker-hub-credentials'
-
-        VERSION = ''
     }
 
     stages{
@@ -15,10 +14,22 @@ pipeline {
             steps {
                 echo 'Publishing latest'
                 script {
-                    image = docker.build(env.DOCKER_HUB_REPO)
+                    image = docker.build(env.DOCKER_HUB_REPO_KALDI, "-f kaldi/Dockerfile .")
                     VERSION = sh(
                         returnStdout: true, 
-                        script: "awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                        script: "awk -v RS='' '/#/ {print; exit}' kaldi/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                    ).trim()
+
+                    docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
+                        image.push("${VERSION}")
+                        image.push('latest')
+                    }
+                }
+                script {
+                    image = docker.build(env.DOCKER_HUB_REPO_WHISPER, "-f whisper/Dockerfile.ctranslate2 .")
+                    VERSION = sh(
+                        returnStdout: true, 
+                        script: "awk -v RS='' '/#/ {print; exit}' whisper/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     ).trim()
 
                     docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
@@ -36,10 +47,20 @@ pipeline {
             steps {
                 echo 'Publishing unstable'
                 script {
-                    image = docker.build(env.DOCKER_HUB_REPO)
+                    image = docker.build(env.DOCKER_HUB_REPO_KALDI, "-f kaldi/Dockerfile .")
                     VERSION = sh(
                         returnStdout: true, 
-                        script: "awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                        script: "awk -v RS='' '/#/ {print; exit}' kaldi/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                    ).trim()
+                    docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
+                        image.push('latest-unstable')
+                    }
+                }
+                script {
+                    image = docker.build(env.DOCKER_HUB_REPO_WHISPER, "-f whisper/Dockerfile.ctranslate2 .")
+                    VERSION = sh(
+                        returnStdout: true, 
+                        script: "awk -v RS='' '/#/ {print; exit}' whisper/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     ).trim()
                     docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
                         image.push('latest-unstable')
@@ -48,25 +69,5 @@ pipeline {
             }
         }
 
-        stage('Docker build for whisper branch'){
-            when{
-                branch 'feature/whisper'
-            }
-            steps {
-                echo 'Publishing faster_whisper'
-                script {
-                    image = docker.build(env.DOCKER_HUB_REPO, "-f Dockerfile.ctranslate2 .")
-                    VERSION = sh(
-                        returnStdout: true, 
-                        script: "awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
-                    ).trim()
-
-                    docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
-                        image.push("${VERSION}")
-                        image.push('whisper-latest')
-                    }
-                }
-            }
-        }
     }// end stages
 }
