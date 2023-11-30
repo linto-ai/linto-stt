@@ -4,9 +4,11 @@ import re
 from vosk import KaldiRecognizer, Model
 
 
-def decode(audio_data: bytes, model: Model, sampling_rate: int, with_metadata: bool) -> dict:
+def decode(audio: tuple[bytes, int], model: Model, with_metadata: bool) -> dict:
     """Transcribe the audio data using the vosk library with the defined model."""
     result = {"text": "", "confidence-score": 0.0, "words": []}
+
+    audio_data, sampling_rate = audio
 
     recognizer = KaldiRecognizer(model, sampling_rate)
     recognizer.SetMaxAlternatives(0)  # Set confidence per words

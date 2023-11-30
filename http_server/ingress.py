@@ -10,7 +10,7 @@ from flask import Flask, json, request
 from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
 
-from stt.processing import decode, load_wave_buffer, MODEL, ALIGNMENT_MODEL, USE_GPU
+from stt.processing import decode, load_wave_buffer, MODEL, USE_GPU
 from stt import logger as stt_logger
 
 app = Flask("__stt-standalone-worker__")
@@ -25,13 +25,15 @@ logger = logging.getLogger("__stt-standalone-worker__")
 
 # If websocket streaming route is enabled
 if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
+    from flask_sock import Sock
+    from stt.processing.streaming import ws_streaming
     logger.info("Init websocket serving ...")
     sock = Sock(app)
     logger.info("Streaming is enabled")
 
     @sock.route("/streaming")
     def streaming(web_socket):
-        ws_streaming(web_socket, model)
+        ws_streaming(web_socket, MODEL)
 
 
 @app.route("/healthcheck", methods=["GET"])
@@ -68,8 +70,7 @@ def transcribe():
         audio_data = load_wave_buffer(file_buffer)
 
         # Transcription
-        transcription = decode(
-            audio_data, MODEL, ALIGNMENT_MODEL, join_metadata)
+        transcription = decode(audio_data, MODEL, join_metadata)
 
         if join_metadata:
             return json.dumps(transcription, ensure_ascii=False), 200

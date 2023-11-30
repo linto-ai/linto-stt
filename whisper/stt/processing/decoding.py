@@ -29,8 +29,7 @@ else:
 default_initial_prompt = os.environ.get("PROMPT", None)
 
 def decode(audio,
-           model,
-           alignment_model: "Any",
+           model_and_alignementmodel, # Tuple[model, alignment_model]
            with_word_timestamps: bool,
            language: str = None,
            remove_punctuation_from_words=False,
@@ -47,6 +46,8 @@ def decode(audio,
         language = get_language()
 
     kwargs = copy.copy(locals())
+    kwargs.pop("model_and_alignementmodel")
+    kwargs["model"], kwargs["alignment_model"] = model_and_alignementmodel
 
     logger.info("Transcribing audio with " + (f"language {language}" if language else "automatic language detection") + "...")
 
