@@ -1,7 +1,6 @@
 import os
 
 from celery import Celery
-
 from stt import logger
 
 celery = Celery(__name__, include=["celery_app.tasks"])

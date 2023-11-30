@@ -2,16 +2,16 @@ import os
 import sys
 from time import time
 
-from vosk import Model
-
 from stt import logger
 from stt.processing.decoding import decode
-from stt.processing.utils import load_wave_buffer, load_audiofile
+from stt.processing.utils import load_audiofile, load_wave_buffer
+from vosk import Model
 
 __all__ = [
     "logger",
     "decode",
-    "load_audiofile", "load_wave_buffer",
+    "load_audiofile",
+    "load_wave_buffer",
     "MODEL",
     "USE_GPU",
 ]

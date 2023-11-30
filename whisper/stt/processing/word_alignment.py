@@ -1,24 +1,26 @@
 """
 Credits: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html
 """
-from stt import logger, USE_TORCH
 from dataclasses import dataclass
 
+from stt import USE_TORCH, logger
+
 from .alignment_model import compute_logprobas, get_vocab
-from .utils import flatten
 from .text_normalize import transliterate
+from .utils import flatten
 
 if USE_TORCH:
     import torch
 
 _unknown_chars = []
 
+
 def compute_alignment(audio, transcript, model):
-    """ Compute the alignment of the audio and a transcript, for a given model that returns log-probabilities on the charset defined the transcript."""
+    """Compute the alignment of the audio and a transcript, for a given model that returns log-probabilities on the charset defined the transcript."""
 
     emission = compute_logprobas(model, audio)
     labels, blank_id = get_vocab(model)
-    labels = labels[:emission.shape[1]]
+    labels = labels[: emission.shape[1]]
     dictionary = {c: i for i, c in enumerate(labels)}
 
     default = labels.index("-") if "-" in labels else None
@@ -30,8 +32,7 @@ def compute_alignment(audio, transcript, model):
     if len(tokens) + num_repetitions > num_emissions:
         # It will be impossible to find a path...
         # It can happen when Whisper is lost in a loop (ex: "Ha ha ha ha ...")
-        logger.warn(
-            f"Got too many characters from Whisper. Shrinking to the first characters.")
+        logger.warn(f"Got too many characters from Whisper. Shrinking to the first characters.")
         tokens = tokens[:num_emissions]
         num_repetitions = count_repetitions(tokens)
         while len(tokens) + num_repetitions > num_emissions:
@@ -62,8 +63,7 @@ def loose_get_char_index(dictionary, c, default=None):
     if i is None:
         # Try with alternative versions of the character
         tc = transliterate(c)
-        other_char = list(
-            set([c.lower(), c.upper(), tc, tc.lower(), tc.upper()]))
+        other_char = list(set([c.lower(), c.upper(), tc, tc.lower(), tc.upper()]))
         for c2 in other_char:
             i = dictionary.get(c2, None)
             if i is not None:
@@ -73,15 +73,17 @@ def loose_get_char_index(dictionary, c, default=None):
         if i is None:
             for c2 in other_char:
                 if len(c2) > 1:
-                    candidate = [dictionary[c3]
-                                 for c3 in c2 if c3 in dictionary]
+                    candidate = [dictionary[c3] for c3 in c2 if c3 in dictionary]
                     if len(candidate) > 0 and (i is None or len(candidate) > len(i)):
                         i = candidate
         # If still not found
         if i is None:
             if c not in _unknown_chars:
-                logger.warn("Character not correctly handled by alignment model: '" +
-                            "' / '".join(list(set([c] + other_char))) + "'")
+                logger.warn(
+                    "Character not correctly handled by alignment model: '"
+                    + "' / '".join(list(set([c] + other_char)))
+                    + "'"
+                )
                 _unknown_chars.append(c)
             i = [default] if default is not None else []
     else:
@@ -103,16 +105,23 @@ def get_trellis(emission, tokens, blank_id=0, use_max=False):
     trellis[-num_tokens:, 0] = float("inf")
 
     for t in range(num_frame):
-        trellis[t + 1, 1:] = torch.maximum(
-            # Score for staying at the same token
-            trellis[t, 1:] + emission[t, blank_id],
-            torch.maximum(trellis[t, 1:] + emission[t, tokens],
-                          # Score for changing to the next token
-                          trellis[t, :-1] + emission[t, tokens])
-        ) if use_max else torch.logaddexp(
-            trellis[t, 1:] + emission[t, blank_id],
-            torch.logaddexp(trellis[t, 1:] + emission[t, tokens],
-                            trellis[t, :-1] + emission[t, tokens])
+        trellis[t + 1, 1:] = (
+            torch.maximum(
+                # Score for staying at the same token
+                trellis[t, 1:] + emission[t, blank_id],
+                torch.maximum(
+                    trellis[t, 1:] + emission[t, tokens],
+                    # Score for changing to the next token
+                    trellis[t, :-1] + emission[t, tokens],
+                ),
+            )
+            if use_max
+            else torch.logaddexp(
+                trellis[t, 1:] + emission[t, blank_id],
+                torch.logaddexp(
+                    trellis[t, 1:] + emission[t, tokens], trellis[t, :-1] + emission[t, tokens]
+                ),
+            )
         )
     return trellis
 
@@ -146,8 +155,7 @@ def backtrack(trellis, emission, tokens, blank_id=0):
         changed = trellis[t - 1, j - 1] + emission[t - 1, tokens[j - 1]]
 
         # 2. Store the path with frame-wise probability.
-        prob = emission[t - 1, tokens[j - 1]
-                        if changed > stayed else 0].exp().item()
+        prob = emission[t - 1, tokens[j - 1] if changed > stayed else 0].exp().item()
         # Return token index and time index in non-trellis coordinate.
         path.append(Point(j - 1, t - 1, prob))
 
@@ -205,10 +213,10 @@ def merge_words(segments, separator=" "):
             if i1 != i2:
                 segs = segments[i1:i2]
                 word = "".join([seg.label for seg in segs])
-                score = sum(seg.score * seg.length for seg in segs) / \
-                    sum(seg.length for seg in segs)
-                words.append(
-                    Segment(word, segments[i1].start, segments[i2 - 1].end, score))
+                score = sum(seg.score * seg.length for seg in segs) / sum(
+                    seg.length for seg in segs
+                )
+                words.append(Segment(word, segments[i1].start, segments[i2 - 1].end, score))
             i1 = i2 + 1
             i2 = i1
         else:

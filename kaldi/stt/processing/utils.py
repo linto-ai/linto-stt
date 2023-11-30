@@ -1,7 +1,7 @@
 import io
 
 import wavio
-from numpy import int16, squeeze, mean
+from numpy import int16, mean, squeeze
 
 
 def load_audiofile(file_path):

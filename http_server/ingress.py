@@ -7,11 +7,10 @@ import time
 
 from confparser import createParser
 from flask import Flask, json, request
-from serving import GunicornServing, GeventServing
-from swagger import setupSwaggerUI
-
-from stt.processing import decode, load_wave_buffer, MODEL, USE_GPU
+from serving import GeventServing, GunicornServing
 from stt import logger as stt_logger
+from stt.processing import MODEL, USE_GPU, decode, load_wave_buffer
+from swagger import setupSwaggerUI
 
 app = Flask("__stt-standalone-worker__")
 app.config["JSON_AS_ASCII"] = False
@@ -27,6 +26,7 @@ logger = logging.getLogger("__stt-standalone-worker__")
 if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
     from flask_sock import Sock
     from stt.processing.streaming import ws_streaming
+
     logger.info("Init websocket serving ...")
     sock = Sock(app)
     logger.info("Streaming is enabled")
@@ -58,7 +58,9 @@ def transcribe():
         elif request.headers.get("accept").lower() == "text/plain":
             join_metadata = False
         else:
-            raise ValueError(f"Not accepted header (accept={request.headers.get('accept')} should be either application/json or text/plain)")
+            raise ValueError(
+                f"Not accepted header (accept={request.headers.get('accept')} should be either application/json or text/plain)"
+            )
         # logger.debug("Metadata: {}".format(join_metadata))
 
         # get input file
@@ -66,7 +68,7 @@ def transcribe():
             raise ValueError(f"No audio file was uploaded (missing 'file' key)")
 
         file_buffer = request.files["file"].read()
-        
+
         audio_data = load_wave_buffer(file_buffer)
 
         # Transcription
@@ -78,6 +80,7 @@ def transcribe():
 
     except Exception as error:
         import traceback
+
         logger.error(traceback.format_exc())
         logger.error(repr(error))
         return "Server Error: {}".format(str(error)), 400 if isinstance(error, ValueError) else 500
@@ -116,8 +119,8 @@ if __name__ == "__main__":
         logger.warning("Could not setup swagger: {}".format(str(err)))
 
     logger.info(f"Using {args.workers} workers")
-    
-    if USE_GPU: # TODO: get rid of this?
+
+    if USE_GPU:  # TODO: get rid of this?
         serving_type = GeventServing
         logger.debug("Serving with gevent")
     else:

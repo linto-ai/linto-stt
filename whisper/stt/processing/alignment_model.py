@@ -1,17 +1,19 @@
-from stt import logger, USE_TORCH, USE_TORCHAUDIO
-from .utils import SAMPLE_RATE, LANGUAGES
-
-import os
 import math
+import os
 import time
+
 import requests
+from stt import USE_TORCH, USE_TORCHAUDIO, logger
+
+from .utils import LANGUAGES, SAMPLE_RATE
 
 if USE_TORCH:
     import torch
     import torch.nn.utils.rnn as rnn_utils
+
     try:
-        import speechbrain as sb
         import huggingface_hub
+        import speechbrain as sb
     except ImportError:
         pass
     try:
@@ -66,8 +68,7 @@ def get_alignment_model(alignment_model_name, language, force=False):
         elif language in ALIGNMENT_MODELS:
             return ALIGNMENT_MODELS[language]
         elif force:
-            raise ValueError(
-                f"No wav2vec alignment model for language '{language}'.")
+            raise ValueError(f"No wav2vec alignment model for language '{language}'.")
         else:
             logger.warn(
                 f"No wav2vec alignment model for language '{language}'. Fallback to English."
@@ -77,57 +78,59 @@ def get_alignment_model(alignment_model_name, language, force=False):
         return get_alignment_model("wav2vec", alignment_model_name, force=True)
     return alignment_model_name
 
-def load_alignment_model(source, device="cpu", download_root="/opt"):
 
+def load_alignment_model(source, device="cpu", download_root="/opt"):
     if not USE_TORCH:
-        raise NotImplementedError(
-            "Alignement model not available without Torch")
+        raise NotImplementedError("Alignement model not available without Torch")
 
     start = time.time()
 
     if (source in torchaudio.pipelines.__all__) if USE_TORCHAUDIO else False:
-        model = load_torchaudio_model(
-            source, device=device, download_root=download_root)
+        model = load_torchaudio_model(source, device=device, download_root=download_root)
     else:
         try:
-            model = load_transformers_model(
-                source, device=device, download_root=download_root)
+            model = load_transformers_model(source, device=device, download_root=download_root)
         except Exception as err1:
             try:
-                model = load_speechbrain_model(
-                    source, device=device, download_root=download_root)
+                model = load_speechbrain_model(source, device=device, download_root=download_root)
             except Exception as err2:
                 raise Exception(
-                    f"Failed to load alignment model:\n<<< transformers <<<\n{str(err1)}\n<<< speechbrain <<<\n{str(err2)}") from err2
+                    f"Failed to load alignment model:\n<<< transformers <<<\n{str(err1)}\n<<< speechbrain <<<\n{str(err2)}"
+                ) from err2
 
     logger.info(
-        f"Alignment Model of type {get_model_type(model)} loaded. (t={time.time() - start}s)")
+        f"Alignment Model of type {get_model_type(model)} loaded. (t={time.time() - start}s)"
+    )
 
     return model
 
 
 def load_speechbrain_model(source, device="cpu", download_root="/opt"):
-
     if os.path.isdir(source):
         yaml_file = os.path.join(source, "hyperparams.yaml")
-        assert os.path.isfile(
-            yaml_file), f"Hyperparams file {yaml_file} not found"
+        assert os.path.isfile(yaml_file), f"Hyperparams file {yaml_file} not found"
     else:
         try:
             yaml_file = huggingface_hub.hf_hub_download(
-                repo_id=source, filename="hyperparams.yaml", cache_dir=os.path.join(download_root, "huggingface/hub"))
+                repo_id=source,
+                filename="hyperparams.yaml",
+                cache_dir=os.path.join(download_root, "huggingface/hub"),
+            )
         except requests.exceptions.HTTPError:
             yaml_file = None
     overrides = make_yaml_overrides(
-        yaml_file, {"save_path": os.path.join(download_root, "speechbrain")})
+        yaml_file, {"save_path": os.path.join(download_root, "speechbrain")}
+    )
 
     savedir = os.path.join(download_root, "speechbrain")
     try:
         model = sb.pretrained.EncoderASR.from_hparams(
-            source=source, run_opts={"device": device}, savedir=savedir, overrides=overrides)
+            source=source, run_opts={"device": device}, savedir=savedir, overrides=overrides
+        )
     except ValueError:
         model = sb.pretrained.EncoderDecoderASR.from_hparams(
-            source=source, run_opts={"device": device}, savedir=savedir, overrides=overrides)
+            source=source, run_opts={"device": device}, savedir=savedir, overrides=overrides
+        )
 
     model.train(False)
     model.requires_grad_(False)
@@ -135,7 +138,6 @@ def load_speechbrain_model(source, device="cpu", download_root="/opt"):
 
 
 def load_transformers_model(source, device="cpu", download_root="/opt"):
-
     model = transformers.Wav2Vec2ForCTC.from_pretrained(source).to(device)
     processor = transformers.Wav2Vec2Processor.from_pretrained(source)
 
@@ -145,7 +147,6 @@ def load_transformers_model(source, device="cpu", download_root="/opt"):
 
 
 def load_torchaudio_model(source, device="cpu", download_root="/opt"):
-
     bundle = torchaudio.pipelines.__dict__[source]
     model = bundle.get_model().to(device)
     labels = bundle.get_labels()
@@ -187,8 +188,7 @@ def make_yaml_overrides(yaml_file, key_values):
             elif ":" in line:
                 child = line.strip().split(":")[0].strip()
                 if child in key_values:
-                    override[parent] = override.get(parent, {}) | {
-                        child: key_values[child]}
+                    override[parent] = override.get(parent, {}) | {child: key_values[child]}
     return override
 
 
@@ -205,15 +205,18 @@ def get_vocab(model):
     else:
         labels, blank_id = get_vocab_torchaudio(model)
     assert isinstance(labels, list) and min(
-        [isinstance(l, str) for l in labels]), "labels must be a list of strings"
+        [isinstance(l, str) for l in labels]
+    ), "labels must be a list of strings"
     return norm_labels(labels, blank_id), blank_id
 
 
 def get_vocab_speechbrain(model):
     tokenizer = model.tokenizer
     # Is this general enough?
-    labels = [{'': " ", ' ⁇ ': "<pad>"}.get(i, i) for i in tokenizer.decode(
-        [[i] for i in range(tokenizer.get_piece_size())])]
+    labels = [
+        {"": " ", " ⁇ ": "<pad>"}.get(i, i)
+        for i in tokenizer.decode([[i] for i in range(tokenizer.get_piece_size())])
+    ]
     blank_id = labels.index("<pad>")
     return labels, blank_id
 
@@ -228,8 +231,7 @@ def get_vocab_torchaudio(model_and_labels):
 
 def get_vocab_transformers(model_and_processor):
     _, processor = model_and_processor
-    labels_dict = dict((v, k)
-                       for k, v in processor.tokenizer.get_vocab().items())
+    labels_dict = dict((v, k) for k, v in processor.tokenizer.get_vocab().items())
     labels = [labels_dict[i] for i in range(len(labels_dict))]
     blank_id = labels.index("<pad>")
     return labels, blank_id
@@ -238,6 +240,7 @@ def get_vocab_transformers(model_and_processor):
 def norm_labels(labels, blank_id):
     labels[blank_id] = ""
     return [l if l != "|" else " " for l in labels]
+
 
 ################################################################################
 # Compute log-probabilities from model
@@ -250,7 +253,6 @@ MAX_LEN = 2240400
 
 
 def compute_logprobas(model, audios, max_len=MAX_LEN):
-
     # Single audio
     if not isinstance(audios, list):
         audios = [audios]
@@ -280,22 +282,22 @@ def compute_logits_speechbrain(model, audios, max_len):
         chunks = []
         i_audio = []
         for a in audios:
-            chunks.extend([a[i:min(i+max_len, len(a))]
-                          for i in range(0, len(a), max_len)])
+            chunks.extend([a[i : min(i + max_len, len(a))] for i in range(0, len(a), max_len)])
             i_audio.append(len(chunks))
             if len(chunks) > 1:
                 logger.warning(
-                    "Audio too long, splitting into {} chunks for alignment".format(len(chunks)))
+                    "Audio too long, splitting into {} chunks for alignment".format(len(chunks))
+                )
         # Decode chunks of audio and concatenate results
         log_probas = [[] for i in range(len(audios))]
         for i in range(0, len(chunks), batch_size):
-            chunk = chunks[i:min(i+batch_size, len(chunks))]
+            chunk = chunks[i : min(i + batch_size, len(chunks))]
             log_probas_tmp = compute_logits_speechbrain(model, chunk)
-            for j in range(i, i+len(chunk)):
+            for j in range(i, i + len(chunk)):
                 k = 0
                 while j >= i_audio[k]:
                     k += 1
-                log_probas[k].append(log_probas_tmp[j-i])
+                log_probas[k].append(log_probas_tmp[j - i])
         log_probas = [torch.cat(p, dim=0) for p in log_probas]
         log_probas, wav_lens = pack_sequences(log_probas, device=model.device)
     else:
@@ -307,16 +309,15 @@ def compute_logits_speechbrain(model, audios, max_len):
 
 def pack_sequences(tensors, device="cpu"):
     if len(tensors) == 1:
-        return tensors[0].unsqueeze(0).to(device), torch.Tensor([1.]).to(device)
+        return tensors[0].unsqueeze(0).to(device), torch.Tensor([1.0]).to(device)
     tensor = rnn_utils.pad_sequence(tensors, batch_first=True)
     wav_lens = [len(x) for x in tensors]
     maxwav_lens = max(wav_lens)
-    wav_lens = torch.Tensor([l/maxwav_lens for l in wav_lens])
+    wav_lens = torch.Tensor([l / maxwav_lens for l in wav_lens])
     return tensor.to(device), wav_lens.to(device)
 
 
 def compute_logits_transformers(model_and_processor, audios, max_len):
-
     model, processor = model_and_processor
 
     # can be different from processor.feature_extractor.sampling_rate
@@ -342,19 +343,28 @@ def compute_logits_transformers(model_and_processor, audios, max_len):
         if l > max_len:
             # Split batch in smaller chunks
             logger.warning(
-                "Audio too long, splitting into {} chunks for alignment".format(math.ceil(l / max_len)))
+                "Audio too long, splitting into {} chunks for alignment".format(
+                    math.ceil(l / max_len)
+                )
+            )
             logits = []
             for i in range(0, l, max_len):
                 j = min(i + max_len, l)
                 if use_mask:
-                    logits.append(model(padded_batch.input_values[:, i:j].to(device),
-                                    attention_mask=padded_batch.attention_mask[:, i:j].to(device)).logits)
+                    logits.append(
+                        model(
+                            padded_batch.input_values[:, i:j].to(device),
+                            attention_mask=padded_batch.attention_mask[:, i:j].to(device),
+                        ).logits
+                    )
                 else:
                     logits.append(model(padded_batch.input_values[:, i:j].to(device)).logits)
             logits = torch.cat(logits, dim=1)
         elif use_mask:
-            logits = model(padded_batch.input_values.to(device),
-                           attention_mask=padded_batch.attention_mask.to(device)).logits
+            logits = model(
+                padded_batch.input_values.to(device),
+                attention_mask=padded_batch.attention_mask.to(device),
+            ).logits
         else:
             logits = model(padded_batch.input_values.to(device)).logits
 
@@ -371,7 +381,7 @@ def compute_logits_torchaudio(model_and_labels, audios, max_len):
     for p in model.parameters():
         device = p.device
         break
-    
+
     all_logits = []
 
     with torch.inference_mode():
@@ -380,7 +390,10 @@ def compute_logits_torchaudio(model_and_labels, audios, max_len):
             if l > max_len:
                 # Split audio in smaller chunks
                 logger.warning(
-                    "Audio too long, splitting into {} chunks for alignment".format(math.ceil(l / max_len)))
+                    "Audio too long, splitting into {} chunks for alignment".format(
+                        math.ceil(l / max_len)
+                    )
+                )
                 logits = []
                 for i in range(0, l, max_len):
                     j = min(i + max_len, l)

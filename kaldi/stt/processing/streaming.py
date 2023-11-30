@@ -3,10 +3,9 @@ import re
 from typing import Union
 
 from simple_websocket.ws import Server as WSServer
+from stt import logger
 from vosk import KaldiRecognizer, Model
 from websockets.legacy.server import WebSocketServerProtocol
-
-from stt import logger
 
 
 async def wssDecode(ws: WebSocketServerProtocol, model: Model):
