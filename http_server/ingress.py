@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import time
 
 from confparser import createParser
@@ -16,7 +17,21 @@ app = Flask("__stt-standalone-worker__")
 app.config["JSON_AS_ASCII"] = False
 app.config["JSON_SORT_KEYS"] = False
 
+logging.basicConfig(
+    format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+    datefmt="%d/%m/%Y %H:%M:%S",
+)
 logger = logging.getLogger("__stt-standalone-worker__")
+
+# If websocket streaming route is enabled
+if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
+    logger.info("Init websocket serving ...")
+    sock = Sock(app)
+    logger.info("Streaming is enabled")
+
+    @sock.route("/streaming")
+    def streaming(web_socket):
+        ws_streaming(web_socket, model)
 
 
 @app.route("/healthcheck", methods=["GET"])
@@ -32,7 +47,7 @@ def oas_docs():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
-        logger.info(f"Transcribe request received")
+        logger.info("Transcribe request received")
 
         # get response content type
         # logger.debug(request.headers.get("accept").lower())
