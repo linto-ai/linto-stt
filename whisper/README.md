@@ -1,7 +1,9 @@
-# LINTO-PLATFORM-STT
-LinTO-platform-stt is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack).
+# LinTO-Platform-STT-Whisper
 
-LinTO-platform-stt can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+LinTO-Platform-STT-Whisper is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack)
+based on Speech-To-Text (STT) [Whisper models](https://openai.com/research/whisper).
+
+LinTO-Platform-STT-Whisper can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
 ## Pre-requisites
 
@@ -11,24 +13,22 @@ To run the transcription models you'll need:
 * Up to 7GB of RAM depending on the model used.
 * One CPU per worker. Inference time scales on CPU performances. 
 
-### Model
-LinTO-Platform-STT works with two models:
-* A Whisper model to perform Automatic Speech Recognition, which must be in the PyTorch format.
-* A wav2vec model to perform word alignment, which can be in the format of SpeechBrain, HuggingFace's Transformers or TorchAudio
+### Model(s)
 
+LinTO-Platform-STT-Whisper works with a Whisper model to perform Automatic Speech Recognition, which must be in the PyTorch format.
+
+#### Optional alignment model (deprecated)
+
+It can also work with a wav2vec model to perform word alignment.
 The wav2vec model can be specified either
-* with a string corresponding to a `torchaudio` pipeline (e.g. "WAV2VEC2_ASR_BASE_960H") or
-* with a string corresponding to a HuggingFace repository of a wav2vec model (e.g. "jonatasgrosman/wav2vec2-large-xlsr-53-english"), or
-* with a path corresponding to a folder with a SpeechBrain model
+* (TorchAudio) with a string corresponding to a `torchaudio` pipeline (e.g. "WAV2VEC2_ASR_BASE_960H") or
+* (HuggingFace's Transformers) with a string corresponding to a HuggingFace repository of a wav2vec model (e.g. "jonatasgrosman/wav2vec2-large-xlsr-53-english"), or
+* (SpeechBrain) with a path corresponding to a folder with a SpeechBrain model
 
-Default models are provided for the following languages:
-* French (fr)
-* English (en)
-* Spanish (es)
-* German (de)
-* Dutch (nl)
-* Japanese (ja)
-* Chinese (zh)
+Default wav2vec models are provided for French (fr), English (en), Spanish (es), German (de), Dutch (nl), Japanese (ja), Chinese (zh).
+
+But we advise not to use a companion wav2vec alignment model.
+This is not needed neither tested anymore.
 
 ### Docker
 The transcription service requires docker up and running.
@@ -37,19 +37,19 @@ The transcription service requires docker up and running.
 The STT only entry point in task mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
 On addition, as to prevent large audio from transiting through the message broker, STT-Worker use a shared storage folder (SHARED_FOLDER).
 
-## Deploy linto-platform-stt
+## Deploy LinTO-Platform-STT-Whisper
 
 **1- First step is to build or pull the image:**
 
 ```bash
 git clone https://github.com/linto-ai/linto-platform-stt.git
 cd linto-platform-stt
-docker build . -t linto-platform-stt:latest
+docker build . -f whisper/Dockerfile.ctranslate2 -t linto-platform-stt-whisper:latest
 ```
 or
 
 ```bash
-docker pull lintoai/linto-platform-stt
+docker pull lintoai/linto-platform-stt-whisper
 ```
 
 **2- Download the models**
@@ -77,7 +77,7 @@ If may also want to download a specific wav2vec model for word alignment.
 **3- Fill the .env**
 
 ```bash
-cp .envdefault .env
+cp whisper/.envdefault whisper/.env
 ```
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
@@ -134,8 +134,8 @@ The SERVICE_MODE value in the .env should be set to ```http```.
 docker run --rm \
 -p HOST_SERVING_PORT:80 \
 -v ASR_PATH:/opt/model.pt \
---env-file .env \
-linto-platform-stt:latest
+--env-file whisper/.env \
+linto-platform-stt-whisper:latest
 ```
 
 This will run a container providing an [HTTP API](#http-api) binded on the host HOST_SERVING_PORT port.
@@ -169,8 +169,8 @@ You need a message broker up and running at MY_SERVICE_BROKER.
 docker run --rm \
 -v ASR_PATH:/opt/model.pt \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
---env-file .env \
-linto-platform-stt:latest
+--env-file whisper/.env \
+linto-platform-stt-whisper:latest
 ```
 
 You may also want to mount your cache folder CACHE_PATH (e.g. "~/.cache") ```-v CACHE_PATH:/root/.cache```
@@ -267,7 +267,9 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 ## Acknowlegment.
 
+* [Faster Whisper](https://github.com/SYSTRAN/faster-whisper)
 * [OpenAI Whisper](https://github.com/openai/whisper)
+* [Ctranslate2](https://github.com/OpenNMT/CTranslate2)
 * [SpeechBrain](https://github.com/speechbrain/speechbrain).
 * [TorchAudio](https://github.com/pytorch/audio)
 * [HuggingFace Transformers](https://github.com/huggingface/transformers)

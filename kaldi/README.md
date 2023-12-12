@@ -1,7 +1,9 @@
-# LINTO-PLATFORM-STT
-LinTO-platform-stt is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack).
+# LinTO-Platform-STT-Kaldi
 
-LinTO-platform-stt can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+LinTO-Platform-STT-Kaldi is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack)
+based on Speech-To-Text (STT) models trained with [Kaldi](https://github.com/kaldi-asr/kaldi).
+
+LinTO-Platform-STT-Kaldi can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
 ## Pre-requisites
 
@@ -12,7 +14,7 @@ To run the transcription models you'll need:
 * One CPU per worker. Inference time scales on CPU performances. 
 
 ### Model
-LinTO-Platform-STT accepts two kinds of models:
+LinTO-Platform-STT-Kaldi accepts two kinds of models:
 * LinTO Acoustic and Languages models.
 * Vosk models.
 
@@ -26,19 +28,19 @@ The transcription service requires docker up and running.
 The STT only entry point in task mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
 On addition, as to prevent large audio from transiting through the message broker, STT-Worker use a shared storage folder (SHARED_FOLDER).
 
-## Deploy linto-platform-stt
+## Deploy LinTO-Platform-STT-Kaldi
 
 **1- First step is to build or pull the image:**
 
 ```bash
 git clone https://github.com/linto-ai/linto-platform-stt.git
 cd linto-platform-stt
-docker build . -t linto-platform-stt:latest
+docker build . -f kaldi/Dockerfile -t linto-platform-stt-kaldi:latest
 ```
 or
 
 ```bash
-docker pull lintoai/linto-platform-stt
+docker pull lintoai/linto-platform-stt-kaldi
 ```
 
 **2- Download the models**
@@ -48,7 +50,7 @@ Have the acoustic and language model ready at AM_PATH and LM_PATH if you are usi
 **3- Fill the .env**
 
 ```bash
-cp .envdefault .env
+cp kaldi/.envdefault kaldi/.env
 ```
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
@@ -84,8 +86,8 @@ docker run --rm \
 -p HOST_SERVING_PORT:80 \
 -v AM_PATH:/opt/AM \
 -v LM_PATH:/opt/LM \
---env-file .env \
-linto-platform-stt:latest
+--env-file kaldi/.env \
+linto-platform-stt-kaldi:latest
 ```
 
 This will run a container providing an [HTTP API](#http-api) binded on the host HOST_SERVING_PORT port.
@@ -114,8 +116,8 @@ docker run --rm \
 -v AM_PATH:/opt/AM \
 -v LM_PATH:/opt/LM \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
---env-file .env \
-linto-platform-stt:latest
+--env-file kaldi/.env \
+linto-platform-stt-kaldi:latest
 ```
 
 **Parameters:**
