@@ -1,8 +1,8 @@
 pipeline {
     agent any
     environment {
-        DOCKER_HUB_REPO_KALDI   = "lintoai/linto-platform-stt-kaldi"
-        DOCKER_HUB_REPO_WHISPER = "lintoai/linto-platform-stt-whisper"
+        DOCKER_HUB_REPO_KALDI   = "lintoai/linto-stt-kaldi"
+        DOCKER_HUB_REPO_WHISPER = "lintoai/linto-stt-whisper"
         DOCKER_HUB_CRED = 'docker-hub-credentials'
     }
 

@@ -1,9 +1,9 @@
-# LinTO-Platform-STT-Whisper
+# LinTO-STT-Whisper
 
-LinTO-Platform-STT-Whisper is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack)
+LinTO-STT-Whisper is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack)
 based on Speech-To-Text (STT) [Whisper models](https://openai.com/research/whisper).
 
-LinTO-Platform-STT-Whisper can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+LinTO-STT-Whisper can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
 ## Pre-requisites
 
@@ -15,7 +15,7 @@ To run the transcription models you'll need:
 
 ### Model(s)
 
-LinTO-Platform-STT-Whisper works with a Whisper model to perform Automatic Speech Recognition, which must be in the PyTorch format.
+LinTO-STT-Whisper works with a Whisper model to perform Automatic Speech Recognition, which must be in the PyTorch format.
 
 #### Optional alignment model (deprecated)
 
@@ -37,19 +37,19 @@ The transcription service requires docker up and running.
 The STT only entry point in task mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
 On addition, as to prevent large audio from transiting through the message broker, STT-Worker use a shared storage folder (SHARED_FOLDER).
 
-## Deploy LinTO-Platform-STT-Whisper
+## Deploy LinTO-STT-Whisper
 
 **1- First step is to build or pull the image:**
 
 ```bash
-git clone https://github.com/linto-ai/linto-platform-stt.git
-cd linto-platform-stt
-docker build . -f whisper/Dockerfile.ctranslate2 -t linto-platform-stt-whisper:latest
+git clone https://github.com/linto-ai/linto-stt.git
+cd linto-stt
+docker build . -f whisper/Dockerfile.ctranslate2 -t linto-stt-whisper:latest
 ```
 or
 
 ```bash
-docker pull lintoai/linto-platform-stt-whisper
+docker pull lintoai/linto-stt-whisper
 ```
 
 **2- Download the models**
@@ -135,7 +135,7 @@ docker run --rm \
 -p HOST_SERVING_PORT:80 \
 -v ASR_PATH:/opt/model.pt \
 --env-file whisper/.env \
-linto-platform-stt-whisper:latest
+linto-stt-whisper:latest
 ```
 
 This will run a container providing an [HTTP API](#http-api) binded on the host HOST_SERVING_PORT port.
@@ -159,8 +159,8 @@ The HTTP serving mode connect a celery worker to a message broker.
 
 The SERVICE_MODE value in the .env should be set to ```task```.
 
->LinTO-platform-stt can be deployed within the linto-platform-stack through the use of linto-platform-services-manager. Used this way, the container spawn celery worker waiting for transcription task on a message broker.
->LinTO-platform-stt in task mode is not intended to be launch manually.
+>LinTO-STT-Whisper can be deployed within the linto-platform-stack through the use of linto-platform-services-manager. Used this way, the container spawn celery worker waiting for transcription task on a message broker.
+>LinTO-STT-Whisper in task mode is not intended to be launch manually.
 >However, if you intent to connect it to your custom message's broker here are the parameters:
 
 You need a message broker up and running at MY_SERVICE_BROKER.
@@ -170,7 +170,7 @@ docker run --rm \
 -v ASR_PATH:/opt/model.pt \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
 --env-file whisper/.env \
-linto-platform-stt-whisper:latest
+linto-stt-whisper:latest
 ```
 
 You may also want to mount your cache folder CACHE_PATH (e.g. "~/.cache") ```-v CACHE_PATH:/root/.cache```

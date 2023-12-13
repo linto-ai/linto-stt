@@ -1,9 +1,9 @@
-# LinTO-Platform-STT-Kaldi
+# LinTO-STT-Kaldi
 
-LinTO-Platform-STT-Kaldi is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack)
+LinTO-STT-Kaldi is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack)
 based on Speech-To-Text (STT) models trained with [Kaldi](https://github.com/kaldi-asr/kaldi).
 
-LinTO-Platform-STT-Kaldi can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+LinTO-STT-Kaldi can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
 ## Pre-requisites
 
@@ -14,7 +14,7 @@ To run the transcription models you'll need:
 * One CPU per worker. Inference time scales on CPU performances. 
 
 ### Model
-LinTO-Platform-STT-Kaldi accepts two kinds of models:
+LinTO-STT-Kaldi accepts two kinds of models:
 * LinTO Acoustic and Languages models.
 * Vosk models.
 
@@ -28,19 +28,19 @@ The transcription service requires docker up and running.
 The STT only entry point in task mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
 On addition, as to prevent large audio from transiting through the message broker, STT-Worker use a shared storage folder (SHARED_FOLDER).
 
-## Deploy LinTO-Platform-STT-Kaldi
+## Deploy LinTO-STT-Kaldi
 
 **1- First step is to build or pull the image:**
 
 ```bash
-git clone https://github.com/linto-ai/linto-platform-stt.git
-cd linto-platform-stt
-docker build . -f kaldi/Dockerfile -t linto-platform-stt-kaldi:latest
+git clone https://github.com/linto-ai/linto-stt.git
+cd linto-stt
+docker build . -f kaldi/Dockerfile -t linto-stt-kaldi:latest
 ```
 or
 
 ```bash
-docker pull lintoai/linto-platform-stt-kaldi
+docker pull lintoai/linto-stt-kaldi
 ```
 
 **2- Download the models**
@@ -87,7 +87,7 @@ docker run --rm \
 -v AM_PATH:/opt/AM \
 -v LM_PATH:/opt/LM \
 --env-file kaldi/.env \
-linto-platform-stt-kaldi:latest
+linto-stt-kaldi:latest
 ```
 
 This will run a container providing an [HTTP API](#http-api) binded on the host HOST_SERVING_PORT port.
@@ -105,8 +105,8 @@ The HTTP serving mode connect a celery worker to a message broker.
 
 The SERVICE_MODE value in the .env should be set to ```task```.
 
->LinTO-platform-stt can be deployed within the linto-platform-stack through the use of linto-platform-services-manager. Used this way, the container spawn celery worker waiting for transcription task on a message broker.
->LinTO-platform-stt in task mode is not intended to be launch manually.
+>LinTO-STT-Kaldi can be deployed within the linto-platform-stack through the use of linto-platform-services-manager. Used this way, the container spawn celery worker waiting for transcription task on a message broker.
+>LinTO-STT-Kaldi in task mode is not intended to be launch manually.
 >However, if you intent to connect it to your custom message's broker here are the parameters:
 
 You need a message broker up and running at MY_SERVICE_BROKER.
@@ -117,7 +117,7 @@ docker run --rm \
 -v LM_PATH:/opt/LM \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
 --env-file kaldi/.env \
-linto-platform-stt-kaldi:latest
+linto-stt-kaldi:latest
 ```
 
 **Parameters:**
