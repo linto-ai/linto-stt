@@ -105,10 +105,6 @@ The HTTP serving mode connect a celery worker to a message broker.
 
 The SERVICE_MODE value in the .env should be set to ```task```.
 
->LinTO-STT-Kaldi can be deployed within the linto-platform-stack through the use of linto-platform-services-manager. Used this way, the container spawn celery worker waiting for transcription task on a message broker.
->LinTO-STT-Kaldi in task mode is not intended to be launch manually.
->However, if you intent to connect it to your custom message's broker here are the parameters:
-
 You need a message broker up and running at MY_SERVICE_BROKER.
 
 ```bash
