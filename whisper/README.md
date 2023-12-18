@@ -166,7 +166,7 @@ you can add option ```-v WAV2VEC_PATH:/opt/wav2vec``` and environment variable `
 | WAV2VEC_PATH | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
 ### Micro-service within LinTO-Platform stack
-The HTTP serving mode connect a celery worker to a message broker.
+The TASK serving mode connect a celery worker to a message broker.
 
 The SERVICE_MODE value in the .env should be set to ```task```.
 

@@ -101,7 +101,7 @@ This will run a container providing an [HTTP API](#http-api) binded on the host 
 | MODEL_PATH | Path to the model (using MODEL_TYPE=vosk) mounted to /opt/model | /my/path/to/models/vosk-model |
 
 ### Micro-service within LinTO-Platform stack
-The HTTP serving mode connect a celery worker to a message broker.
+The TASK serving mode connect a celery worker to a message broker.
 
 The SERVICE_MODE value in the .env should be set to ```task```.
 
