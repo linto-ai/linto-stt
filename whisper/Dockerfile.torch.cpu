@@ -1,0 +1,29 @@
+FROM python:3.9
+LABEL maintainer="jlouradour@linagora.com"
+
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg
+
+# Force CPU versions of torch
+RUN pip3 install \
+    torch==1.13.1+cpu \
+    torchaudio==0.13.1+cpu \
+    -f https://download.pytorch.org/whl/torch_stable.html
+
+# Install python dependencies
+COPY whisper/requirements.torch.txt ./
+RUN pip install --no-cache-dir -r requirements.torch.txt && rm requirements.torch.txt
+
+WORKDIR /usr/src/app
+
+COPY celery_app /usr/src/app/celery_app
+COPY http_server /usr/src/app/http_server
+COPY websocket /usr/src/app/websocket
+COPY document /usr/src/app/document
+COPY whisper/stt /usr/src/app/stt
+COPY whisper/docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
+
+ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/stt"
+
+HEALTHCHECK CMD ./healthcheck.sh
+
+ENTRYPOINT ["./docker-entrypoint.sh"]

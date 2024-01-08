@@ -1,16 +1,16 @@
 import io
 
 import wavio
-from numpy import int16, squeeze, mean
+from numpy import int16, mean, squeeze
 
 
-def load_wave(file_path):
+def load_audiofile(file_path):
     """Formats audio from a wavFile buffer to a bytebuffer"""
     audio = squeeze(wavio.read(file_path).data)
-    return audio.tobytes()
+    return (audio.tobytes(), 16000)
 
 
-def formatAudio(file_buffer):
+def load_wave_buffer(file_buffer):
     """Formats audio from a wavFile buffer to a numpy array for processing."""
     file_buffer_io = io.BytesIO(file_buffer)
     file_content = wavio.read(file_buffer_io)

@@ -7,7 +7,7 @@ on:
       - README.md
       - .github/workflows/dockerhub-description.yml
 jobs:
-  dockerHubDescription:
+  dockerHubDescriptionKaldi:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -16,5 +16,16 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
-        repository: lintoai/linto-platform-stt
-        readme-filepath: ./README.md
+        repository: lintoai/linto-stt-kaldi
+        readme-filepath: ./kaldi/README.md
+  dockerHubDescriptionWhisper:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Docker Hub Description
+      uses: peter-evans/dockerhub-description@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        repository: lintoai/linto-stt-whisper
+        readme-filepath: ./whisper/README.md

@@ -45,7 +45,7 @@ RUN git clone -b vosk --single-branch https://github.com/alphacep/kaldi /opt/kal
     && make -j $(nproc) online2 lm rnnlm
 
 # Install python dependencies
-COPY requirements.txt ./
+COPY kaldi/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Custom Vosk API
@@ -57,13 +57,13 @@ RUN git clone --depth 1 https://github.com/alphacep/vosk-api /opt/vosk-api && cd
 
 WORKDIR /usr/src/app
 
-COPY stt /usr/src/app/stt
 COPY celery_app /usr/src/app/celery_app
 COPY http_server /usr/src/app/http_server
 COPY websocket /usr/src/app/websocket
 COPY document /usr/src/app/document
-COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
-COPY lin_to_vosk.py /usr/src/app/lin_to_vosk.py
+COPY kaldi/stt /usr/src/app/stt
+COPY kaldi/docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
+COPY kaldi/lin_to_vosk.py /usr/src/app/lin_to_vosk.py
 
 RUN mkdir -p /var/log/supervisor/
 

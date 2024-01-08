@@ -2,7 +2,7 @@ swagger: "2.0"
 
 info:
   version: "1.0.0"
-  title: LinTo-Platform-STT
+  title: LinTo-STT
   description: Speech To Text API
   contact:
     email: "support@linto.ai"
