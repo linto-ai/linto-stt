@@ -7,24 +7,6 @@ __all__ = ["createParser"]
 def createParser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
-    # SERVICE
-    parser.add_argument(
-        "--service_name",
-        type=str,
-        help="Service Name",
-        default=os.environ.get("SERVICE_NAME", "stt"),
-    )
-
-    # MODELS
-    parser.add_argument("--am_path", type=str, help="Acoustic Model Path", default="/opt/models/AM")
-    parser.add_argument("--lm_path", type=str, help="Decoding graph path", default="/opt/models/LM")
-    parser.add_argument(
-        "--config_path",
-        type=str,
-        help="Configuration files path",
-        default="/opt/config",
-    )
-
     # GUNICORN
     parser.add_argument("--service_port", type=int, help="Service port", default=80)
     parser.add_argument(

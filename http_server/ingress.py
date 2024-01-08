@@ -3,16 +3,14 @@
 import json
 import logging
 import os
-from time import time
+import time
 
 from confparser import createParser
-from flask import Flask, Response, abort, json, request
-from flask_sock import Sock
-from serving import GunicornServing
+from flask import Flask, json, request
+from serving import GeventServing, GunicornServing
+from stt import logger as stt_logger
+from stt.processing import MODEL, USE_GPU, decode, load_wave_buffer
 from swagger import setupSwaggerUI
-
-from stt.processing import decode, formatAudio, model
-from stt.processing.streaming import ws_streaming
 
 app = Flask("__stt-standalone-worker__")
 app.config["JSON_AS_ASCII"] = False
@@ -26,13 +24,16 @@ logger = logging.getLogger("__stt-standalone-worker__")
 
 # If websocket streaming route is enabled
 if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
+    from flask_sock import Sock
+    from stt.processing.streaming import ws_streaming
+
     logger.info("Init websocket serving ...")
     sock = Sock(app)
     logger.info("Streaming is enabled")
 
     @sock.route("/streaming")
     def streaming(web_socket):
-        ws_streaming(web_socket, model)
+        ws_streaming(web_socket, MODEL)
 
 
 @app.route("/healthcheck", methods=["GET"])
@@ -51,39 +52,38 @@ def transcribe():
         logger.info("Transcribe request received")
 
         # get response content type
-        logger.debug(request.headers.get("accept").lower())
+        # logger.debug(request.headers.get("accept").lower())
         if request.headers.get("accept").lower() == "application/json":
             join_metadata = True
         elif request.headers.get("accept").lower() == "text/plain":
             join_metadata = False
         else:
-            raise ValueError("Not accepted header")
-        logger.debug("Metadata: {}".format(join_metadata))
+            raise ValueError(
+                f"Not accepted header (accept={request.headers.get('accept')} should be either application/json or text/plain)"
+            )
+        # logger.debug("Metadata: {}".format(join_metadata))
 
         # get input file
-        if "file" in request.files.keys():
-            file_buffer = request.files["file"].read()
-            audio_data, sampling_rate = formatAudio(file_buffer)
-            start_t = time()
+        if "file" not in request.files.keys():
+            raise ValueError(f"No audio file was uploaded (missing 'file' key)")
 
-            # Transcription
-            transcription = decode(audio_data, model, sampling_rate, join_metadata)
-            logger.debug("Transcription complete (t={}s)".format(time() - start_t))
+        file_buffer = request.files["file"].read()
 
-            logger.debug("... Complete")
+        audio_data = load_wave_buffer(file_buffer)
 
-        else:
-            raise ValueError("No audio file was uploaded")
+        # Transcription
+        transcription = decode(audio_data, MODEL, join_metadata)
 
         if join_metadata:
             return json.dumps(transcription, ensure_ascii=False), 200
         return transcription["text"], 200
 
-    except ValueError as error:
-        return str(error), 400
     except Exception as error:
-        logger.error(error)
-        return "Server Error: {}".format(str(error)), 500
+        import traceback
+
+        logger.error(traceback.format_exc())
+        logger.error(repr(error))
+        return "Server Error: {}".format(str(error)), 400 if isinstance(error, ValueError) else 500
 
 
 @app.errorhandler(405)
@@ -107,7 +107,9 @@ if __name__ == "__main__":
 
     parser = createParser()
     args = parser.parse_args()
-    logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
+    logger_level = logging.DEBUG if args.debug else logging.INFO
+    logger.setLevel(logger_level)
+    stt_logger.setLevel(logger_level)
     try:
         # Setup SwaggerUI
         if args.swagger_path is not None:
@@ -116,12 +118,21 @@ if __name__ == "__main__":
     except Exception as err:
         logger.warning("Could not setup swagger: {}".format(str(err)))
 
-    serving = GunicornServing(
+    logger.info(f"Using {args.workers} workers")
+
+    if USE_GPU:  # TODO: get rid of this?
+        serving_type = GeventServing
+        logger.debug("Serving with gevent")
+    else:
+        serving_type = GunicornServing
+        logger.debug("Serving with gunicorn")
+
+    serving = serving_type(
         app,
         {
             "bind": f"0.0.0.0:{args.service_port}",
             "workers": args.workers,
-            "timeout": 3600,
+            "timeout": 3600 * 24,
         },
     )
     logger.info(args)
