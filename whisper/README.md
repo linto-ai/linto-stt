@@ -7,11 +7,66 @@ LinTO-STT-Whisper can either be used as a standalone transcription service or de
 
 ## Pre-requisites
 
+### Requirements
+
+The transcription service requires [docker](https://www.docker.com/products/docker-desktop/) up and running.
+
+For GPU capabilities, it is also needed to install
+[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
 ### Hardware
+
 To run the transcription models you'll need:
-* At least 8Go of disk space to build the docker image.
+* At least 8GB of disk space to build the docker image
+  and models can occupy several GB of disk space depending on the model size (it can be up to 5GB).
 * Up to 7GB of RAM depending on the model used.
-* One CPU per worker. Inference time scales on CPU performances. 
+* One CPU per worker. Inference time scales on CPU performances.
+
+On GPU, approximate VRAM peak usage are indicated in the following table
+for some model sizes, depending on the backend
+(note that the lowest precision supported by the GPU card is automatically chosen when loading the model).
+<table border="0">
+ <tr>
+    <td rowspan="3"><b>Model size</b></td>
+    <td colspan="4"><b>Backend and precision</b></td>
+ </tr>
+ <tr>
+    <td colspan="3"><b> [ct2/faster_whisper](whisper/Dockerfile.ctranslate2) </b></td>
+    <td><b> [torch/whisper_timestamped](whisper/Dockerfile.torch) </b></td>
+ </tr>
+ <tr>
+    <td><b>int8</b></td>
+    <td><b>float16</b></td>
+    <td><b>float32</b></td>
+    <td><b>float32</b></td>
+ </tr>
+ <tr>
+    <td>tiny</td>
+    <td colspan="3">1.5G</td>
+    <td>1.5G</td>
+ </tr>
+ <!-- <tr>
+    <td>bofenghuang/whisper-large-v3-french-distil-dec2</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+ </tr> -->
+ <tr>
+    <td>distil-whisper/distil-large-v2</td>
+    <td>2.2G</td>
+    <td>3.2G</td>
+    <td>4.8G</td>
+    <td>4.4G</td>
+ </tr>
+ <tr>
+    <td>large (large-v3, ...)</td>
+    <td>2.8G</td>
+    <td>4.8G</td>
+    <td>8.2G</td>
+    <td>10.4G</td>
+ </tr>
+</table>
 
 ### Model(s)
 
@@ -23,8 +78,8 @@ and can occupy several GB of disk space.
 
 LinTO-STT-Whisper has also the option to work with a wav2vec model to perform word alignment.
 The wav2vec model can be specified either
-* (TorchAudio) with a string corresponding to a `torchaudio` pipeline (e.g. "WAV2VEC2_ASR_BASE_960H") or
-* (HuggingFace's Transformers) with a string corresponding to a HuggingFace repository of a wav2vec model (e.g. "jonatasgrosman/wav2vec2-large-xlsr-53-english"), or
+* (TorchAudio) with a string corresponding to a `torchaudio` pipeline (e.g. `WAV2VEC2_ASR_BASE_960H`) or
+* (HuggingFace's Transformers) with a string corresponding to a HuggingFace repository of a wav2vec model (e.g. `jonatasgrosman/wav2vec2-large-xlsr-53-english`), or
 * (SpeechBrain) with a path corresponding to a folder with a SpeechBrain model
 
 Default wav2vec models are provided for French (fr), English (en), Spanish (es), German (de), Dutch (nl), Japanese (ja), Chinese (zh).
@@ -32,8 +87,6 @@ Default wav2vec models are provided for French (fr), English (en), Spanish (es),
 But we advise not to use a companion wav2vec alignment model.
 This is not needed neither tested anymore.
 
-### Docker
-The transcription service requires docker up and running.
 
 ### (micro-service) Service broker and shared folder
 The STT only entry point in task mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
@@ -63,14 +116,16 @@ cp whisper/.envdefault whisper/.env
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
 | SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` |
-| MODEL | Path to a Whisper model, type of Whisper model used, or HuggingFace identifier of a Whisper model. | \<ASR_PATH\> \| `large-v3` \| `distil-whisper/distil-large-v2` \| ... |
+| MODEL | Path to a Whisper model, type of Whisper model used, or HuggingFace identifier of a Whisper model. | `large-v3` \| `distil-whisper/distil-large-v2` \| \<ASR_PATH\> \| ... |
 | LANGUAGE | (Optional) Language to recognize | `*` \| `fr` \| `fr-FR` \| `French` \| `en` \| `en-US` \| `English` \| ... |
 | PROMPT | (Optional) Prompt to use for the Whisper model | `some free text to encourage a certain transcription style (disfluencies, no punctuation, ...)` |
-| ALIGNMENT_MODEL | (Optional) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | \<WAV2VEC_PATH\> \| `WAV2VEC2_ASR_BASE_960H` \| `jonatasgrosman/wav2vec2-large-xlsr-53-english` \| ... |
-| CONCURRENCY | Maximum number of parallel requests | `3` |
+| ALIGNMENT_MODEL | (Optional and deprecated) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | `WAV2VEC2_ASR_BASE_960H` \| `jonatasgrosman/wav2vec2-large-xlsr-53-english` \| \<WAV2VEC_PATH\> \| ... |
+| DEVICE | (Optional) Device to use for the model | `cpu` \| `cuda` ... |
+| CUDA_VISIBLE_DEVICES | (Optional) GPU device index to use, if several. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
+| CONCURRENCY | Maximum number of parallel requests | `2` |
 | SERVICE_NAME | (For the task mode) queue's name for task processing | `my-stt` |
 | SERVICE_BROKER | (For the task mode) URL of the message broker | `redis://my-broker:6379` |
-| BROKER_PASS | (For the task mode only) broker password | `my-password` |
+| BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
 
 #### MODEL environment variable
 
@@ -79,7 +134,7 @@ The model will be (downloaded if required and) loaded in memory when calling the
 When using a Whisper model from Hugging Face (transformers) along with ctranslate2 (faster_whisper),
 it will also download torch library to make the conversion from torch to ctranslate2.
 
-If you want to preload the model (and later specify a path `ASR_PATH` as `MODEL`),
+If you want to preload the model (and later specify a path `<ASR_PATH>` as `MODEL`),
 you may want to download one of OpenAI Whisper models:
 * Mutli-lingual Whisper models can be downloaded with the following links:
     * [tiny](https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt)
@@ -144,26 +199,28 @@ The SERVICE_MODE value in the .env should be set to ```http```.
 ```bash
 docker run --rm \
 -p HOST_SERVING_PORT:80 \
--v ASR_PATH:/opt/model.pt \
 --env-file whisper/.env \
 linto-stt-whisper:latest
 ```
 
 This will run a container providing an [HTTP API](#http-api) binded on the host HOST_SERVING_PORT port.
 
-You may also want to mount your cache folder CACHE_PATH (e.g. "~/.cache") ```-v CACHE_PATH:/root/.cache```
-in order to avoid downloading models each time.
-
-Also if you want to specifiy a custom alignment model already downloaded in a folder WAV2VEC_PATH,
-you can add option ```-v WAV2VEC_PATH:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
+You may also want to add specific options:
+* To enable GPU capabilities, add ```--gpus all```.
+  Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
+* To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
+  use ```-v <CACHE_PATH>:/root/.cache```
+  If you use `MODEL=/opt/model.pt` environment variable, you may want to mount the model file (or folder) with option ```-v <ASR_PATH>:/opt/model.pt```.
+* If you want to specifiy a custom alignment model already downloaded in a folder `<WAV2VEC_PATH>`,
+  you can add option ```-v <WAV2VEC_PATH>:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
 
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
-| HOST_SERVING_PORT | Host serving port | 8080 |
-| ASR_PATH | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
-| CACHE_PATH | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
-| WAV2VEC_PATH | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
+| `HOST_SERVING_PORT` | Host serving port | 8080 |
+| `<CACHE_PATH>` | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
+| `<WAV2VEC_PATH>` | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
 ### Micro-service within LinTO-Platform stack
 The TASK serving mode connect a celery worker to a message broker.
@@ -174,25 +231,27 @@ You need a message broker up and running at MY_SERVICE_BROKER.
 
 ```bash
 docker run --rm \
--v ASR_PATH:/opt/model.pt \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
 --env-file whisper/.env \
 linto-stt-whisper:latest
 ```
 
-You may also want to mount your cache folder CACHE_PATH (e.g. "~/.cache") ```-v CACHE_PATH:/root/.cache```
-in order to avoid downloading models each time.
-
-Also if you want to specifiy a custom alignment model already downloaded in a folder WAV2VEC_PATH,
-you can add option ```-v WAV2VEC_PATH:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
+You may also want to add specific options:
+* To enable GPU capabilities, add ```--gpus all```.
+  Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
+* To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
+  use ```-v <CACHE_PATH>:/root/.cache```
+  If you use `MODEL=/opt/model.pt` environment variable, you may want to mount the model file (or folder) with option ```-v <ASR_PATH>:/opt/model.pt```.
+* If you want to specifiy a custom alignment model already downloaded in a folder `<WAV2VEC_PATH>`,
+  you can add option ```-v <WAV2VEC_PATH>:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
 
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
-| SHARED_AUDIO_FOLDER | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
-| ASR_PATH | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
-| CACHE_PATH | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
-| WAV2VEC_PATH | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
+| `<SHARED_AUDIO_FOLDER>` | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
+| `<CACHE_PATH>` | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
+| `<WAV2VEC_PATH>` | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
 
 ## Usages
@@ -274,9 +333,10 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 ## Acknowlegment.
 
-* [Faster Whisper](https://github.com/SYSTRAN/faster-whisper)
-* [OpenAI Whisper](https://github.com/openai/whisper)
 * [Ctranslate2](https://github.com/OpenNMT/CTranslate2)
+   * [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper)
+* [OpenAI Whisper](https://github.com/openai/whisper)
+   * [Whisper-Timestamped](https://github.com/linto-ai/whisper-timestamped)
+* [HuggingFace Transformers](https://github.com/huggingface/transformers)
 * [SpeechBrain](https://github.com/speechbrain/speechbrain)
 * [TorchAudio](https://github.com/pytorch/audio)
-* [HuggingFace Transformers](https://github.com/huggingface/transformers)
