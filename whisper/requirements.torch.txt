@@ -13,7 +13,6 @@ speechbrain
 transformers
 wavio>=0.0.4
 websockets
-# openai-whisper
-git+https://github.com/linto-ai/whisper-timestamped.git
+whisper-timestamped
 onnxruntime
 torchaudio
