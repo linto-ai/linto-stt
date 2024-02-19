@@ -1,7 +1,6 @@
 # LinTO-STT-Whisper
 
-LinTO-STT-Whisper is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack)
-based on Speech-To-Text (STT) [Whisper models](https://openai.com/research/whisper).
+LinTO-STT-Whisper is an API for Automatic Speech Recognition (ASR) based on [Whisper models](https://openai.com/research/whisper).
 
 LinTO-STT-Whisper can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 

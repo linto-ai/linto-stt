@@ -1,7 +1,6 @@
 # LinTO-STT-Kaldi
 
-LinTO-STT-Kaldi is the transcription service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack)
-based on Speech-To-Text (STT) models trained with [Kaldi](https://github.com/kaldi-asr/kaldi).
+LinTO-STT-Kaldi is an API for Automatic Speech Recognition (ASR) based on models trained with [Kaldi](https://github.com/kaldi-asr/kaldi).
 
 LinTO-STT-Kaldi can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
