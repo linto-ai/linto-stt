@@ -67,6 +67,8 @@ wait_for_wrapper()
     return $WAITFORIT_RESULT
 }
 
+echo "NOCOMMIT wait-for-it $*"
+
 # process arguments
 while [[ $# -gt 0 ]]
 do
@@ -173,7 +175,7 @@ fi
 
 if [[ $WAITFORIT_CLI != "" ]]; then
     if [[ $WAITFORIT_RESULT -ne 0 && $WAITFORIT_STRICT -eq 1 ]]; then
-        echoerr "$WAITFORIT_cmdname: strict mode, refusing to execute subprocess"
+        echoerr "$WAITFORIT_cmdname returns $WAITFORIT_CLI: strict mode, refusing to execute subprocess"
         exit $WAITFORIT_RESULT
     fi
     exec "${WAITFORIT_CLI[@]}"

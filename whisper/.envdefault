@@ -13,12 +13,17 @@ BROKER_PASS=
 # STT MODELING PARAMETERS
 ############################################
 
-# The model can be a path to a model, or a model name ("tiny", "base", "small", "medium", "large-v1", "large-v2" or "large-v3")
-MODEL=medium
+# The model can be a path to a model (e.g. "/root/.cache/whisper/large-v3.pt", "/root/.cache/huggingface/hub/models--openai--whisper-large-v3"),
+# or a model size ("tiny", "base", "small", "medium", "large-v1", "large-v2" or "large-v3")
+# or a HuggingFace model name (e.g. "distil-whisper/distil-large-v2")
+MODEL=large-v3
 
 # The language can be in different formats: "en", "en-US", "English", ...
 # If not set or set to "*", the language will be detected automatically.
 LANGUAGE=*
+
+# Prompt to use for the model. This can be used to provide context to the model, to encourage disfluencies or a special behaviour regarding punctuation and capitalization.
+PROMPT=
 
 # An alignment wav2vec model can be used to get word timestamps.
 # It can be a path to a model, a language code (fr, en, ...), or "wav2vec" to automatically chose a model for the language
@@ -30,7 +35,9 @@ LANGUAGE=*
 ############################################
 
 # Device to use. It can be "cuda" to force/check GPU, "cpu" to force computation on CPU, or a specific GPU ("cuda:0", "cuda:1", ...)
-# DEVICE=cuda:0
+# DEVICE=cuda
+# CUDA_DEVICE_ORDER=PCI_BUS_ID
+# CUDA_VISIBLE_DEVICES=0
 
 # Number of threads per worker when running on CPU
 OMP_NUM_THREADS=4
