@@ -65,20 +65,41 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
             )
             logger.info(f"CTranslate2 model in {output_dir}")
             if not os.path.isdir(output_dir):
-                import huggingface_hub
+                from transformers.utils import cached_file
+                import json
 
+                kwargs = dict(cache_dir=download_root, use_auth_token=None, revision=None)
                 delete_hf_path = False
                 if not os.path.isdir(model_type_or_file):
-                    hf_path = huggingface_hub.hf_hub_download(
-                        repo_id=model_type_or_file, filename="pytorch_model.bin"
-                    )
+                    model_path = None
+                    hf_path = None
+                    for candidate in ["pytorch_model.bin", "model.safetensors", "whisper.ckpt", "pytorch_model.bin.index.json", "model.safetensors.index.json"]:
+                        try:
+                            hf_path = model_path = cached_file(model_type_or_file, candidate, **kwargs)
+                        except OSError:
+                            continue
+                        if candidate.endswith("index.json"):
+                            index_file = model_path
+                            mapping = json.load(open(index_file))
+                            assert "weight_map" in mapping
+                            assert isinstance(mapping["weight_map"], dict)
+                            model_path = list(set(mapping["weight_map"].values()))
+                            folder = os.path.dirname(index_file)
+                            model_path = [os.path.join(folder, p) for p in model_path]
+                        break
+                    if model_path is None:
+                        raise RuntimeError(f"Could not find model {model_type_or_file} from HuggingFace nor local folders.")
                     hf_path = os.path.dirname(os.path.dirname(os.path.dirname(hf_path)))
-
                     delete_hf_path = not os.path.exists(hf_path)
                 else:
-                    assert os.path.isfile(
-                        os.path.join(model_type_or_file, "pytorch_model.bin")
-                    ), f"Could not find pytorch_model.bin in {model_type_or_file}"
+                    hf_path = None
+                    for candidate in ["pytorch_model.bin", "model.safetensors", "whisper.ckpt", "pytorch_model.bin.index.json", "model.safetensors.index.json"]:
+                        model_path = os.path.join(model_type_or_file, candidate)
+                        if os.path.exists(model_path):
+                            hf_path = model_path
+                            break
+                    if hf_path is None:
+                        raise RuntimeError(f"Could not find pytorch_model.bin in {model_type_or_file}")
 
                 check_torch_installed()
 
@@ -135,6 +156,7 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
                     # num_workers=1,
                     # download_root=os.path.join(download_root, f"huggingface/hub/models--guillaumekln--faster-whisper-{model_type_or_file}"),
                 )
+                logger.info(f"Whisper model loaded with compute_type={compute_type}. (t={time.time() - start}s)")
                 break
             except ValueError as err:
                 logger.info(
