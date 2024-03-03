@@ -27,7 +27,7 @@ else:
     default_best_of = None
     default_temperature = 0.0
 
-default_initial_prompt = os.environ.get("PROMPT", None)
+default_prompt = os.environ.get("PROMPT", None)
 
 
 def decode(
@@ -42,7 +42,7 @@ def decode(
     condition_on_previous_text: bool = False,
     no_speech_threshold: float = 0.6,
     compression_ratio_threshold: float = 2.4,
-    initial_prompt: str = default_initial_prompt,
+    prompt: str = default_prompt,
 ) -> dict:
     if language is None:
         language = get_language()
@@ -111,7 +111,7 @@ def decode_torch(
     no_speech_threshold,
     compression_ratio_threshold,
     normalize_text_as_words=False,
-    initial_prompt=None,
+    prompt=None,
 ):
     """Transcribe the audio data using Whisper with the defined model."""
 
@@ -127,7 +127,7 @@ def decode_torch(
         no_speech_threshold=no_speech_threshold,
         compression_ratio_threshold=compression_ratio_threshold,
         vad=USE_VAD,
-        initial_prompt=initial_prompt,
+        initial_prompt=prompt,
     )
 
     if alignment_model is None:

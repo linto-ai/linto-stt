@@ -1,6 +1,10 @@
+# 1.0.2
+- ct2/faster_whisper: Upgrade faster_whisper and support recent distilled models
+- torch/whisper-timesptamped: Upgrade whisper-timestamped and delegate model loading
+
 # 1.0.1
-- support of model.safetensors
 - ct2/faster_whisper: Information about used precision added in the logs
+- torch/whisper-timesptamped: support of model.safetensors
 
 # 1.0.0
 - First build of linto-stt-whisper
