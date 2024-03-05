@@ -67,8 +67,6 @@ wait_for_wrapper()
     return $WAITFORIT_RESULT
 }
 
-echo "NOCOMMIT wait-for-it $*"
-
 # process arguments
 while [[ $# -gt 0 ]]
 do
