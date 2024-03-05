@@ -1,5 +1,6 @@
 # 1.0.2
 - ct2/faster_whisper: Upgrade faster_whisper and support recent distilled models
+- ct2/faster_whisper: Fix possible gluing of different words together
 - torch/whisper-timesptamped: Upgrade whisper-timestamped and delegate model loading
 
 # 1.0.1

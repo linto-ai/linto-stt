@@ -1,6 +1,7 @@
 import copy
 import os
 import time
+import regex as re
 from typing import Tuple, Union
 
 import numpy as np
@@ -325,6 +326,7 @@ def format_faster_whisper_response(
                     and len(words)
                     and len(word_strip) > 1
                     and word_strip[0] in glue_punctuations
+                    and (not contains_alphanum(words[-1]["text"]) or not contains_alphanum(word_strip))
                 ):
                     words[-1]["text"] += word.word.lstrip()
                     words[-1]["confidence"].append(word.probability)
@@ -364,3 +366,6 @@ def format_faster_whisper_response(
     return format_whisper_timestamped_response(
         transcription, remove_punctuation_from_words=remove_punctuation_from_words
     )
+
+def contains_alphanum(text: str) -> bool:
+    return re.search(r"[^\W\'\-_]", text)
