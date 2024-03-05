@@ -7,9 +7,10 @@ gevent
 gunicorn
 lockfile
 pyyaml>=5.4.1
+regex
 requests>=2.26.0
 wavio>=0.0.4
 websockets
 #faster_whisper==1.0.1
 # This is version faster_whisper==1.0.1 + option for (persistent) prompt + fix for large-v3
-git+https://github.com/linto-ai/faster-whisper.git@12170de5e63388840f37beea6f8262e5f8352546
+git+https://github.com/linto-ai/faster-whisper.git
