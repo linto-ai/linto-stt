@@ -320,21 +320,22 @@ def format_faster_whisper_response(
         if segment.words:
             for word in segment.words:
                 start, end = checked_timestamps(word.start, word.end)
-                word_strip = word.word.strip()
+                word_string = word.word
+                word_strip = word_string.lstrip()
                 if (
                     glue_punctuations
                     and len(words)
                     and len(word_strip) > 1
                     and word_strip[0] in glue_punctuations
-                    and (not contains_alphanum(words[-1]["text"]) or not contains_alphanum(word_strip))
+                    and (word_strip == word_string or not contains_alphanum(words[-1]["text"]) or not contains_alphanum(word_strip))
                 ):
-                    words[-1]["text"] += word.word.lstrip()
+                    words[-1]["text"] += word_strip
                     words[-1]["confidence"].append(word.probability)
                     words[-1]["end"] = max(words[-1]["end"], end)
                     continue
                 words.append(
                     {
-                        "text": word.word,
+                        "text": word_string,
                         "confidence": [word.probability],
                         "start": start,
                         "end": end,
