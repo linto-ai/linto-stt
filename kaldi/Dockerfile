@@ -28,7 +28,7 @@ RUN git clone -b vosk --single-branch https://github.com/alphacep/kaldi /opt/kal
     && cd /opt/kaldi/tools \
     && sed -i 's:status=0:exit 0:g' extras/check_dependencies.sh \
     && sed -i 's:--enable-ngram-fsts:--enable-ngram-fsts --disable-bin:g' Makefile \
-    && make -j $(nproc) openfst cub \
+    && make -j $(( $(nproc) < 8 ? $(nproc) : 8 )) openfst cub \
     && if [ "x$KALDI_MKL" != "x1" ] ; then \
           extras/install_openblas_clapack.sh; \
        else \
@@ -42,7 +42,7 @@ RUN git clone -b vosk --single-branch https://github.com/alphacep/kaldi /opt/kal
        fi \
     && sed -i 's:-msse -msse2:-msse -msse2:g' kaldi.mk \
     && sed -i 's: -O1 : -O3 :g' kaldi.mk \
-    && make -j $(nproc) online2 lm rnnlm
+    && make -j $(( $(nproc) < 8 ? $(nproc) : 8 )) online2 lm rnnlm
 
 # Install python dependencies
 COPY kaldi/requirements.txt ./
@@ -51,7 +51,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install Custom Vosk API
 RUN git clone --depth 1 https://github.com/alphacep/vosk-api /opt/vosk-api && cd /opt/vosk-api/python && \
     cd /opt/vosk-api/src \
-    && KALDI_MKL=$KALDI_MKL KALDI_ROOT=/opt/kaldi make -j $(nproc) \
+    && KALDI_MKL=$KALDI_MKL KALDI_ROOT=/opt/kaldi make -j $(( $(nproc) < 8 ? $(nproc) : 8 )) \
     && cd /opt/vosk-api/python \
     && python3 ./setup.py install
 
