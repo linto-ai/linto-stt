@@ -1,6 +1,7 @@
 import copy
 import os
 import time
+import regex as re
 from typing import Tuple, Union
 
 import numpy as np
@@ -27,7 +28,7 @@ else:
     default_best_of = None
     default_temperature = 0.0
 
-default_initial_prompt = os.environ.get("PROMPT", None)
+default_prompt = os.environ.get("PROMPT", None)
 
 
 def decode(
@@ -42,7 +43,7 @@ def decode(
     condition_on_previous_text: bool = False,
     no_speech_threshold: float = 0.6,
     compression_ratio_threshold: float = 2.4,
-    initial_prompt: str = default_initial_prompt,
+    prompt: str = default_prompt,
 ) -> dict:
     if language is None:
         language = get_language()
@@ -111,7 +112,7 @@ def decode_torch(
     no_speech_threshold,
     compression_ratio_threshold,
     normalize_text_as_words=False,
-    initial_prompt=None,
+    prompt=None,
 ):
     """Transcribe the audio data using Whisper with the defined model."""
 
@@ -127,7 +128,7 @@ def decode_torch(
         no_speech_threshold=no_speech_threshold,
         compression_ratio_threshold=compression_ratio_threshold,
         vad=USE_VAD,
-        initial_prompt=initial_prompt,
+        initial_prompt=prompt,
     )
 
     if alignment_model is None:
@@ -319,20 +320,22 @@ def format_faster_whisper_response(
         if segment.words:
             for word in segment.words:
                 start, end = checked_timestamps(word.start, word.end)
-                word_strip = word.word.strip()
+                word_string = word.word
+                word_strip = word_string.lstrip()
                 if (
                     glue_punctuations
                     and len(words)
                     and len(word_strip) > 1
                     and word_strip[0] in glue_punctuations
+                    and (word_strip == word_string or not contains_alphanum(words[-1]["text"]) or not contains_alphanum(word_strip))
                 ):
-                    words[-1]["text"] += word.word.lstrip()
+                    words[-1]["text"] += word_strip
                     words[-1]["confidence"].append(word.probability)
                     words[-1]["end"] = max(words[-1]["end"], end)
                     continue
                 words.append(
                     {
-                        "text": word.word,
+                        "text": word_string,
                         "confidence": [word.probability],
                         "start": start,
                         "end": end,
@@ -364,3 +367,6 @@ def format_faster_whisper_response(
     return format_whisper_timestamped_response(
         transcription, remove_punctuation_from_words=remove_punctuation_from_words
     )
+
+def contains_alphanum(text: str) -> bool:
+    return re.search(r"[^\W\'\-_]", text)
