@@ -3,13 +3,13 @@ import os
 
 import websockets
 
-from stt.processing import model
+from stt.processing import MODEL
 from stt.processing.streaming import wssDecode
 
 
 async def _fun_wrapper(ws):
     """Wrap wssDecode function to add STT Model reference"""
-    return await wssDecode(ws, model)
+    return await wssDecode(ws, MODEL)
 
 
 async def WSServer(port: int):
