@@ -21,6 +21,7 @@ logging.basicConfig(
     datefmt="%d/%m/%Y %H:%M:%S",
 )
 logger = logging.getLogger("__stt-standalone-worker__")
+logger.setLevel(logging.INFO)
 
 # If websocket streaming route is enabled
 if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
