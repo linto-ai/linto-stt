@@ -58,6 +58,8 @@ logger.info(
 )
 try:
     model = LazyLoadedModel(model_type, device=device)
+    if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
+        model.check_loaded()
     # model = load_whisper_model(model_type, device=device)
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err

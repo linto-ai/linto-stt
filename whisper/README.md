@@ -252,6 +252,14 @@ You may also want to add specific options:
 | `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
 | `<WAV2VEC_PATH>` | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
+### Websocket Server
+Websocket server's mode deploy a streaming transcription service only. 
+
+The SERVICE_MODE value in the .env should be set to ```websocket```.
+
+Usage is the same as the [http streaming API](#/streaming)
+
+The code is from [this repository](https://github.com/linto-ai/whisper_streaming) which is a fork of [ufal/whisper_streaming](https://github.com/ufal/whisper_streaming) with some modifications. They published a paper : ["Turning Whisper into Real-Time Transcription System" by Dominik Macháček, Raj Dabre, Ondřej Bojar](https://arxiv.org/abs/2307.14743). We strongly encourage you to take a look at their work.
 
 ## Usages
 ### HTTP API
