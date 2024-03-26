@@ -257,9 +257,7 @@ Websocket server's mode deploy a streaming transcription service only.
 
 The SERVICE_MODE value in the .env should be set to ```websocket```.
 
-Usage is the same as the [http streaming API](#/streaming)
-
-The code is from [this repository](https://github.com/linto-ai/whisper_streaming) which is a fork of [ufal/whisper_streaming](https://github.com/ufal/whisper_streaming) with some modifications. They published a paper : ["Turning Whisper into Real-Time Transcription System" by Dominik Macháček, Raj Dabre, Ondřej Bojar](https://arxiv.org/abs/2307.14743). We strongly encourage you to take a look at their work.
+Usage is the same as the [http streaming API](#/streaming).
 
 ## Usages
 ### HTTP API
@@ -347,3 +345,4 @@ This project is developped under the AGPLv3 License (see LICENSE).
 * [HuggingFace Transformers](https://github.com/huggingface/transformers)
 * [SpeechBrain](https://github.com/speechbrain/speechbrain)
 * [TorchAudio](https://github.com/pytorch/audio)
+* [Whisper_Streaming](https://github.com/ufal/whisper_streaming)

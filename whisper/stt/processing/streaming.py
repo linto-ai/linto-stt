@@ -9,11 +9,7 @@ from stt import logger, USE_CTRANSLATE2
 from websockets.legacy.server import WebSocketServerProtocol
 import whisper_timestamped
 
-# CITATION (Please look at their github repository): 
-# Code from https://github.com/linto-ai/whisper_streaming which is a fork of https://github.com/ufal/whisper_streaming with some modifications
-# They published a paper : "Turning Whisper into Real-Time Transcription System" by Dominik Macháček, Raj Dabre, Ondřej Bojar
-# https://arxiv.org/abs/2307.14743
-# 
+ 
 
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
@@ -373,7 +369,6 @@ class FasterWhisperASR(ASRBase):
         self.transcribe_kargs['condition_on_previous_text'] = False if condition_on_previous_text is None else condition_on_previous_text
 
     def transcribe(self, audio, init_prompt=""):
-        # tested: beam_size=5 is faster and better than 1 (on one 200 second document from En ESIC, min chunk 0.01)
         segments, info = self.model.transcribe(audio, language=self.original_language, initial_prompt=init_prompt, word_timestamps=True, **self.transcribe_kargs)
         return list(segments)
 
