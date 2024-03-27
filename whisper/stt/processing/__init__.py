@@ -33,15 +33,19 @@ class LazyLoadedModel:
             with FileLock(lockfile):
                 self._model = load_whisper_model(self.model_type, device=self.device)
 
-    def __getattr__(self, name):
-        self.check_loaded()
-        return getattr(self._model, name)
-
-    def __call__(self, *args, **kwargs):
+    def check_num_threads(self):
         if not self.has_set_num_threads and self.num_threads:
             set_num_threads(self.num_threads)
             self.has_set_num_threads = True
+
+    def __getattr__(self, name):
         self.check_loaded()
+        self.check_num_threads()
+        return getattr(self._model, name)
+
+    def __call__(self, *args, **kwargs):
+        self.check_loaded()
+        self.check_num_threads()
         return self._model(*args, **kwargs)
 
 
