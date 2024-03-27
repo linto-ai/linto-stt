@@ -12,6 +12,13 @@ logger = logging.getLogger("__stt__")
 # see https://github.com/guillaumekln/faster-whisper/issues/150
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # GPU in the right order
 
+if os.environ.get("USE_VAD","auditok") in [True, "true", 1]:
+    USE_VAD = "auditok"
+elif os.environ.get("USE_VAD","auditok") in [False, "false", 0]:
+    USE_VAD = False
+else:
+    USE_VAD = os.environ.get("USE_VAD","auditok")
+    
 try:
     import faster_whisper
 

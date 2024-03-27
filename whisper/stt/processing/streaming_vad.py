@@ -43,8 +43,8 @@ def remove_non_speech(audio,
     if USE_CTRANSLATE2 and method.startswith("silero"):
         from faster_whisper.vad import VadOptions
         options = VadOptions(
-            min_speech_duration=min_speech_duration*1000,
-            min_silence_duration=min_silence_duration*1000,
+            min_speech_duration_ms =min_speech_duration*1000,
+            min_silence_duration_ms =min_silence_duration*1000,
         )
         from faster_whisper.vad import get_speech_timestamps
         segments = get_speech_timestamps(audio, vad_options=options)
@@ -59,7 +59,6 @@ def remove_non_speech(audio,
             method=method,
         )
 
-    print(segments)
     segments = [(seg["start"], seg["end"]) for seg in segments]
     if len(segments) == 0:
         if avoid_empty_speech:
@@ -130,7 +129,7 @@ def get_vad_segments(audio,
     method="silero",
     ):
     """
-    Get speech segments from audio using Silero VAD
+    Get speech segments from audio using the method VAD
     parameters:
         audio: torch.Tensor
             audio data *in 16kHz*

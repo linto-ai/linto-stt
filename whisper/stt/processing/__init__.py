@@ -2,7 +2,7 @@ import logging
 import os
 
 from lockfile import FileLock
-from stt import USE_CTRANSLATE2, logger
+from stt import USE_CTRANSLATE2, USE_VAD, logger
 
 from .alignment_model import get_alignment_model, load_alignment_model
 from .decoding import decode
@@ -50,6 +50,9 @@ logger.info(f"Using device {device}")
 # Check language
 language = get_language()
 logger.info(f"Using language {language}")
+
+logger.info(f"USE_VAD={USE_VAD}")
+logger.info(f"USE_CTRANSLATE2={USE_CTRANSLATE2}")
 
 # Load ASR model
 model_type = os.environ.get("MODEL", "medium")

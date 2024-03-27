@@ -3,9 +3,9 @@ import sys
 import string
 import numpy as np
 from stt.processing.streaming_vad import remove_non_speech
-from stt import logger, USE_CTRANSLATE2
+from stt import logger, USE_CTRANSLATE2, USE_VAD
 from websockets.legacy.server import WebSocketServerProtocol
-
+from simple_websocket.ws import Server as WSServer
 
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
@@ -31,14 +31,14 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     except Exception as e:
         logger.error("Failed to read stream configuration")
         await ws.close(reason="Failed to load configuration")
-    model, alignementmodel = model_and_alignementmodel
+    model, _ = model_and_alignementmodel
     if USE_CTRANSLATE2:
         logger.info("Using ctranslate2 for decoding")
         asr = FasterWhisperASR(model=model, lan="fr")
     else:
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
-    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=True, vad_method="auditok")
+    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=USE_VAD)
     logger.info("Waiting for chunks")
     while True:
         try:
@@ -50,7 +50,6 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             print("Connection closed by client: {}".format(str(e)))
             break
         if "eof" in str(message):
-            # await ws.send(json.dumps(""))
             o = online.finish()
             await ws.send(whisper_to_json(o))
             logger.info(f"End of stream {message}")
@@ -60,7 +59,16 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         o, _ = online.process_iter()
         logger.info(o)
         await ws.send(whisper_to_json(o))
+        
+        
+def ws_streaming(websocket_server: WSServer, model):
+    """Sync Decode function endpoint"""
+    # Wait for config
+    res = websocket_server.receive(timeout=10)
 
+    # Timeout
+    if res is None:
+        pass
 
 class HypothesisBuffer:
 
@@ -135,7 +143,7 @@ class OnlineASRProcessor:
 
     SAMPLING_RATE = 16000
 
-    def __init__(self, asr, buffer_trimming=15, use_vad=True, vad_method="silero", logfile=sys.stderr):
+    def __init__(self, asr, buffer_trimming=15, use_vad="auditok", logfile=sys.stderr):
         """asr: WhisperASR object
         tokenizer: sentence tokenizer object for the target language. Must have a method *split* that behaves like the one of MosesTokenizer. It can be None, if "segment" buffer trimming option is used, then tokenizer is not used at all.
         ("segment", 15)
@@ -149,9 +157,6 @@ class OnlineASRProcessor:
 
         self.buffer_trimming_sec = buffer_trimming
         self.use_vad = use_vad
-        self.vad_method = vad_method
-        if self.use_vad and self.vad_method is None:
-            self.vad_method = "silero"
 
     def init(self):
         """run this when starting or restarting processing"""
@@ -196,10 +201,10 @@ class OnlineASRProcessor:
         logger.debug(f"CONTEXT:{non_prompt}")
         logger.debug(f"Transcribing {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f} seconds starting at {self.buffer_time_offset:2.2f}s")
         # print(f"Transcribing {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f} seconds starting at {self.buffer_time_offset:2.2f}s")
-        # use VAD to filter out the silence
+        # use VAD to filter out the silence        
         if self.use_vad:
             np_buffer = np.array(self.audio_buffer)
-            audio_speech, segments, convertion_function = remove_non_speech(np_buffer, method=self.vad_method, sample_rate=self.SAMPLING_RATE, dilatation=0.5)
+            audio_speech, segments, convertion_function = remove_non_speech(np_buffer, method=self.use_vad, sample_rate=self.SAMPLING_RATE, dilatation=0.5)
             res = self.asr.transcribe(audio_speech, init_prompt=prompt)
         else:
             res = self.asr.transcribe(self.audio_buffer, init_prompt=prompt)
@@ -208,8 +213,8 @@ class OnlineASRProcessor:
         self.transcript_buffer.insert(tsw, self.buffer_time_offset)
         o, buffer = self.transcript_buffer.flush()
         self.commited.extend(o)
-        # print(f"{buffer}")
         if buffer and (self.buffer_time_offset+len(self.audio_buffer)/self.SAMPLING_RATE)-buffer[-1][1]<0.05:
+            # remove the last word if it is too close to the end of the buffer
             buffer.pop(-1)
         logger.debug(f">>>>COMPLETE NOW:{self.to_flush(o)}")
         logger.debug(f"INCOMPLETE:{self.to_flush(self.transcript_buffer.complete())}")
