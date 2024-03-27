@@ -12,7 +12,7 @@ RUN pip3 install \
 # Install python dependencies
 COPY whisper/requirements.torch.txt ./
 RUN pip install --no-cache-dir -r requirements.torch.txt && rm requirements.torch.txt
-
+RUN pip install --no-cache-dir auditok
 WORKDIR /usr/src/app
 
 COPY celery_app /usr/src/app/celery_app
