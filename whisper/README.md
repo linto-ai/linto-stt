@@ -114,17 +114,18 @@ cp whisper/.envdefault whisper/.env
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
-| SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` |
-| MODEL | Path to a Whisper model, type of Whisper model used, or HuggingFace identifier of a Whisper model. | `large-v3` \| `distil-whisper/distil-large-v2` \| \<ASR_PATH\> \| ... |
-| LANGUAGE | (Optional) Language to recognize | `*` \| `fr` \| `fr-FR` \| `French` \| `en` \| `en-US` \| `English` \| ... |
-| PROMPT | (Optional) Prompt to use for the Whisper model | `some free text to encourage a certain transcription style (disfluencies, no punctuation, ...)` |
-| ALIGNMENT_MODEL | (Optional and deprecated) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | `WAV2VEC2_ASR_BASE_960H` \| `jonatasgrosman/wav2vec2-large-xlsr-53-english` \| \<WAV2VEC_PATH\> \| ... |
-| DEVICE | (Optional) Device to use for the model | `cpu` \| `cuda` ... |
-| CUDA_VISIBLE_DEVICES | (Optional) GPU device index to use, if several. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
+| SERVICE_MODE | (Required) STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` |
+| MODEL | (Required) Path to a Whisper model, type of Whisper model used, or HuggingFace identifier of a Whisper model. | `large-v3` \| `distil-whisper/distil-large-v2` \| \<ASR_PATH\> \| ... |
+| LANGUAGE | Language to recognize | `*` \| `fr` \| `fr-FR` \| `French` \| `en` \| `en-US` \| `English` \| ... |
+| PROMPT | Prompt to use for the Whisper model | `some free text to encourage a certain transcription style (disfluencies, no punctuation, ...)` |
+| DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
+| NUM_THREADS | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
+| CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 | CONCURRENCY | Maximum number of parallel requests | `2` |
-| SERVICE_NAME | (For the task mode) queue's name for task processing | `my-stt` |
-| SERVICE_BROKER | (For the task mode) URL of the message broker | `redis://my-broker:6379` |
+| SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
+| SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
+| ALIGNMENT_MODEL | (Deprecated) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | `WAV2VEC2_ASR_BASE_960H` \| `jonatasgrosman/wav2vec2-large-xlsr-53-english` \| \<WAV2VEC_PATH\> \| ... |
 
 #### MODEL environment variable
 
@@ -217,9 +218,9 @@ You may also want to add specific options:
 | Variables | Description | Example |
 |:-|:-|:-|
 | `HOST_SERVING_PORT` | Host serving port | 8080 |
-| `<CACHE_PATH>` | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
 | `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
-| `<WAV2VEC_PATH>` | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
+| `<WAV2VEC_PATH>` | Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
 ### Micro-service within LinTO-Platform stack
 The TASK serving mode connect a celery worker to a message broker.
@@ -248,9 +249,9 @@ You may also want to add specific options:
 | Variables | Description | Example |
 |:-|:-|:-|
 | `<SHARED_AUDIO_FOLDER>` | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
-| `<CACHE_PATH>` | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
 | `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
-| `<WAV2VEC_PATH>` | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
+| `<WAV2VEC_PATH>` | Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
 ### Websocket Server
 Websocket server's mode deploy a streaming transcription service only. 
