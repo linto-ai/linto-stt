@@ -2,7 +2,7 @@ import logging
 import os
 
 from lockfile import FileLock
-from stt import USE_CTRANSLATE2, USE_VAD, logger
+from stt import USE_CTRANSLATE2, USE_VAD, logger, set_num_threads, NUM_THREADS
 
 from .alignment_model import get_alignment_model, load_alignment_model
 from .decoding import decode
@@ -20,10 +20,12 @@ __all__ = [
 
 
 class LazyLoadedModel:
-    def __init__(self, model_type, device):
+    def __init__(self, model_type, device, num_threads):
         self.model_type = model_type
         self.device = device
+        self.num_threads = num_threads
         self._model = None
+        self.has_set_num_threads = False
 
     def check_loaded(self):
         if self._model is None:
@@ -36,6 +38,9 @@ class LazyLoadedModel:
         return getattr(self._model, name)
 
     def __call__(self, *args, **kwargs):
+        if not self.has_set_num_threads and self.num_threads:
+            set_num_threads(self.num_threads)
+            self.has_set_num_threads = True
         self.check_loaded()
         return self._model(*args, **kwargs)
 
@@ -60,10 +65,9 @@ logger.info(
     f"Loading Whisper model {model_type} ({'local' if os.path.exists(model_type) else 'remote'})..."
 )
 try:
-    model = LazyLoadedModel(model_type, device=device)
-    if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
+    model = LazyLoadedModel(model_type, device=device, num_threads=NUM_THREADS)
+    if not USE_CTRANSLATE2 or device.lower() != "cpu":
         model.check_loaded()
-    # model = load_whisper_model(model_type, device=device)
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err
 

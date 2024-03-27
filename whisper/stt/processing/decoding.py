@@ -63,7 +63,6 @@ def decode(
         kwargs.pop("alignment_model")
         res = decode_ct2(**kwargs)
     else:
-        print("OK")
         res = decode_torch(**kwargs)
 
     logger.info("Transcription complete (t={}s)".format(time.time() - start_t))
@@ -89,8 +88,8 @@ def decode_ct2(
         vad_filter=USE_VAD,
         **kwargs,
     )
-    logger.info(f"Transcription done.")
     segments = list(segments)
+    logger.info(f"Transcription done.")
 
     return format_faster_whisper_response(
         segments, info, remove_punctuation_from_words=remove_punctuation_from_words

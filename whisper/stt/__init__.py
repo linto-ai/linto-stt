@@ -18,7 +18,10 @@ elif os.environ.get("USE_VAD","auditok") in [False, "false", 0]:
     USE_VAD = False
 else:
     USE_VAD = os.environ.get("USE_VAD","auditok")
-    
+
+NUM_THREADS = os.environ.get("NUM_THREADS", os.environ.get("OMP_NUM_THREADS"))
+NUM_THREADS = int(NUM_THREADS)
+
 try:
     import faster_whisper
 
@@ -43,3 +46,21 @@ try:
     USE_TORCHAUDIO = True
 except ImportError:
     USE_TORCHAUDIO = False
+
+if USE_CTRANSLATE2:
+    def set_num_threads(n):
+        # os.environ["OMP_NUM_THREADS"] = str(n)
+        pass
+else:
+    import torch
+    DEFAULT_NUM_THREADS = torch.get_num_threads()
+    def set_num_threads(n):
+        torch.set_num_threads(n)
+
+# Number of CPU threads
+if NUM_THREADS is None:
+    NUM_THREADS = DEFAULT_NUM_THREADS
+if NUM_THREADS is not None:
+    NUM_THREADS = int(NUM_THREADS)
+# For Torch, we will set it afterward, because setting that before loading the model can hang the process (see https://github.com/pytorch/pytorch/issues/58962)
+set_num_threads(1)
