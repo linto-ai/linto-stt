@@ -78,7 +78,6 @@ def decode_ct2(
         kwargs["beam_size"] = 1
     if kwargs.get("best_of") is None:
         kwargs["best_of"] = 1
-    logger.info(f"Transcribing...")
     segments, info = model.transcribe(
         audio,
         word_timestamps=with_word_timestamps,
@@ -89,7 +88,6 @@ def decode_ct2(
         **kwargs,
     )
     segments = list(segments)
-    logger.info(f"Transcription done.")
 
     return format_faster_whisper_response(
         segments, info, remove_punctuation_from_words=remove_punctuation_from_words

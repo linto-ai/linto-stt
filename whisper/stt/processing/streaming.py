@@ -47,7 +47,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 logger.info("Connection closed by client")
                 ws.close()
         except Exception as e:
-            print("Connection closed by client: {}".format(str(e)))
+            logger.info(f"Connection closed by client: {e}")
             break
         if "eof" in str(message):
             o = online.finish()
@@ -61,14 +61,44 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         await ws.send(whisper_to_json(o))
         
         
-def ws_streaming(websocket_server: WSServer, model):
+def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     """Sync Decode function endpoint"""
-    # Wait for config
     res = websocket_server.receive(timeout=10)
-
-    # Timeout
-    if res is None:
-        pass
+    try:
+        config = json.loads(res)["config"]
+        sample_rate = config["sample_rate"]
+        logger.info(f"Received config: {config}")
+    except Exception as e:
+        logger.error("Failed to read stream configuration")
+        websocket_server.close()
+    model, _ = model_and_alignementmodel
+    if USE_CTRANSLATE2:
+        logger.info("Using ctranslate2 for decoding")
+        asr = FasterWhisperASR(model=model, lan="fr")
+    else:
+        logger.info("Using whisper_timestamped for decoding")
+        asr = WhisperTimestampedASR(model=model, lan="fr")
+    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=USE_VAD)
+    logger.info("Waiting for chunks")
+    while True:
+        try:
+            message = websocket_server.receive(timeout=10)
+            if message is None or message == "":  # Timeout
+                logger.info("Connection closed by client")
+                websocket_server.close()
+        except Exception as e:
+            logger.info(f"Connection closed by client: {e}")
+            break
+        if "eof" in str(message):
+            o = online.finish()
+            websocket_server.send(whisper_to_json(o))
+            logger.info(f"End of stream {message}")
+            websocket_server.close()
+            break
+        online.insert_audio_chunk(bytes_to_array(message))
+        o, _ = online.process_iter()
+        logger.info(o)
+        websocket_server.send(whisper_to_json(o))
 
 class HypothesisBuffer:
 
