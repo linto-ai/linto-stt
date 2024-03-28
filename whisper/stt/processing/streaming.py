@@ -97,7 +97,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
             break
         online.insert_audio_chunk(bytes_to_array(message))
         o, _ = online.process_iter()
-        logger.info(o)
+        # logger.info(o)
         websocket_server.send(whisper_to_json(o))
 
 class HypothesisBuffer:
@@ -246,35 +246,18 @@ class OnlineASRProcessor:
         if buffer and (self.buffer_time_offset+len(self.audio_buffer)/self.SAMPLING_RATE)-buffer[-1][1]<0.05:
             # remove the last word if it is too close to the end of the buffer
             buffer.pop(-1)
-        logger.debug(f">>>>COMPLETE NOW:{self.to_flush(o)}")
-        logger.debug(f"INCOMPLETE:{self.to_flush(self.transcript_buffer.complete())}")
+        logger.debug(f"New committed text:{self.to_flush(o)}")
+        logger.debug(f"Buffered text:{self.to_flush(self.transcript_buffer.complete())}")
         
         if len(self.audio_buffer)/self.SAMPLING_RATE > self.buffer_trimming_sec:
             self.chunk_completed_segment(res, chunk_silence=self.use_vad, speech_segments=segments if self.use_vad else False)
 
-        logger.debug(f"len of buffer now: {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f}")
+        logger.debug(f"Len of buffer now: {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f}s")
         return self.to_flush(o), self.to_flush(buffer)
 
-    def chunk_completed_sentence(self):
-        if self.commited == []: return
-        logger.info(self.commited)
-        sents = self.words_to_sentences(self.commited)
-        for s in sents:
-            logger.debug("\t\tSENT:",s)
-        if len(sents) < 2:
-            return
-        while len(sents) > 2:
-            sents.pop(0)
-        # we will continue with audio processing at this timestamp
-        chunk_at = sents[-2][1]
-
-        logger.debug(f"--- sentence chunked at {chunk_at:2.2f}")
-        self.chunk_at(chunk_at)
-
     def chunk_completed_segment(self, res, chunk_silence=False, speech_segments=None):
-        if self.commited == [] and not chunk_silence: 
+        if self.commited == [] and not chunk_silence:
             return
-
         ends = self.asr.segments_end_ts(res)
         t = self.commited[-1][1]
         if len(ends) > 1:
@@ -284,7 +267,6 @@ class OnlineASRProcessor:
                 e = ends[-2]+self.buffer_time_offset
             if e <= t:
                 logger.debug(f"--- segment chunked at {e:2.2f}")
-                # print(f"--- segment chunked at {e:2.2f}")
                 self.chunk_at(e)
             else:
                 logger.debug(f"--- last segment not within commited area")
@@ -306,7 +288,6 @@ class OnlineASRProcessor:
     def chunk_at(self, time):
         """trims the hypothesis and audio buffer at "time"
         """
-        # print(f"chunking at {time:2.2f}")
         self.transcript_buffer.pop_commited(time)
         cut_seconds = time - self.buffer_time_offset
         self.audio_buffer = self.audio_buffer[int(cut_seconds*self.SAMPLING_RATE):]

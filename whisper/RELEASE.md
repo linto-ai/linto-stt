@@ -1,5 +1,6 @@
 # 1.0.3
 - Streaming support
+- Refactoring VAD system
 - New NUM_THREADS env variable to control the number of threads
 - Load the model when launching the service (not at the first request)
 
