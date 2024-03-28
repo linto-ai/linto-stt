@@ -38,7 +38,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     else:
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
-    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=USE_VAD)
+    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=USE_VAD, sample_rate=sample_rate)
     logger.info("Waiting for chunks")
     while True:
         try:
@@ -78,7 +78,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     else:
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
-    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=USE_VAD)
+    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=USE_VAD, sample_rate=sample_rate)
     logger.info("Waiting for chunks")
     while True:
         try:
@@ -171,9 +171,7 @@ class HypothesisBuffer:
 
 class OnlineASRProcessor:
 
-    SAMPLING_RATE = 16000
-
-    def __init__(self, asr, buffer_trimming=15, use_vad="auditok", logfile=sys.stderr):
+    def __init__(self, asr, buffer_trimming=15, use_vad="auditok", logfile=sys.stderr, sample_rate=16000):
         """asr: WhisperASR object
         tokenizer: sentence tokenizer object for the target language. Must have a method *split* that behaves like the one of MosesTokenizer. It can be None, if "segment" buffer trimming option is used, then tokenizer is not used at all.
         ("segment", 15)
@@ -187,6 +185,8 @@ class OnlineASRProcessor:
 
         self.buffer_trimming_sec = buffer_trimming
         self.use_vad = use_vad
+        self.sampling_rate = sample_rate
+        
 
     def init(self):
         """run this when starting or restarting processing"""
@@ -229,12 +229,12 @@ class OnlineASRProcessor:
         prompt, non_prompt = self.prompt()
         logger.debug(f"PROMPT:{prompt}")
         logger.debug(f"CONTEXT:{non_prompt}")
-        logger.debug(f"Transcribing {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f} seconds starting at {self.buffer_time_offset:2.2f}s")
+        logger.debug(f"Transcribing {len(self.audio_buffer)/self.sampling_rate:2.2f} seconds starting at {self.buffer_time_offset:2.2f}s")
         # print(f"Transcribing {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f} seconds starting at {self.buffer_time_offset:2.2f}s")
         # use VAD to filter out the silence        
         if self.use_vad:
             np_buffer = np.array(self.audio_buffer)
-            audio_speech, segments, convertion_function = remove_non_speech(np_buffer, method=self.use_vad, sample_rate=self.SAMPLING_RATE, dilatation=0.5)
+            audio_speech, segments, convertion_function = remove_non_speech(np_buffer, method=self.use_vad, sample_rate=self.sampling_rate, dilatation=0.5)
             res = self.asr.transcribe(audio_speech, init_prompt=prompt)
         else:
             res = self.asr.transcribe(self.audio_buffer, init_prompt=prompt)
@@ -243,16 +243,16 @@ class OnlineASRProcessor:
         self.transcript_buffer.insert(tsw, self.buffer_time_offset)
         o, buffer = self.transcript_buffer.flush()
         self.commited.extend(o)
-        if buffer and (self.buffer_time_offset+len(self.audio_buffer)/self.SAMPLING_RATE)-buffer[-1][1]<0.05:
+        if buffer and (self.buffer_time_offset+len(self.audio_buffer)/self.sampling_rate)-buffer[-1][1]<0.05:
             # remove the last word if it is too close to the end of the buffer
             buffer.pop(-1)
         logger.debug(f"New committed text:{self.to_flush(o)}")
         logger.debug(f"Buffered text:{self.to_flush(self.transcript_buffer.complete())}")
         
-        if len(self.audio_buffer)/self.SAMPLING_RATE > self.buffer_trimming_sec:
+        if len(self.audio_buffer)/self.sampling_rate > self.buffer_trimming_sec:
             self.chunk_completed_segment(res, chunk_silence=self.use_vad, speech_segments=segments if self.use_vad else False)
 
-        logger.debug(f"Len of buffer now: {len(self.audio_buffer)/self.SAMPLING_RATE:2.2f}s")
+        logger.debug(f"Len of buffer now: {len(self.audio_buffer)/self.sampling_rate:2.2f}s")
         return self.to_flush(o), self.to_flush(buffer)
 
     def chunk_completed_segment(self, res, chunk_silence=False, speech_segments=None):
@@ -271,7 +271,7 @@ class OnlineASRProcessor:
             else:
                 logger.debug(f"--- last segment not within commited area")
         elif chunk_silence:
-            lenght = len(self.audio_buffer)/self.SAMPLING_RATE
+            lenght = len(self.audio_buffer)/self.sampling_rate
             e = self.buffer_time_offset + lenght - 2
             if speech_segments:
                 end_silence = lenght - speech_segments[-1][1]
@@ -290,7 +290,7 @@ class OnlineASRProcessor:
         """
         self.transcript_buffer.pop_commited(time)
         cut_seconds = time - self.buffer_time_offset
-        self.audio_buffer = self.audio_buffer[int(cut_seconds*self.SAMPLING_RATE):]
+        self.audio_buffer = self.audio_buffer[int(cut_seconds*self.sampling_rate):]
         self.buffer_time_offset = time
         self.last_chunked_at = time
 
