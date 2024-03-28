@@ -293,6 +293,18 @@ Return the transcripted text using "text/plain" or a json object when using "app
 }
 ```
 
+#### /streaming
+The /streaming route is accessible if the ENABLE_STREAMING environment variable is set to true.
+
+The route accepts websocket connexions. Exchanges are structured as followed:
+1. Client send a json {"config": {"sample_rate":16000}}.
+2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
+3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
+4. Back to 2-
+5. Server send a final result and close the connexion.
+
+> Connexion will be closed and the worker will be freed if no chunk are received for 10s. 
+
 #### /docs
 The /docs route offers a OpenAPI/swagger interface.
 
@@ -329,9 +341,17 @@ On a successfull transcription the returned object is a json object structured a
 
 ## Test
 ### Curl
-You can test you http API using curl:
+You can test your http API using curl:
+
 ```bash 
 curl -X POST "http://YOUR_SERVICE:YOUR_PORT/transcribe" -H  "accept: application/json" -H  "Content-Type: multipart/form-data" -F "file=@YOUR_FILE;type=audio/x-wav"
+```
+
+### Streaming
+You can test your streaming API using a websocket:
+
+```bash 
+python test/test_streaming.py --server ws://YOUR_SERVICE:YOUR_PORT/streaming --audio_file test/bonjour.wav
 ```
 
 ## License
