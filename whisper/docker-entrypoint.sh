@@ -41,7 +41,10 @@ else
         /usr/src/app/wait-for-it.sh $(echo $SERVICES_BROKER | cut -d'/' -f 3) --timeout=20 --strict -- echo " $SERVICES_BROKER (Service Broker) is up" || exit 1
         echo "RUNNING STT CELERY WORKER"
         celery --app=celery_app.celeryapp worker $OPT -Ofair --queues=${SERVICE_NAME} -c ${CONCURRENCY} -n ${SERVICE_NAME}_worker@%h
-
+    elif [ "$SERVICE_MODE" == "websocket" ]
+    then
+        echo "Running Websocket server on port ${STREAMING_PORT:=80}"
+        python3 websocket/websocketserver.py
     else
         echo "ERROR: Wrong serving command: $SERVICE_MODE"
         exit -1

@@ -5,7 +5,7 @@ import regex as re
 from typing import Tuple, Union
 
 import numpy as np
-from stt import USE_CTRANSLATE2, logger
+from stt import USE_CTRANSLATE2, USE_VAD, logger
 
 from .alignment_model import get_alignment_model, load_alignment_model
 from .text_normalize import normalize_text, remove_emoji, remove_punctuation
@@ -17,7 +17,6 @@ if not USE_CTRANSLATE2:
     import whisper_timestamped
 
 USE_ACCURATE = True
-USE_VAD = True
 
 if USE_ACCURATE:
     default_beam_size = 5
@@ -64,7 +63,6 @@ def decode(
         kwargs.pop("alignment_model")
         res = decode_ct2(**kwargs)
     else:
-        print("OK")
         res = decode_torch(**kwargs)
 
     logger.info("Transcription complete (t={}s)".format(time.time() - start_t))
@@ -80,7 +78,6 @@ def decode_ct2(
         kwargs["beam_size"] = 1
     if kwargs.get("best_of") is None:
         kwargs["best_of"] = 1
-
     segments, info = model.transcribe(
         audio,
         word_timestamps=with_word_timestamps,
@@ -90,7 +87,6 @@ def decode_ct2(
         vad_filter=USE_VAD,
         **kwargs,
     )
-
     segments = list(segments)
 
     return format_faster_whisper_response(
