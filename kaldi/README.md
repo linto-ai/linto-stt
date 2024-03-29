@@ -68,7 +68,7 @@ cp kaldi/.envdefault kaldi/.env
 
 STT can be used three ways:
 * Through an [HTTP API](#http-server) using the **http**'s mode.
-* Through a [message broker](#micro-service-within-linto-platform-stack) using the **task**'s mode.
+* Through a [message broker](#celery-task) using the **task**'s mode.
 * Through a [websocket server](#websocket-server) **websocket**'s mode.
 
 Mode is specified using the .env value or environment variable ```SERVING_MODE```.
@@ -99,7 +99,7 @@ This will run a container providing an [HTTP API](#http-api) binded on the host 
 | LM_PATH | Path to the language model on the host machine mounted to /opt/LM | /my/path/to/models/fr-FR_big-v2.2.0 |
 | MODEL_PATH | Path to the model (using MODEL_TYPE=vosk) mounted to /opt/model | /my/path/to/models/vosk-model |
 
-### Micro-service within LinTO-Platform stack
+### Celery task
 The TASK serving mode connect a celery worker to a message broker.
 
 The SERVICE_MODE value in the .env should be set to ```task```.

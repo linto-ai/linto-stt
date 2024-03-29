@@ -185,7 +185,7 @@ and also `yue(cantonese)` since large-v3.
 
 STT can be used in two ways:
 * Through an [HTTP API](#http-server) using the **http**'s mode.
-* Through a [message broker](#micro-service-within-linto-platform-stack) using the **task**'s mode.
+* Through a [message broker](#celery-task) using the **task**'s mode.
 
 Mode is specified using the .env value or environment variable ```SERVING_MODE```.
 ```bash
@@ -222,7 +222,7 @@ You may also want to add specific options:
 | `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
 | `<WAV2VEC_PATH>` | Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
-### Micro-service within LinTO-Platform stack
+### Celery task
 The TASK serving mode connect a celery worker to a message broker.
 
 The SERVICE_MODE value in the .env should be set to ```task```.
