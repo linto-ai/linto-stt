@@ -70,7 +70,7 @@ logger.info(
 )
 try:
     model = LazyLoadedModel(model_type, device=device, num_threads=NUM_THREADS)
-    if not USE_CTRANSLATE2 or device.lower() != "cpu":
+    if device.lower() != "cpu":
         model.check_loaded()
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err

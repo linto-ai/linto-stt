@@ -127,6 +127,20 @@ if __name__ == "__main__":
     else:
         serving_type = GunicornServing
         logger.debug("Serving with gunicorn")
+    # serving_type = GunicornServing
+    # logger.debug("Serving with gunicorn")
+    
+    def worker_started(worker):
+        logger.info(f"Worker started {worker.pid}")
+        MODEL[0].check_loaded()
+        logger.info("Worker fully initialized")
+        
+    
+    # def post_fork(server, worker):
+    #     logger.info("Worker post fork")
+    #     MODEL[0].check_loaded()
+    #     logger.info("Worker f")
+        
 
     serving = serving_type(
         app,
@@ -134,6 +148,9 @@ if __name__ == "__main__":
             "bind": f"0.0.0.0:{args.service_port}",
             "workers": args.workers,
             "timeout": 3600 * 24,
+            # "on_starting": lambda server: logger.info("Server started"),
+            "post_worker_init": worker_started,
+            # "post_fork": post_fork
         },
     )
     logger.info(args)
