@@ -12,12 +12,12 @@ logger = logging.getLogger("__stt__")
 # see https://github.com/guillaumekln/faster-whisper/issues/150
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # GPU in the right order
 
-if os.environ.get("USE_VAD","auditok") in [True, "true", 1]:
+if os.environ.get("VAD","auditok") in [True, "true", 1]:
     VAD = "auditok"
-elif os.environ.get("USE_VAD","auditok") in [False, "false", 0]:
+elif os.environ.get("VAD","auditok") in [False, "false", 0]:
     VAD = False
 else:
-    VAD = os.environ.get("USE_VAD","auditok")
+    VAD = os.environ.get("VAD","auditok")
 
 NUM_THREADS = os.environ.get("NUM_THREADS", os.environ.get("OMP_NUM_THREADS"))
 NUM_THREADS = int(NUM_THREADS)
