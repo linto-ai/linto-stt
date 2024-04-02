@@ -72,7 +72,12 @@ def decode(
 
 
 def decode_ct2(
-    audio, model, with_word_timestamps, language, remove_punctuation_from_words, **kwargs
+    audio,
+    model,
+    with_word_timestamps,
+    language,
+    remove_punctuation_from_words,
+    **kwargs,
 ):
     kwargs["no_speech_threshold"] = 1  # To avoid empty output
     if kwargs.get("beam_size") is None:
@@ -80,7 +85,7 @@ def decode_ct2(
     if kwargs.get("best_of") is None:
         kwargs["best_of"] = 1
     if VAD:
-        _, speech_segments, _ = remove_non_speech(audio, VAD, return_format="dict")
+        _, speech_segments, _ = remove_non_speech(audio, method=VAD, return_format="dict")
     segments, info = model.transcribe(
         audio,
         word_timestamps=with_word_timestamps,
@@ -118,7 +123,7 @@ def decode_torch(
     fp16 = model.device != torch.device("cpu")
 
     if VAD:
-        _, speech_segments, _ = remove_non_speech(audio, VAD)
+        _, speech_segments, _ = remove_non_speech(audio, method=VAD)
 
     kwargs = dict(
         language=language,
@@ -135,7 +140,9 @@ def decode_torch(
 
     if alignment_model is None:
         # Use Whisper cross-attention weights
-        whisper_res = whisper_timestamped.transcribe(model, audio, verbose=None, **kwargs)
+        whisper_res = whisper_timestamped.transcribe(
+            model, audio, verbose=None, **kwargs
+        )
         if language is None:
             language = whisper_res["language"]
             logger.info(f"Detected language: {language}")
@@ -177,7 +184,9 @@ def decode_torch(
     result["text"] = text
     result["language"] = language
     result["confidence-score"] = (
-        np.exp(np.array([r["avg_logprob"] for r in segments])).mean() if len(segments) else 0.0
+        np.exp(np.array([r["avg_logprob"] for r in segments])).mean()
+        if len(segments)
+        else 0.0
     )
 
     if not with_word_timestamps:
@@ -253,7 +262,9 @@ def decode_torch(
     return result
 
 
-def format_whisper_timestamped_response(transcription, remove_punctuation_from_words=False):
+def format_whisper_timestamped_response(
+    transcription, remove_punctuation_from_words=False
+):
     """Format Whisper response."""
 
     for i, seg in enumerate(transcription["segments"][:-1]):
@@ -283,9 +294,11 @@ def format_whisper_timestamped_response(transcription, remove_punctuation_from_w
     return {
         "text": transcription["text"].strip(),
         "language": transcription["language"],
-        "confidence-score": round(np.exp(np.array([r["avg_logprob"] for r in segments])).mean(), 2)
-        if len(segments)
-        else 0.0,
+        "confidence-score": (
+            round(np.exp(np.array([r["avg_logprob"] for r in segments])).mean(), 2)
+            if len(segments)
+            else 0.0
+        ),
         "words": words,
     }
 
@@ -309,7 +322,10 @@ def format_faster_whisper_response(
             if end == start:
                 pass  # end = start + 0.01
             else:
-                print("WARNING, end timestamp %f is smaller than start timestamp %f" % (end, start))
+                print(
+                    "WARNING, end timestamp %f is smaller than start timestamp %f"
+                    % (end, start)
+                )
         if end is None:
             return start
         return (start, end)
@@ -329,7 +345,11 @@ def format_faster_whisper_response(
                     and len(words)
                     and len(word_strip) > 1
                     and word_strip[0] in glue_punctuations
-                    and (word_strip == word_string or not contains_alphanum(words[-1]["text"]) or not contains_alphanum(word_strip))
+                    and (
+                        word_strip == word_string
+                        or not contains_alphanum(words[-1]["text"])
+                        or not contains_alphanum(word_strip)
+                    )
                 ):
                     words[-1]["text"] += word_strip
                     words[-1]["confidence"].append(word.probability)
@@ -369,6 +389,7 @@ def format_faster_whisper_response(
     return format_whisper_timestamped_response(
         transcription, remove_punctuation_from_words=remove_punctuation_from_words
     )
+
 
 def contains_alphanum(text: str) -> bool:
     return re.search(r"[^\W\'\-_]", text)
