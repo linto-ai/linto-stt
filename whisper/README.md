@@ -122,10 +122,13 @@ cp whisper/.envdefault whisper/.env
 | NUM_THREADS | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
 | CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 | CONCURRENCY | Maximum number of parallel requests | `2` |
+| ENABLE_STREAMING | (For the http mode) enable the /streaming websocket route  | true\|false |
+| STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | 80 |
 | SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
 | SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
 | ALIGNMENT_MODEL | (Deprecated) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | `WAV2VEC2_ASR_BASE_960H` \| `jonatasgrosman/wav2vec2-large-xlsr-53-english` \| \<WAV2VEC_PATH\> \| ... |
+
 
 #### MODEL environment variable
 
