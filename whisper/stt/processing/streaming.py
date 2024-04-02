@@ -2,8 +2,8 @@ import json
 import sys
 import string
 import numpy as np
-from stt.processing.streaming_vad import remove_non_speech
-from stt import logger, USE_CTRANSLATE2, USE_VAD
+from .vad import remove_non_speech
+from stt import logger, USE_CTRANSLATE2, VAD
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
 
@@ -38,8 +38,8 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     else:
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
-    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=USE_VAD, sample_rate=sample_rate)
-    logger.info("Waiting for chunks")
+    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=VAD, sample_rate=sample_rate)
+    logger.info("Starting transcription ...")
     while True:
         try:
             message = await ws.recv()
@@ -78,8 +78,8 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     else:
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
-    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=USE_VAD, sample_rate=sample_rate)
-    logger.info("Waiting for chunks")
+    online = OnlineASRProcessor(asr, logfile=sys.stderr, buffer_trimming=8, use_vad=VAD, sample_rate=sample_rate)
+    logger.info("Starting transcription ...")
     while True:
         try:
             message = websocket_server.receive(timeout=10)

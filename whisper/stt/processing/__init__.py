@@ -2,7 +2,7 @@ import logging
 import os
 
 from lockfile import FileLock
-from stt import USE_CTRANSLATE2, USE_VAD, logger, set_num_threads, NUM_THREADS
+from stt import USE_CTRANSLATE2, VAD, logger, set_num_threads, NUM_THREADS
 
 from .alignment_model import get_alignment_model, load_alignment_model
 from .decoding import decode
@@ -60,7 +60,7 @@ logger.info(f"Using device {device}")
 language = get_language()
 logger.info(f"Using language {language}")
 
-logger.info(f"USE_VAD={USE_VAD}")
+logger.info(f"VAD={VAD}")
 logger.info(f"USE_CTRANSLATE2={USE_CTRANSLATE2}")
 
 # Load ASR model
@@ -70,7 +70,7 @@ logger.info(
 )
 try:
     model = LazyLoadedModel(model_type, device=device, num_threads=NUM_THREADS)
-    if device.lower() != "cpu":
+    if str(device).lower() != "cpu":
         model.check_loaded()
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err

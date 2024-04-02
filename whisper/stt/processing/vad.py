@@ -17,6 +17,7 @@ def remove_non_speech(audio,
     sample_rate=16000,
     method="silero",
     avoid_empty_speech=False,
+    return_format="tuple",
     ):
     """
     Remove non-speech segments from audio (using Silero VAD),
@@ -40,11 +41,11 @@ def remove_non_speech(audio,
             if True, avoid returning an empty speech segment (re)
     """
 
-    if USE_CTRANSLATE2 and method.startswith("silero"):
+    if USE_CTRANSLATE2 and method=="silero":
         from faster_whisper.vad import VadOptions
         options = VadOptions(
-            min_speech_duration_ms =min_speech_duration*1000,
-            min_silence_duration_ms =min_silence_duration*1000,
+            min_speech_duration_ms=min_speech_duration*1000,
+            min_silence_duration_ms=min_silence_duration*1000,
         )
         from faster_whisper.vad import get_speech_timestamps
         segments = get_speech_timestamps(audio, vad_options=options)
@@ -58,7 +59,6 @@ def remove_non_speech(audio,
             dilatation=dilatation,
             method=method,
         )
-
     segments = [(seg["start"], seg["end"]) for seg in segments]
     if len(segments) == 0:
         if avoid_empty_speech:
@@ -71,7 +71,8 @@ def remove_non_speech(audio,
 
     if not use_sample:
         segments = [(float(s)/sample_rate, float(e)/sample_rate) for s,e in segments]
- 
+    if return_format == "dict":
+        segments = [{"start": s, "end": e} for s, e in segments]
     return audio_speech, segments, lambda t, t2 = None: do_convert_timestamps(segments, t, t2)
 
 def do_convert_timestamps(segments, t, t2 = None):
@@ -220,8 +221,10 @@ def get_vad_segments(audio,
             _silero_get_speech_ts = utils[0]
 
         # Cheap normalization of the volume
-        # audio = audio / max(0.1, audio.abs().max())
-        audio = audio / max(0.1, np.max(np.abs(audio)))
+        if isinstance(audio, np.ndarray):
+            audio = audio / max(0.1, np.max(np.abs(audio)))
+        else:
+            audio = audio / max(0.1, audio.abs().max())
         
         segments = _silero_get_speech_ts(audio, _silero_vad_model[version],
             sampling_rate = sample_rate,

@@ -5,8 +5,9 @@ import regex as re
 from typing import Tuple, Union
 
 import numpy as np
-from stt import USE_CTRANSLATE2, USE_VAD, logger
+from stt import USE_CTRANSLATE2, VAD, logger
 
+from .vad import remove_non_speech
 from .alignment_model import get_alignment_model, load_alignment_model
 from .text_normalize import normalize_text, remove_emoji, remove_punctuation
 from .utils import SAMPLE_RATE, get_language
@@ -78,13 +79,15 @@ def decode_ct2(
         kwargs["beam_size"] = 1
     if kwargs.get("best_of") is None:
         kwargs["best_of"] = 1
+    if VAD:
+        _, speech_segments, _ = remove_non_speech(audio, VAD, return_format="dict")
     segments, info = model.transcribe(
         audio,
         word_timestamps=with_word_timestamps,
         language=language,
         # Careful with the following options
         max_initial_timestamp=10000.0,
-        vad_filter=USE_VAD,
+        vad_filter=speech_segments if VAD else False,
         **kwargs,
     )
     segments = list(segments)
@@ -114,6 +117,9 @@ def decode_torch(
 
     fp16 = model.device != torch.device("cpu")
 
+    if VAD:
+        _, speech_segments, _ = remove_non_speech(audio, VAD)
+
     kwargs = dict(
         language=language,
         fp16=fp16,
@@ -123,7 +129,7 @@ def decode_torch(
         condition_on_previous_text=condition_on_previous_text,
         no_speech_threshold=no_speech_threshold,
         compression_ratio_threshold=compression_ratio_threshold,
-        vad=USE_VAD,
+        vad=speech_segments if VAD else False,
         initial_prompt=prompt,
     )
 

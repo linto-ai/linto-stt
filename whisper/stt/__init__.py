@@ -13,11 +13,11 @@ logger = logging.getLogger("__stt__")
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # GPU in the right order
 
 if os.environ.get("USE_VAD","auditok") in [True, "true", 1]:
-    USE_VAD = "auditok"
+    VAD = "auditok"
 elif os.environ.get("USE_VAD","auditok") in [False, "false", 0]:
-    USE_VAD = False
+    VAD = False
 else:
-    USE_VAD = os.environ.get("USE_VAD","auditok")
+    VAD = os.environ.get("USE_VAD","auditok")
 
 NUM_THREADS = os.environ.get("NUM_THREADS", os.environ.get("OMP_NUM_THREADS"))
 NUM_THREADS = int(NUM_THREADS)

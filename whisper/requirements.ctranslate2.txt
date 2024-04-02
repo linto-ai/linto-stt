@@ -14,4 +14,4 @@ websockets
 auditok
 #faster_whisper==1.0.1
 # This is version faster_whisper==1.0.1 + option for (persistent) prompt + fix for large-v3
-git+https://github.com/linto-ai/faster-whisper.git
+git+https://github.com/linto-ai/faster-whisper.git@external_vad
