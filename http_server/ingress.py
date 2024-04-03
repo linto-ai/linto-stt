@@ -9,7 +9,7 @@ from confparser import createParser
 from flask import Flask, json, request
 from serving import GeventServing, GunicornServing
 from stt import logger as stt_logger
-from stt.processing import MODEL, USE_GPU, decode, load_wave_buffer
+from stt.processing import MODEL, USE_GPU, decode, load_wave_buffer, warmup
 from swagger import setupSwaggerUI
 
 app = Flask("__stt-standalone-worker__")
@@ -130,10 +130,10 @@ if __name__ == "__main__":
         serving_type = GunicornServing
         logger.debug("Serving with gunicorn")
 
-    def worker_started(worker):
-        logger.info(f"Worker started {worker.pid}")
-        MODEL[0].check_loaded()
-        logger.info("Worker fully initialized")
+    def post_worker_init(worker):
+        logger.info(f"Worker {worker.pid} init")
+        warmup()
+        logger.info(f"Worker {worker.pid} fully initialized")
 
     serving = serving_type(
         app,
@@ -141,7 +141,7 @@ if __name__ == "__main__":
             "bind": f"0.0.0.0:{args.service_port}",
             "workers": args.workers,
             "timeout": 3600 * 24,
-            "post_worker_init": worker_started,
+            "post_worker_init": post_worker_init,
         },
     )
     logger.info(args)

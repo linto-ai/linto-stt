@@ -90,4 +90,8 @@ else:
     )
     alignment_model = {}  # Alignement model(s) will be loaded on the fly
 
+
+def warmup():
+    model.check_loaded()
+    
 MODEL = (model, alignment_model)

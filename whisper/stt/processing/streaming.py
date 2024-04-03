@@ -3,7 +3,7 @@ import sys
 import string
 import numpy as np
 from .vad import remove_non_speech
-from stt import logger, USE_CTRANSLATE2, VAD
+from stt import logger, USE_CTRANSLATE2, VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
 
@@ -43,7 +43,8 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
     online = OnlineASRProcessor(
-        asr, logfile=sys.stderr, buffer_trimming=8, use_vad=VAD, sample_rate=sample_rate
+        asr, logfile=sys.stderr, buffer_trimming=8, vad=VAD, sample_rate=sample_rate, \
+            dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
     )
     logger.info("Starting transcription ...")
     while True:
@@ -85,7 +86,8 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
     online = OnlineASRProcessor(
-        asr, logfile=sys.stderr, buffer_trimming=8, use_vad=VAD, sample_rate=sample_rate
+        asr, logfile=sys.stderr, buffer_trimming=8, vad=VAD, sample_rate=sample_rate, \
+            dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
     )
     logger.info("Starting transcription ...")
     while True:
@@ -192,9 +194,12 @@ class OnlineASRProcessor:
         self,
         asr,
         buffer_trimming=15,
-        use_vad="auditok",
+        vad="auditok",
         logfile=sys.stderr,
         sample_rate=16000,
+        min_speech_duration=0.1,
+        min_silence_duration=0.1,
+        dilatation=0.5,
     ):
         """asr: WhisperASR object
         tokenizer: sentence tokenizer object for the target language. Must have a method *split* that behaves like the one of MosesTokenizer. It can be None, if "segment" buffer trimming option is used, then tokenizer is not used at all.
@@ -208,7 +213,10 @@ class OnlineASRProcessor:
         self.init()
 
         self.buffer_trimming_sec = buffer_trimming
-        self.use_vad = use_vad
+        self.vad = vad
+        self.vad_dilatation = dilatation
+        self.vad_min_speech_duration = min_speech_duration
+        self.vad_min_silence_duration = min_silence_duration
         self.sampling_rate = sample_rate
 
     def init(self):
@@ -257,19 +265,22 @@ class OnlineASRProcessor:
         logger.debug(
             f"Transcribing {len(self.audio_buffer)/self.sampling_rate:2.2f} seconds starting at {self.buffer_time_offset:2.2f}s"
         )
-        if self.use_vad:
+        if self.vad:
             np_buffer = np.array(self.audio_buffer)
             audio_speech, segments, convertion_function = remove_non_speech(
                 np_buffer,
-                method=self.use_vad,
+                method=self.vad,
+                use_sample=True,
                 sample_rate=self.sampling_rate,
-                dilatation=0.5,
+                dilatation=self.vad_dilatation,
+                min_speech_duration=self.vad_min_speech_duration,
+                min_silence_duration=self.vad_min_silence_duration,
             )
             res = self.asr.transcribe(audio_speech, init_prompt=prompt)
         else:
             res = self.asr.transcribe(self.audio_buffer, init_prompt=prompt)
         # transform to [(beg,end,"word1"), ...]
-        tsw = self.asr.ts_words(res, convertion_function if self.use_vad else None)
+        tsw = self.asr.ts_words(res, convertion_function if self.vad else None)
         self.transcript_buffer.insert(tsw, self.buffer_time_offset)
         o, buffer = self.transcript_buffer.flush()
         self.commited.extend(o)
@@ -289,8 +300,8 @@ class OnlineASRProcessor:
         if len(self.audio_buffer) / self.sampling_rate > self.buffer_trimming_sec:
             self.chunk_completed_segment(
                 res,
-                chunk_silence=self.use_vad,
-                speech_segments=segments if self.use_vad else False,
+                chunk_silence=self.vad,
+                speech_segments=segments if self.vad else False,
             )
 
         logger.debug(

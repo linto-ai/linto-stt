@@ -62,27 +62,25 @@ def remove_non_speech(
             dilatation=dilatation,
             method=method,
         )
+    segments = apply_dilatation(segments, dilatation, sample_rate, audio, output_sample=True)
     segments = [(seg["start"], seg["end"]) for seg in segments]
     if len(segments) == 0:
         if avoid_empty_speech:
             segments = [(0, audio.shape[-1])]
         else:
             np.array([]), [], lambda t, t2=None: t if t2 is None else [t, t2]
-
-    audio_speech = np.concatenate([audio[..., s:e] for s, e in segments], axis=-1)
-    # audio_speech = torch.cat([audio[..., s:e] for s,e in segments], dim=-1)
-
     if not use_sample:
         segments = [
             (float(s) / sample_rate, float(e) / sample_rate) for s, e in segments
         ]
+        
     if return_format == "dict":
         segments = [{"start": s, "end": e} for s, e in segments]
-    return (
-        audio_speech,
-        segments,
-        lambda t, t2=None: do_convert_timestamps(segments, t, t2),
-    )
+        return None, segments, lambda t, t2=None: do_convert_timestamps(segments, t, t2)
+    
+    audio_speech = np.concatenate([audio[..., s:e] for s, e in segments], axis=-1)
+    
+    return audio_speech, segments, lambda t, t2=None: do_convert_timestamps(segments, t, t2)
 
 
 def do_convert_timestamps(segments, t, t2=None):
@@ -309,7 +307,10 @@ def get_vad_segments(
 
     else:
         raise ValueError(f"Got unexpected VAD method {method}")
+    return segments
 
+
+def apply_dilatation(segments, dilatation, sample_rate, audio, output_sample=False):
     if dilatation > 0:
         dilatation = round(dilatation * sample_rate)
         new_segments = []
@@ -335,7 +336,6 @@ def get_vad_segments(
             seg["start"] = round(seg["start"])
             seg["end"] = round(seg["end"])
     return segments
-
 
 def check_vad_method(method, with_version=False):
     """

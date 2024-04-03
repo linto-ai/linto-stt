@@ -5,7 +5,7 @@ import regex as re
 from typing import Tuple, Union
 
 import numpy as np
-from stt import USE_CTRANSLATE2, VAD, logger
+from stt import USE_CTRANSLATE2, VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION, logger
 
 from .vad import remove_non_speech
 from .alignment_model import get_alignment_model, load_alignment_model
@@ -47,7 +47,6 @@ def decode(
 ) -> dict:
     if language is None:
         language = get_language()
-
     kwargs = copy.copy(locals())
     kwargs.pop("model_and_alignementmodel")
     kwargs["model"], kwargs["alignment_model"] = model_and_alignementmodel
@@ -85,7 +84,8 @@ def decode_ct2(
     if kwargs.get("best_of") is None:
         kwargs["best_of"] = 1
     if VAD:
-        _, speech_segments, _ = remove_non_speech(audio, method=VAD, return_format="dict")
+        _, speech_segments, _ = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION, \
+            min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, return_format="dict")
     segments, info = model.transcribe(
         audio,
         word_timestamps=with_word_timestamps,
@@ -123,7 +123,8 @@ def decode_torch(
     fp16 = model.device != torch.device("cpu")
 
     if VAD:
-        _, speech_segments, _ = remove_non_speech(audio, method=VAD)
+        _, speech_segments, _ = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION, \
+            min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION,)
 
     kwargs = dict(
         language=language,

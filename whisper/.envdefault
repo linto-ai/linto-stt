@@ -9,6 +9,12 @@ SERVICE_NAME=stt
 SERVICES_BROKER=redis://172.17.0.1:6379
 BROKER_PASS=
 
+# HTTP PARAMETERS
+ENABLE_STREAMING=true
+
+# WEBSOCKET PARAMETERS
+STREAMING_PORT=80
+
 ############################################
 # STT MODELING PARAMETERS
 ############################################
@@ -30,6 +36,11 @@ PROMPT=
 # This option is experimental (and not implemented with ctranslate2).
 # ALIGNMENT_MODEL=wav2vec
 
+VAD=auditok
+VAD_dilatation=0.1
+VAD_min_speech_duration=0.1
+VAD_min_silence_duration=0.1
+
 ############################################
 # EFFICIENCY PARAMETERS
 ############################################
@@ -44,11 +55,3 @@ NUM_THREADS=4
 
 # Number of workers
 CONCURRENCY=2
-
-# WEBSOCKET PARAMETERS
-STREAMING_PORT=80
-
-# HTTP PARAMETERS
-ENABLE_STREAMING=true
-
-VAD=auditok
