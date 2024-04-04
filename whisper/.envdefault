@@ -36,10 +36,14 @@ PROMPT=
 # This option is experimental (and not implemented with ctranslate2).
 # ALIGNMENT_MODEL=wav2vec
 
-VAD=auditok
-VAD_dilatation=0.1
-VAD_min_speech_duration=0.1
-VAD_min_silence_duration=0.1
+# Voice Activity Detection (VAD) method
+# It can be either "0"/"false" (no VAD), "silero", or "1"/"true"/"auditok" (by default)
+# VAD=auditok
+
+# Voice Activity Detection (VAD) parameters
+# VAD_DILATATION=0.1
+# VAD_MIN_SPEECH_DURATION=0.1
+# VAD_MIN_SILENCE_DURATION=0.1
 
 ############################################
 # EFFICIENCY PARAMETERS
