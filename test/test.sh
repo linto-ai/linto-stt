@@ -46,7 +46,7 @@ function ending() {
 build_docker_image() {
     local docker_image="$1"
     local config_file="$2"
-    test/run_server.sh $docker_image $2 > /dev/null 2>&1
+    test/run_server.sh $docker_image $2 # > /dev/null 2>&1
 }
 
 function ctrl_c() {
@@ -77,11 +77,11 @@ wait_for_file_creation_with_timeout() {
     if ps -p $pid > /dev/null; then
         process_running=true
     else
-        echo "Docker building process failed." >> test/test.log
+        echo "Docker building process failed." | tee -a test/test.log
         rm $file
         return 1
     fi
-    echo "File $file has been created. Docker image has been successfully built in $elapsed_time sec." >> test/test.log
+    echo "File $file has been created. Docker image has been successfully built in $elapsed_time sec." | tee -a test/test.log
     rm $file
     return 0
 }
@@ -98,7 +98,7 @@ check_http_server_availability() {
         # Test de la disponibilité du serveur HTTP
         curl -s --head --request GET "$server" | grep "200 OK"
         if [ $? -eq 0 ]; then
-            echo "The server $server is available after $elapsed_time sec." >> test/test.log
+            echo "The server $server is available after $elapsed_time sec." | tee -a test/test.log
             sleep 2
             return 0
         fi
@@ -108,7 +108,7 @@ check_http_server_availability() {
         elapsed_time=$((elapsed_time + retry_interval))
     done
 
-    echo "The server $server is not available after $total_wait_time seconds, server launching must have failed." >> test/test.log
+    echo "The server $server is not available after $total_wait_time seconds, server launching must have failed." | tee -a test/test.log
     return 1
 }
 
@@ -158,7 +158,7 @@ process_test()
     # Exécute la fonction de construction dans un sous-processus
     build_docker_image $docker_image .envtmp &
     pid=$!
-    echo "The server is creating and will be running with the PID $pid." >> test/test.log
+    echo "The server is creating and will be running with the PID $pid." | tee -a test/test.log
     
     # Attend la création du fichier avec un timeout de 600 secondes
     wait_for_file_creation_with_timeout build_finished 
@@ -224,17 +224,12 @@ trap ctrl_c INT
 echo Starting tests at $(date '+%d/%m/%Y %H:%M:%S') > test/test.log
 echo '' >> test/test.log
 
-process_test whisper/Dockerfile.ctranslate2 test/.envtest test/bonjour.wav decoding device=cpu vad=auditok
-
-process_test whisper/Dockerfile.ctranslate2 test/.envtest test/bonjour.wav decoding device=cuda vad=False
-process_test whisper/Dockerfile.ctranslate2 test/.envtest test/bonjour.wav decoding device=cuda vad=auditok
-process_test whisper/Dockerfile.ctranslate2 test/.envtest test/bonjour.wav decoding device=cuda vad=silero
-
-process_test whisper/Dockerfile.torch test/.envtest test/bonjour.wav decoding device=cuda vad=False
-# process_test whisper/Dockerfile.torch test/.envtest test/bonjour.wav decoding device=cuda vad=auditok # if auditok works for faster whisper it will work for torch
-process_test whisper/Dockerfile.torch test/.envtest test/bonjour.wav decoding device=cuda vad=silero
-
-process_test whisper/Dockerfile.ctranslate2 test/.envtest test/bonjour.wav streaming device=cuda vad=False
-process_test whisper/Dockerfile.ctranslate2 test/.envtest test/bonjour.wav streaming device=cuda vad=auditok
+for serving in decoding streaming;do
+    for vad in False auditok silero; do
+        for device in cpu cuda; do
+            process_test whisper/Dockerfile.ctranslate2 test/.envtest test/bonjour.wav $serving DEVICE=$device VAD=$vad
+        done
+    done
+done
 
 ending
