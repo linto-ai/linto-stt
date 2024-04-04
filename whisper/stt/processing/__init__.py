@@ -92,7 +92,7 @@ logger.info(
 try:
     model = LazyLoadedModel(model_type, device=device, num_threads=NUM_THREADS)
     MODEL = (model, alignment_model)
-    if str(device).lower() != "cpu":
+    if USE_GPU:
         warmup()
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err

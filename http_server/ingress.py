@@ -24,7 +24,7 @@ logger = logging.getLogger("__stt-standalone-worker__")
 logger.setLevel(logging.INFO)
 
 # If websocket streaming route is enabled
-if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
+if os.environ.get("ENABLE_STREAMING", "false").lower() in ["true", "1"]:
     from flask_sock import Sock
     from stt.processing.streaming import ws_streaming
 
