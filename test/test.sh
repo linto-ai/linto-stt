@@ -44,9 +44,7 @@ function ending() {
 
 # Fonction pour construire l'image Docker
 build_docker_image() {
-    local docker_image="$1"
-    local config_file="$2"
-    test/run_server.sh $docker_image $2 # > /dev/null 2>&1
+    test/run_server.sh $* # > /dev/null 2>&1
 }
 
 function ctrl_c() {
@@ -147,16 +145,22 @@ process_test()
     echo Test type: $4 >> test/test.log
     echo ''
     echo Starting test $test_id
+    local docker_image="$1"
     local config_file="$2"
-    make_env $config_file $5 $6 $7
+    local test_file="$3"
+    local test_type="$4"
+    local use_local_cache="$5"
+    make_env $config_file $6 $7 $8
     local local_test_id=$test_id
     test_id=$((test_id + 1))
     tests_run=$((tests_run + 1))
-    local docker_image="$1"
-    local test_file="$3"
-    local test_type="$4"
+    if [ $use_local_cache -gt 0 ];then
+        build_args="-v $HOME/.cache:/root/.cache"
+    else
+        build_args=""
+    fi
     # Exécute la fonction de construction dans un sous-processus
-    build_docker_image $docker_image .envtmp &
+    build_docker_image $docker_image .envtmp $build_args &
     pid=$!
     echo "The server is creating and will be running with the PID $pid." | tee -a test/test.log
     
@@ -164,15 +168,13 @@ process_test()
     wait_for_file_creation_with_timeout build_finished 
     local r=$?
     if [ "$r" -ne 0 ]; then
-        mv $2 tests_failed/$local_test_id.env
-        test_failed $2
+        test_failed .envtmp
         return 1
     fi
     check_http_server_availability "http://localhost:8080/healthcheck"
     local r=$?
     if [ "$r" -ne 0 ]; then
-        mv $2 tests_failed/$local_test_id.env
-        test_failed $2
+        test_failed .envtmp
         return 1
     fi
     if [ "$test_file" == "test/GOLE7.wav" ] ; then
@@ -224,10 +226,16 @@ trap ctrl_c INT
 echo Starting tests at $(date '+%d/%m/%Y %H:%M:%S') > test/test.log
 echo '' >> test/test.log
 
-for serving in decoding streaming;do
-    for vad in False auditok silero; do
-        for device in cpu cuda; do
-            process_test whisper/Dockerfile.ctranslate2 test/.envtest test/bonjour.wav $serving DEVICE=$device VAD=$vad
+# Prepare env file for tests
+cat whisper/.envdefault | grep -v "DEVICE=" | grep -v "VAD=" | grep -v "MODEL=" > test/.env
+echo "MODEL=tiny" >> test/.env
+
+for use_local_cache in 0 1;do
+    for serving in decoding streaming;do
+        for vad in False auditok silero; do
+            for device in cuda cpu; do
+                process_test whisper/Dockerfile.ctranslate2 test/.env test/bonjour.wav $serving $use_local_cache DEVICE=$device VAD=$vad
+            done
         done
     done
 done

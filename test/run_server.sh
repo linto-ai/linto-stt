@@ -1,6 +1,15 @@
 #!/bin/bash
 
-docker build . -f $1 -t linto-stt-whisper:latest
-cp $2 whisper/.env
+dockerfile=$1
+shift
+env_file=$1
+shift
+
+tag=test_`basename $dockerfile`
+
+docker build . -f $dockerfile -t linto-stt-whisper:$tag
 touch build_finished
-docker run --rm -p 8080:80 --name test_container --env-file whisper/.env --gpus all -v /home/abert/.cache:/root/.cache linto-stt-whisper:latest 
+
+CMD="docker run --rm -p 8080:80 --name test_container --env-file $env_file --gpus all $* linto-stt-whisper:$tag"
+echo $CMD
+eval $CMD
