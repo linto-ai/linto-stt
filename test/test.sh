@@ -5,40 +5,41 @@ passed=0
 failed=0
 
 function test_failed() {
+    end=$(date +%s)
     mkdir -p test/tests_failed
     mv $2 .envtmp test/tests_failed/$local_test_id.env
-    echo 'Test failed.'
+    echo 'Test failed in '$((end-start))' seconds.' | tee -a test/test.log
     echo 'See test/test.log for more details.'
-    echo '.Env file has been moved to tests_failed directory.' >> test/test.log
-    echo 'Test failed.' >> test/test.log
+    echo '.env file has been moved to test/tests_failed directory.' >> test/test.log
     failed=$((failed + 1))
-    docker stop test_container
+    docker stop test_container > /dev/null
     pkill -P $pid
     echo '' >> test/test.log
     # exit 1
 }
 
 function test_finished(){
-    echo 'Test passed.'
-    echo 'Test passed.' >> test/test.log
+    end=$(date +%s)
+    echo 'Test passed in '$((end-start))' seconds.' | tee -a test/test.log
     passed=$((passed + 1))
-    docker stop test_container
+    docker stop test_container > /dev/null
     pkill -P $pid
     echo '' >> test/test.log
 }
 
 function ending() {
-    echo ''
-    echo 'Ending the tests...'
-    echo $passed/$tests_run tests passed.
-    echo $failed/$tests_run tests failed.
-    if [ $failed -eq 0 ]; then
-        echo 'TEST PASSED.'
-    else
-        echo 'TEST FAILED.'
-    fi
-    docker stop test_container
+    docker stop test_container > /dev/null
     pkill -P $pid
+    global_end=$(date +%s)
+    echo '' | tee -a test/test.log
+    echo 'Time to run tests: '$((global_end-global_start))' seconds.' | tee -a test/test.log
+    echo $passed/$tests_run tests passed. | tee -a test/test.log
+    echo $failed/$tests_run tests failed. | tee -a test/test.log
+    if [ $failed -eq 0 ]; then
+        echo 'TEST PASSED.' | tee -a test/test.log
+    else
+        echo 'TEST FAILED.' | tee -a test/test.log
+    fi
     exit 1
 }
 
@@ -49,9 +50,9 @@ build_docker_image() {
 
 function ctrl_c() {
     echo ''
-    echo "Ctrl + C happened, attempting to stop the server..."
-    rm build_finished
-    rm .envtmp
+    echo "Ctrl + C happened, stopping the server... (do not press Ctrl + C again)"
+    rm -f build_finished
+    rm -f .envtmp
     ending
 }
 
@@ -79,7 +80,7 @@ wait_for_file_creation_with_timeout() {
         rm $file
         return 1
     fi
-    echo "File $file has been created. Docker image has been successfully built in $elapsed_time sec." | tee -a test/test.log
+    echo "Docker image has been successfully built in $elapsed_time sec." | tee -a test/test.log
     rm $file
     return 0
 }
@@ -159,6 +160,7 @@ process_test()
     else
         build_args=""
     fi
+    start=$(date +%s)
     # Exécute la fonction de construction dans un sous-processus
     build_docker_image $docker_image .envtmp $build_args &
     pid=$!
@@ -230,7 +232,9 @@ echo '' >> test/test.log
 cat whisper/.envdefault | grep -v "DEVICE=" | grep -v "VAD=" | grep -v "MODEL=" > test/.env
 echo "MODEL=tiny" >> test/.env
 
-for use_local_cache in 0 1;do
+global_start=$(date +%s)
+
+for use_local_cache in 1 0;do
     for serving in decoding streaming;do
         for vad in False auditok silero; do
             for device in cuda cpu; do
