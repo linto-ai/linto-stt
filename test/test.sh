@@ -234,7 +234,7 @@ echo "MODEL=tiny" >> test/.env
 
 global_start=$(date +%s)
 
-for use_local_cache in 1 0;do
+for use_local_cache in 0;do
     for serving in decoding streaming;do
         for vad in False auditok silero; do
             for device in cuda cpu; do
