@@ -18,7 +18,12 @@ __all__ = [
     "USE_GPU",
 ]
 
-
+def warmup():
+    model.check_loaded()
+    audio_data = load_audiofile("test/bonjour.wav")
+    transcription = decode(audio_data, MODEL, False)
+    logger.info(f"Warmup result: {transcription}")
+    
 class LazyLoadedModel:
     def __init__(self, model_type, device, num_threads):
         self.model_type = model_type
@@ -63,18 +68,6 @@ logger.info(f"Using language {language}")
 logger.info(f"VAD={VAD}")
 logger.info(f"USE_CTRANSLATE2={USE_CTRANSLATE2}")
 
-# Load ASR model
-model_type = os.environ.get("MODEL", "medium")
-logger.info(
-    f"Loading Whisper model {model_type} ({'local' if os.path.exists(model_type) else 'remote'})..."
-)
-try:
-    model = LazyLoadedModel(model_type, device=device, num_threads=NUM_THREADS)
-    if str(device).lower() != "cpu":
-        model.check_loaded()
-except Exception as err:
-    raise Exception("Failed to load transcription model: {}".format(str(err))) from err
-
 # Load alignment model (if any)
 alignment_model = get_alignment_model(os.environ.get("alignment_model"), language)
 if alignment_model:
@@ -91,7 +84,18 @@ else:
     alignment_model = {}  # Alignement model(s) will be loaded on the fly
 
 
-def warmup():
-    model.check_loaded()
+# Load ASR model
+model_type = os.environ.get("MODEL", "medium")
+logger.info(
+    f"Loading Whisper model {model_type} ({'local' if os.path.exists(model_type) else 'remote'})..."
+)
+try:
+    model = LazyLoadedModel(model_type, device=device, num_threads=NUM_THREADS)
+    MODEL = (model, alignment_model)
+    if str(device).lower() != "cpu":
+        warmup()
+except Exception as err:
+    raise Exception("Failed to load transcription model: {}".format(str(err))) from err
+
+
     
-MODEL = (model, alignment_model)

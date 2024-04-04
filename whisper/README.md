@@ -121,7 +121,7 @@ cp whisper/.envdefault whisper/.env
 | DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | NUM_THREADS | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
 | CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
-| CONCURRENCY | Maximum number of parallel requests | `2` |
+| CONCURRENCY | Maximum number of parallel requests (number of workers minus one) | `2` |
 | VAD | Voice Activity Detection method. Use "false" to disable. If not specified, the default is auditok VAD. | `true` \| `false` \| `1` \| `0` \| `auditok` \| `silero`
 | ENABLE_STREAMING | (For the http mode) enable the /streaming websocket route  | `true\|false` |
 | STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | `80` |

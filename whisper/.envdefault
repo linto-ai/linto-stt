@@ -53,5 +53,5 @@ VAD_min_silence_duration=0.1
 # Number of threads per worker when running on CPU
 NUM_THREADS=4
 
-# Number of workers
+# Number of workers minus one (all except from the main one)
 CONCURRENCY=2
