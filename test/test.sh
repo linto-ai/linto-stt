@@ -192,20 +192,6 @@ build_and_run_container()
 
 run_test()
 {
-    local serving="$1"
-    shift
-    if [ "$serving" == "http" ]; then
-        run_test_http $*
-    elif [ "$serving" == "task" ]; then
-        run_test_task $*
-    else
-        echo_failure "Error: Unknown serving mode '$serving'."
-        exit 1
-    fi
-}
-
-run_test()
-{
     # Input parameters
     local serving="$1"
     shift
