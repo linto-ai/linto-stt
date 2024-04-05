@@ -6,7 +6,6 @@ from stt import logger, USE_CTRANSLATE2
 
 _silero_vad_model = {}
 _has_onnx = None
-_vad_import = None
 
 
 def remove_non_speech(
@@ -153,7 +152,7 @@ def get_vad_segments(
         method: str or list
             VAD method to use (auditok, silero, silero:v3.1)
     """
-    global _silero_vad_model, _silero_get_speech_ts, _has_onnx, _vad_import
+    global _silero_vad_model, _silero_get_speech_ts, _has_onnx
     if isinstance(method, list):
         # Explicit timestamps
         segments = [
@@ -226,11 +225,8 @@ def get_vad_segments(
             if need_folder_hack:
                 apply_folder_hack()
             try:
-                if _vad_import is None:
-                    from torch.hub import load as torch_load
-
-                    _vad_import = torch_load
-                silero_vad_model, utils = _vad_import(
+                from torch.hub import load as torch_load
+                silero_vad_model, utils = torch_load(
                     repo_or_dir=repo_or_dir,
                     model="silero_vad",
                     onnx=onnx,
@@ -258,8 +254,11 @@ def get_vad_segments(
             _silero_get_speech_ts = utils[0]
 
         # Cheap normalization of the volume
-        audio = audio / max(0.1, audio.abs().max())
-
+        
+        if isinstance(audio, np.ndarray):
+            audio = audio / max(0.1, np.max(np.abs(audio)))
+        else:
+            audio = audio / max(0.1, audio.abs().max())
         segments = _silero_get_speech_ts(
             audio,
             _silero_vad_model[version],
@@ -270,13 +269,7 @@ def get_vad_segments(
         )
 
     elif method == "auditok":
-        if _vad_import is None:
-            from auditok import split
-
-            _vad_import = split
-
         # Cheap normalization of the volume
-        # audio = audio / max(0.1, audio.abs().max())
         if isinstance(audio, np.ndarray):
             audio = audio / max(0.1, np.max(np.abs(audio)))
             data = (audio * 32767).astype(np.int16).tobytes()
@@ -285,8 +278,8 @@ def get_vad_segments(
             data = (audio.numpy() * 32767).astype(np.int16).tobytes() 
             
         audio_duration = len(audio) / sample_rate
-
-        segments = _vad_import(
+        from auditok import split
+        segments = split(
             data,
             sampling_rate=sample_rate,  # sampling frequency in Hz
             channels=1,  # number of channels
