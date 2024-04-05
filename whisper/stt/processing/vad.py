@@ -15,7 +15,7 @@ def remove_non_speech(
     min_silence_duration=1,
     dilatation=0.5,
     sample_rate=16000,
-    method="silero",
+    method="auditok",
     avoid_empty_speech=False,
     return_format="tuple",
 ):
@@ -55,10 +55,8 @@ def remove_non_speech(
         segments = get_vad_segments(
             audio,
             sample_rate=sample_rate,
-            output_sample=True,
             min_speech_duration=min_speech_duration,
             min_silence_duration=min_silence_duration,
-            dilatation=dilatation,
             method=method,
         )
     segments = apply_dilatation(segments, dilatation, sample_rate, audio, output_sample=True)
@@ -130,11 +128,9 @@ def do_convert_timestamps(segments, t, t2=None):
 def get_vad_segments(
     audio,
     sample_rate=16000,
-    output_sample=False,
     min_speech_duration=0.1,
     min_silence_duration=0.1,
-    dilatation=0.5,
-    method="silero",
+    method="auditok",
 ):
     """
     Get speech segments from audio using the method VAD
@@ -158,8 +154,6 @@ def get_vad_segments(
         segments = [
             {"start": s * sample_rate, "end": e * sample_rate} for (s, e) in method
         ]
-        dilatation = 0
-
     elif isinstance(method, str) and method.startswith("silero"):
         version = None
         _, version = check_vad_method(method, True)
