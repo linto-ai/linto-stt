@@ -1,5 +1,4 @@
 .env*
 tmp*
-test/tests_failed/*
 test.log
 __pycache__
