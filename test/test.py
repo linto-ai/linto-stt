@@ -12,8 +12,8 @@ import sys
 
 
 class TestContainer():
-    def __init__(self, use_kaldi=False):
-        self.use_kaldi = use_kaldi
+    def __init__(self, show_failed_tests=True):
+        self.show_failed_tests = show_failed_tests
         self.cleanup()
 
     def echo_success(self, message):
@@ -29,8 +29,9 @@ class TestContainer():
         print(f"$ {message}")
 
     def test_failed(self, message):
-        self.echo_failure(message)
-        self.cleanup()
+        if self.show_failed_tests:
+            self.echo_failure(message)
+            self.cleanup()
 
     def test_succeeded(self):
         self.echo_success(f"Test passed.")
@@ -117,6 +118,8 @@ class TestContainer():
         start = time.time()
         res = subprocess.run(command, shell=True, timeout=timeout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         end = time.time()
+        if res.returncode != 0:
+            raise FileNotFoundError(f"Error: {res.stderr.decode('utf-8')}")
         res = res.stdout.decode('utf-8')
         if not re.search(regex, res):
             message = f"{error_message}: The string '{res}' is not matching the regex ({regex}), the server didn't transcribe correctly."
@@ -168,13 +171,9 @@ def generate_whisper_test_setups():
     use_local_caches = [1]  # Add 0 for additional cache usage
 
     servings = ["task", "http"]
-    # servings = ["task"]
-    # servings = ["http"]
 
     vads = ["NONE", "false", "auditok", "silero"]
-    # vads = ["NONE"]
     devices = ["NONE", "cpu", "cuda"]
-    # devices = ["NONE"]
     models = ["tiny"]
 
     for use_local_cache in use_local_caches:
@@ -201,7 +200,6 @@ def generate_kaldi_test_setups():
     use_local_caches = [1]  # Add 0 for additional cache usage
 
     servings = ["task", "http"]
-    # servings = ["http"]
     
     for use_local_cache in use_local_caches:
         for dockerfile in dockerfiles:
@@ -230,7 +228,7 @@ class TestRunner(unittest.TestCase):
         copy_env_file("kaldi/.envdefault", ["SERVICE_MODE"])
         serving, test_file, dockerfile, use_local_cache, envs = setup
         envs += f"-v {AM_PATH}:/opt/AM -v {LM_PATH}:/opt/LM"
-        testobject = TestContainer(use_kaldi=True)
+        testobject = TestContainer()
         test_result = testobject.run_test(serving, test_file, dockerfile, use_local_cache, envs)
         if test_result!=True:
             self.fail(test_result)
@@ -246,7 +244,52 @@ class TestRunner(unittest.TestCase):
         if test_result!=True:
             self.fail(test_result)
             
-    
+    def test_whisper_curl_not_existing_file(self):
+        print()
+        copy_env_file("whisper/.envdefault", ["VAD", "DEVICE", "MODEL", "SERVICE_MODE"])
+        serving = "http"
+        test_file = "notexisting"
+        dockerfile = "whisper/Dockerfile.ctranslate2"
+        use_local_cache = 1
+        envs = "MODEL=tiny "
+        testobject = TestContainer()
+        with self.assertRaises(FileNotFoundError):
+            testobject.run_test(serving, test_file, dockerfile, use_local_cache, envs)
+            
+    def test_cuda_on_cpu_dockerfile(self):
+        print()
+        copy_env_file("whisper/.envdefault", ["VAD", "DEVICE", "MODEL", "SERVICE_MODE"])
+        serving = "http"
+        test_file = "test/bonjour.wav"
+        dockerfile = "whisper/Dockerfile.ctranslate2.cpu"
+        use_local_cache = 1
+        envs = "MODEL=tiny  DEVICE=cuda"
+        testobject = TestContainer(show_failed_tests=False)
+        self.assertIn("The server container has stopped for an unexpected reason.", testobject.run_test(serving, test_file, dockerfile, use_local_cache, envs))
+        
+    def test_model_whisper(self):
+        print()
+        copy_env_file("whisper/.envdefault", ["VAD", "DEVICE", "MODEL", "SERVICE_MODE"])
+        serving = "http"
+        test_file = "test/bonjour.wav"
+        dockerfile = "whisper/Dockerfile.ctranslate2"
+        use_local_cache = 1
+        envs = "MODEL=small"
+        testobject = TestContainer()
+        test_result = testobject.run_test(serving, test_file, dockerfile, use_local_cache, envs)
+        if test_result!=True:
+            self.fail(test_result)
+
+    def test_vad_whisper(self):
+        print()
+        copy_env_file("whisper/.envdefault", ["VAD", "DEVICE", "MODEL", "SERVICE_MODE"])
+        serving = "http"
+        test_file = "test/bonjour.wav"
+        dockerfile = "whisper/Dockerfile.ctranslate2"
+        use_local_cache = 1
+        envs = "VAD=whatever"
+        testobject = TestContainer(show_failed_tests=False)
+        self.assertIn("The server container has stopped for an unexpected reason.", testobject.run_test(serving, test_file, dockerfile, use_local_cache, envs))
 
 
 AM_PATH = None
@@ -262,4 +305,3 @@ if __name__ == '__main__':
     LM_PATH = config.get('kaldi', 'LM_PATH')
     
     unittest.main(verbosity=2)
-    # unittest.main()
