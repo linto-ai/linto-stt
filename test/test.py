@@ -221,7 +221,7 @@ class TestRunner(unittest.TestCase):
     @idata(generate_kaldi_test_setups())
     def test_kaldi_integration(self, setup):
         print()
-        if AM_PATH is None or LM_PATH is None:
+        if AM_PATH is None or LM_PATH is None or AM_PATH=="" or LM_PATH=="":
             self.fail("AM or LM path not provided. Skipping kaldi test.")
         if not os.path.exists(AM_PATH) or not os.path.exists(LM_PATH):
             self.fail(f"AM or LM path not found: {AM_PATH} or {LM_PATH}")
