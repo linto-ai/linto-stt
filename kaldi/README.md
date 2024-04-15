@@ -205,7 +205,10 @@ On a successfull transcription the returned object is a json object structured a
 * The <ins>confidence</ins> field contains the overall confidence for the transcription. (0.0 if with_metadata=False)
 
 
-## Test
+## Tests
+
+See [Test scripts](../test/README.md) for more details about testing. 
+
 ### Curl
 You can test you http API using curl:
 ```bash 
