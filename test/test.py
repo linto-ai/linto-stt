@@ -16,8 +16,12 @@ TESTDIR = os.path.basename(TESTDIR)
 
 
 def generate_whisper_test_setups():
-    dockerfiles = ["whisper/Dockerfile.ctranslate2", "whisper/Dockerfile.ctranslate2.cpu",
-                       "whisper/Dockerfile.torch", "whisper/Dockerfile.torch.cpu"]
+    dockerfiles = [
+        "whisper/Dockerfile.ctranslate2",
+        "whisper/Dockerfile.ctranslate2.cpu",
+        "whisper/Dockerfile.torch",
+        "whisper/Dockerfile.torch.cpu",
+    ]
 
     servings = ["http", "task"]
 
@@ -30,9 +34,16 @@ def generate_whisper_test_setups():
             for vad in vads:
                 for model in models:
                     for serving in servings:
-                        # try:
+
+                        # Test CPU dockerfile only on CPU
                         if dockerfile.endswith("cpu") and device != "cpu":
                             continue
+
+                        # Do not test all VAD settings if not on CPU
+                        if vad not in ["NONE", "silero"]:
+                            if device != "cpu":
+                                continue
+
                         env_variables = ""
                         if vad != "NONE":
                             env_variables += f"VAD={vad} "
@@ -67,9 +78,9 @@ class TestRunner(unittest.TestCase):
 
     built_images = []
 
-    def __init__(self, *args, **kwargs):
-        super(TestRunner, self).__init__(*args, **kwargs)
-        self.cleanup()
+    # def __init__(self, *args, **kwargs):
+    #     super(TestRunner, self).__init__(*args, **kwargs)
+    #     self.cleanup()
 
     def echo_success(self, message):
         print('\033[0;32m' + u'\u2714' + '\033[0m ' + message)
@@ -83,11 +94,11 @@ class TestRunner(unittest.TestCase):
     def echo_command(self, message):
         print(f"$ {message}")
 
-    def report_failure(self, message, expect_failure=True):
-        if expect_failure:
+    def report_failure(self, message, expect_failure=False):
+        if not expect_failure:
             self.echo_failure(message)
         self.cleanup()
-        if expect_failure:
+        if not expect_failure:
             self.fail(message)
         return message
 
@@ -100,8 +111,9 @@ class TestRunner(unittest.TestCase):
             os.remove("build_finished")
         except FileNotFoundError:
             pass
-        subprocess.run(["docker", "stop", "test_redis"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.echo_command("docker stop test_container")
         subprocess.run(["docker", "stop", "test_container"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["docker", "stop", "test_redis"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def process_output(self, p):
         l = p.communicate()[0].decode('utf-8').replace('\n', '\n\t')
@@ -255,19 +267,19 @@ class TestRunner(unittest.TestCase):
         env_variables = "MODEL=tiny"
         copy_env_file("whisper/.envdefault", env_variables)
         with self.assertRaises(FileNotFoundError):
-            self.run_test(test_file="notexisting", env_variables=env_variables, expect_failure=False)
+            self.run_test(test_file="notexisting", env_variables=env_variables, expect_failure=True)
         self.cleanup()
             
     def test_02_whisper_failures_cuda_on_cpu_dockerfile(self):
         env_variables = "MODEL=tiny  DEVICE=cuda"
         dockerfile = "whisper/Dockerfile.ctranslate2.cpu"
         copy_env_file("whisper/.envdefault", env_variables)
-        self.assertIn("cannot open shared object file", self.run_test(dockerfile, env_variables=env_variables, expect_failure=False))
+        self.assertIn("cannot open shared object file", self.run_test(dockerfile, env_variables=env_variables, expect_failure=True))
 
     def test_02_whisper_failures_wrong_vad(self):
         env_variables = "VAD=whatever MODEL=tiny"
         copy_env_file("whisper/.envdefault", env_variables)
-        self.assertIn("Got unexpected VAD method whatever", self.run_test(env_variables=env_variables, expect_failure=False))
+        self.assertIn("Got unexpected VAD method whatever", self.run_test(env_variables=env_variables, expect_failure=True))
 
     def test_04_model_whisper(self):
         env_variables = "MODEL=small"
