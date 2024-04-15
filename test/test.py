@@ -3,11 +3,8 @@ import os
 import time
 import subprocess
 import requests
-import argparse
 import re
-from ddt import ddt, data, idata
-import signal
-import sys
+from ddt import ddt, idata
 
 
 
