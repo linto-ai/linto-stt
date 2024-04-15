@@ -9,8 +9,8 @@ from ddt import ddt, idata
 
 
 class TestContainer():
-    def __init__(self, show_failed_tests=True):
-        self.show_failed_tests = show_failed_tests
+    def __init__(self, ignore_failed_tests=None):
+        self.ignore_failed_tests = ignore_failed_tests
         self.cleanup()
 
     def echo_success(self, message):
@@ -26,7 +26,7 @@ class TestContainer():
         print(f"$ {message}")
 
     def test_failed(self, message):
-        if self.show_failed_tests:
+        if self.ignore_failed_tests is None or not message.startswith(self.ignore_failed_tests):
             self.echo_failure(message)
             self.cleanup()
 
@@ -49,7 +49,7 @@ class TestContainer():
 
 
     def check_http_server_availability(self, server, pid):
-        total_wait_time = 60  # 10 minutes in seconds
+        total_wait_time = SERVER_STARTING_TIMEOUT  # 10 minutes in seconds
         retry_interval = 1    # Interval between attempts (in seconds)
         elapsed_time = 0
 
@@ -67,7 +67,7 @@ class TestContainer():
             time.sleep(retry_interval)
             elapsed_time += retry_interval
 
-        return f"Server: {server} is not available after {total_wait_time} seconds, server launching must have failed."
+        return f"Server: {server} is not available after {total_wait_time} seconds, server launching must have failed.\n{self.process_output(pid)}"
         
     def build_and_run_container(self, serving, docker_image, use_local_cache, env_variables):
         self.echo_note(f"* Docker image: {docker_image}")
@@ -261,7 +261,7 @@ class TestRunner(unittest.TestCase):
         dockerfile = "whisper/Dockerfile.ctranslate2.cpu"
         use_local_cache = 1
         envs = "MODEL=tiny  DEVICE=cuda"
-        testobject = TestContainer(show_failed_tests=False)
+        testobject = TestContainer(ignore_failed_tests="The server container has stopped for an unexpected reason.")
         self.assertIn("The server container has stopped for an unexpected reason.", testobject.run_test(serving, test_file, dockerfile, use_local_cache, envs))
         
     def test_model_whisper(self):
@@ -285,18 +285,21 @@ class TestRunner(unittest.TestCase):
         dockerfile = "whisper/Dockerfile.ctranslate2"
         use_local_cache = 1
         envs = "VAD=whatever"
-        testobject = TestContainer(show_failed_tests=False)
+        testobject = TestContainer(ignore_failed_tests="The server container has stopped for an unexpected reason.")
         self.assertIn("The server container has stopped for an unexpected reason.", testobject.run_test(serving, test_file, dockerfile, use_local_cache, envs))
 
 
 AM_PATH = None
 LM_PATH = None
+SERVER_STARTING_TIMEOUT = 60
 
 if __name__ == '__main__':
     from configparser import ConfigParser
     config = ConfigParser()
 
     config.read('test/test_config.ini')
+    
+    SERVER_STARTING_TIMEOUT = int(config.get('server', 'STARTING_TIMEOUT')) if config.get('server', 'STARTING_TIMEOUT')!="" else SERVER_STARTING_TIMEOUT
     
     AM_PATH = config.get('kaldi', 'AM_PATH')
     LM_PATH = config.get('kaldi', 'LM_PATH')
