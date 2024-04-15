@@ -46,7 +46,7 @@ You will need to install:
 pip3 install ddt
 ```
 
-To test the Kaldi models, you will need to download the models (see [Kaldi models](../kaldi/README.md)) and then fill the test_config.ini AM_PATH and LM_PATH fields. 
+To test the Kaldi models, you will need to download the models (see [Kaldi models](../kaldi/README.md)) and then fill the AM_PATH and LM_PATH fields in the [test_config.ini file](test_config.ini).
 > ⚠️ If you don't specify the models, the tests about Kaldi will fail.
 
 To launch the test you can do :
