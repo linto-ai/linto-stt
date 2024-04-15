@@ -25,8 +25,8 @@ def generate_whisper_test_setups():
 
     servings = ["http", "task"]
 
-    vads = ["NONE", "false", "auditok", "silero"]
-    devices = ["NONE", "cpu", "cuda"]
+    vads = [None, "false", "auditok", "silero"]
+    devices = [None, "cpu", "cuda"]
     models = ["tiny"]
 
     for dockerfile in dockerfiles:
@@ -40,14 +40,14 @@ def generate_whisper_test_setups():
                             continue
 
                         # Do not test all VAD settings if not on CPU
-                        if vad not in ["NONE", "silero"]:
+                        if vad not in [None, "silero"]:
                             if device != "cpu":
                                 continue
 
                         env_variables = ""
-                        if vad != "NONE":
+                        if vad:
                             env_variables += f"VAD={vad} "
-                        if device != "NONE":
+                        if device:
                             env_variables += f"DEVICE={device} "
                         env_variables += f"MODEL={model}"
 
