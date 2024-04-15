@@ -1,4 +1,4 @@
-# 1.0.3
+#  1.0.2    
 - Fix task mode for kaldi by updating SERVICES_BROKER and BROKER_PASS in .envdefault
 
 #  1.0.1
