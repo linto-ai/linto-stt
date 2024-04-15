@@ -29,5 +29,8 @@ except Exception as err:
     sys.exit(-1)
 logger.info("Acoustic model and decoding graph loaded. (t={}s)".format(time() - start))
 
+def warmup():
+    pass
+
 # Not implemented yet in Kaldi
 USE_GPU = False

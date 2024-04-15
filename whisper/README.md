@@ -114,17 +114,22 @@ cp whisper/.envdefault whisper/.env
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
-| SERVICE_MODE | STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` |
-| MODEL | Path to a Whisper model, type of Whisper model used, or HuggingFace identifier of a Whisper model. | `large-v3` \| `distil-whisper/distil-large-v2` \| \<ASR_PATH\> \| ... |
-| LANGUAGE | (Optional) Language to recognize | `*` \| `fr` \| `fr-FR` \| `French` \| `en` \| `en-US` \| `English` \| ... |
-| PROMPT | (Optional) Prompt to use for the Whisper model | `some free text to encourage a certain transcription style (disfluencies, no punctuation, ...)` |
-| ALIGNMENT_MODEL | (Optional and deprecated) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | `WAV2VEC2_ASR_BASE_960H` \| `jonatasgrosman/wav2vec2-large-xlsr-53-english` \| \<WAV2VEC_PATH\> \| ... |
-| DEVICE | (Optional) Device to use for the model | `cpu` \| `cuda` ... |
-| CUDA_VISIBLE_DEVICES | (Optional) GPU device index to use, if several. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
-| CONCURRENCY | Maximum number of parallel requests | `2` |
-| SERVICE_NAME | (For the task mode) queue's name for task processing | `my-stt` |
-| SERVICE_BROKER | (For the task mode) URL of the message broker | `redis://my-broker:6379` |
+| SERVICE_MODE | (Required) STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` |
+| MODEL | (Required) Path to a Whisper model, type of Whisper model used, or HuggingFace identifier of a Whisper model. | `large-v3` \| `distil-whisper/distil-large-v2` \| \<ASR_PATH\> \| ... |
+| LANGUAGE | Language to recognize | `*` \| `fr` \| `fr-FR` \| `French` \| `en` \| `en-US` \| `English` \| ... |
+| PROMPT | Prompt to use for the Whisper model | `some free text to encourage a certain transcription style (disfluencies, no punctuation, ...)` |
+| DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
+| NUM_THREADS | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
+| CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
+| CONCURRENCY | Maximum number of parallel requests (number of workers minus one) | `2` |
+| VAD | Voice Activity Detection method. Use "false" to disable. If not specified, the default is auditok VAD. | `true` \| `false` \| `1` \| `0` \| `auditok` \| `silero`
+| ENABLE_STREAMING | (For the http mode) enable the /streaming websocket route  | `true\|false` |
+| STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | `80` |
+| SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
+| SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
+| ALIGNMENT_MODEL | (Deprecated) Path to the wav2vec model for word alignment, or name of HuggingFace repository or torchaudio pipeline | `WAV2VEC2_ASR_BASE_960H` \| `jonatasgrosman/wav2vec2-large-xlsr-53-english` \| \<WAV2VEC_PATH\> \| ... |
+
 
 #### MODEL environment variable
 
@@ -184,7 +189,7 @@ and also `yue(cantonese)` since large-v3.
 
 STT can be used in two ways:
 * Through an [HTTP API](#http-server) using the **http**'s mode.
-* Through a [message broker](#micro-service-within-linto-platform-stack) using the **task**'s mode.
+* Through a [message broker](#celery-task) using the **task**'s mode.
 
 Mode is specified using the .env value or environment variable ```SERVING_MODE```.
 ```bash
@@ -217,11 +222,11 @@ You may also want to add specific options:
 | Variables | Description | Example |
 |:-|:-|:-|
 | `HOST_SERVING_PORT` | Host serving port | 8080 |
-| `<CACHE_PATH>` | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
 | `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
-| `<WAV2VEC_PATH>` | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
+| `<WAV2VEC_PATH>` | Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
-### Micro-service within LinTO-Platform stack
+### Celery task
 The TASK serving mode connect a celery worker to a message broker.
 
 The SERVICE_MODE value in the .env should be set to ```task```.
@@ -248,10 +253,16 @@ You may also want to add specific options:
 | Variables | Description | Example |
 |:-|:-|:-|
 | `<SHARED_AUDIO_FOLDER>` | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
-| `<CACHE_PATH>` | (Optional) Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
 | `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
-| `<WAV2VEC_PATH>` | (Optional) Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
+| `<WAV2VEC_PATH>` | Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
+### Websocket Server
+Websocket server's mode deploy a streaming transcription service only. 
+
+The SERVICE_MODE value in the .env should be set to ```websocket```.
+
+Usage is the same as the [http streaming API](#/streaming).
 
 ## Usages
 ### HTTP API
@@ -285,6 +296,18 @@ Return the transcripted text using "text/plain" or a json object when using "app
     "confidence-score": 0.879
 }
 ```
+
+#### /streaming
+The /streaming route is accessible if the ENABLE_STREAMING environment variable is set to true.
+
+The route accepts websocket connexions. Exchanges are structured as followed:
+1. Client send a json {"config": {"sample_rate":16000}}.
+2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
+3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
+4. Back to 2-
+5. Server send a final result and close the connexion.
+
+> Connexion will be closed and the worker will be freed if no chunk are received for 10s. 
 
 #### /docs
 The /docs route offers a OpenAPI/swagger interface.
@@ -320,11 +343,22 @@ On a successfull transcription the returned object is a json object structured a
 * The <ins>confidence</ins> field contains the overall confidence for the transcription. (0.0 if with_metadata=False)
 
 
-## Test
+## Tests
+
+See [Test scripts](../test/README.md) for more details about testing. 
+
 ### Curl
-You can test you http API using curl:
+You can test your http API using curl:
+
 ```bash 
 curl -X POST "http://YOUR_SERVICE:YOUR_PORT/transcribe" -H  "accept: application/json" -H  "Content-Type: multipart/form-data" -F "file=@YOUR_FILE;type=audio/x-wav"
+```
+
+### Streaming
+You can test your streaming API using a websocket:
+
+```bash 
+python test/test_streaming.py --server ws://YOUR_SERVICE:YOUR_PORT/streaming --audio_file test/bonjour.wav
 ```
 
 ## License
@@ -339,3 +373,4 @@ This project is developped under the AGPLv3 License (see LICENSE).
 * [HuggingFace Transformers](https://github.com/huggingface/transformers)
 * [SpeechBrain](https://github.com/speechbrain/speechbrain)
 * [TorchAudio](https://github.com/pytorch/audio)
+* [Whisper_Streaming](https://github.com/ufal/whisper_streaming)

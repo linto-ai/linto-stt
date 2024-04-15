@@ -1,13 +1,19 @@
 ############################################
 # SERVING PARAMETERS
 ############################################
-# "http" or "task"
+# "http" or "task" or "websocket"
 SERVICE_MODE=http
 
 # Below: used when SERVICE_MODE=task
 SERVICE_NAME=stt
 SERVICES_BROKER=redis://172.17.0.1:6379
 BROKER_PASS=
+
+# HTTP PARAMETERS
+ENABLE_STREAMING=true
+
+# WEBSOCKET PARAMETERS
+STREAMING_PORT=80
 
 ############################################
 # STT MODELING PARAMETERS
@@ -30,6 +36,15 @@ PROMPT=
 # This option is experimental (and not implemented with ctranslate2).
 # ALIGNMENT_MODEL=wav2vec
 
+# Voice Activity Detection (VAD) method
+# It can be either "0"/"false" (no VAD), "silero", or "1"/"true"/"auditok" (by default)
+# VAD=auditok
+
+# Voice Activity Detection (VAD) parameters
+# VAD_DILATATION=0.1
+# VAD_MIN_SPEECH_DURATION=0.1
+# VAD_MIN_SILENCE_DURATION=0.1
+
 ############################################
 # EFFICIENCY PARAMETERS
 ############################################
@@ -40,7 +55,7 @@ PROMPT=
 # CUDA_VISIBLE_DEVICES=0
 
 # Number of threads per worker when running on CPU
-OMP_NUM_THREADS=4
+NUM_THREADS=4
 
-# Number of workers
+# Number of workers minus one (all except from the main one)
 CONCURRENCY=2
