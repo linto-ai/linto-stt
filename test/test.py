@@ -77,6 +77,7 @@ def copy_env_file(env_file, env_variables=""):
 class TestRunner(unittest.TestCase):
 
     built_images = []
+    redis_launched = False
 
     # def __init__(self, *args, **kwargs):
     #     super(TestRunner, self).__init__(*args, **kwargs)
@@ -107,13 +108,13 @@ class TestRunner(unittest.TestCase):
         self.cleanup()
 
     def cleanup(self):
-        try:
-            os.remove("build_finished")
-        except FileNotFoundError:
-            pass
-        self.echo_command("docker stop test_container")
-        subprocess.run(["docker", "stop", "test_container"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(["docker", "stop", "test_redis"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Check if the container is running
+        p = subprocess.Popen(["docker", "ps", "-a"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        if b"test_container" in out:        
+            self.echo_command("docker stop test_container")
+            subprocess.run(["docker", "stop", "test_container"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(0.2) # Without this, the following tests can fail (The container name "/test_container" is already in use)
 
     def process_output(self, p):
         l = p.communicate()[0].decode('utf-8').replace('\n', '\n\t')
@@ -141,7 +142,19 @@ class TestRunner(unittest.TestCase):
             elapsed_time += retry_interval
 
         return f"Server: {server} is not available after {total_wait_time} seconds, server launching must have failed.\n{self.process_output(pid)}"
-        
+
+    def launch_redis(self):
+        if TestRunner.redis_launched:
+            return
+        cmd = "docker run --rm -p 6379:6379 --name test_redis redis/redis-stack-server:latest redis-server /etc/redis-stack.conf --protected-mode no --bind 0.0.0.0 --loglevel debug"
+        self.echo_command(cmd)
+        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        time.sleep(2)
+        if p.poll() is not None:
+            self.cleanup()
+            return f"Redis server failed to start.\n{self.process_output(p)}", None
+        TestRunner.redis_launched = True
+
     def build_and_run_container(self, serving, docker_image, env_variables, use_local_cache):
         self.echo_note(f"* Docker image: {docker_image}")
         self.echo_note(f"* Options.....: {env_variables}")
@@ -159,15 +172,8 @@ class TestRunner(unittest.TestCase):
             build_args += f"-v {home}/.cache:/root/.cache "
 
         if serving == "task":
-            # Launch redis
+            self.launch_redis()
             build_args += "-v {}/:/opt/audio ".format(os.getcwd())
-            cmd = "docker run --rm -p 6379:6379 --name test_redis redis/redis-stack-server:latest redis-server /etc/redis-stack.conf --protected-mode no --bind 0.0.0.0 --loglevel debug"
-            self.echo_command(cmd)
-            p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if p.poll() is not None:
-                self.cleanup()
-                return f"Redis server failed to start.\n{self.process_output(p)}", None
-            time.sleep(2)
 
         tag = f"test_{os.path.basename(docker_image)}"
         if tag not in TestRunner.built_images:
@@ -263,18 +269,18 @@ class TestRunner(unittest.TestCase):
         copy_env_file("whisper/.envdefault", env_variables)
         self.run_test(dockerfile, serving=serving, env_variables=env_variables)
             
+    def test_02_whisper_failures_cuda_on_cpu_dockerfile(self):
+        env_variables = "MODEL=tiny  DEVICE=cuda"
+        dockerfile = "whisper/Dockerfile.ctranslate2.cpu"
+        copy_env_file("whisper/.envdefault", env_variables)
+        self.assertIn("cannot open shared object file", self.run_test(dockerfile, env_variables=env_variables, expect_failure=True))
+
     def test_02_whisper_failures_not_existing_file(self):
         env_variables = "MODEL=tiny"
         copy_env_file("whisper/.envdefault", env_variables)
         with self.assertRaises(FileNotFoundError):
             self.run_test(test_file="notexisting", env_variables=env_variables, expect_failure=True)
         self.cleanup()
-            
-    def test_02_whisper_failures_cuda_on_cpu_dockerfile(self):
-        env_variables = "MODEL=tiny  DEVICE=cuda"
-        dockerfile = "whisper/Dockerfile.ctranslate2.cpu"
-        copy_env_file("whisper/.envdefault", env_variables)
-        self.assertIn("cannot open shared object file", self.run_test(dockerfile, env_variables=env_variables, expect_failure=True))
 
     def test_02_whisper_failures_wrong_vad(self):
         env_variables = "VAD=whatever MODEL=tiny"
@@ -285,6 +291,10 @@ class TestRunner(unittest.TestCase):
         env_variables = "MODEL=small"
         copy_env_file("whisper/.envdefault", env_variables)
         self.run_test(env_variables=env_variables)
+
+def finalize_tests():
+    subprocess.run(["docker", "stop", "test_container"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["docker", "stop", "test_redis"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)    
 
 
 AM_PATH = None
@@ -302,4 +312,7 @@ if __name__ == '__main__':
     AM_PATH = config.get('kaldi', 'AM_PATH')
     LM_PATH = config.get('kaldi', 'LM_PATH')
     
-    unittest.main(verbosity=2)
+    try:
+        unittest.main(verbosity=2)
+    finally:
+        finalize_tests()
