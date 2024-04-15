@@ -1,6 +1,7 @@
 # 1.0.3
+- Make Voice Activity Detection (VAD) configurable
+- Change default VAD from silero (neural approach) to auditok (heuristical approach), because silero can have unpredictable behaviour on different corner cases
 - Streaming support
-- Refactoring VAD system
 - New NUM_THREADS env variable to control the number of threads
 - Load the model when launching the service (not at the first request)
 
