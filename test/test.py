@@ -228,6 +228,10 @@ class TestRunner(unittest.TestCase):
     def setUp(self):
         # Print an empty line because unittest prints the name of the test first, without a newline
         print()
+        print("-"*70)
+
+    def tearDown(self):
+        print("-"*70)
 
     @idata(generate_kaldi_test_setups())
     def test_01_kaldi_integration(self, setup):
