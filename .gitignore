@@ -1,5 +1,4 @@
-start_container.sh
 .env*
-test/*
 tmp*
+test.log
 __pycache__

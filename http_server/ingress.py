@@ -9,7 +9,7 @@ from confparser import createParser
 from flask import Flask, json, request
 from serving import GeventServing, GunicornServing
 from stt import logger as stt_logger
-from stt.processing import MODEL, USE_GPU, decode, load_wave_buffer
+from stt.processing import MODEL, USE_GPU, decode, load_wave_buffer, warmup
 from swagger import setupSwaggerUI
 
 app = Flask("__stt-standalone-worker__")
@@ -24,7 +24,7 @@ logger = logging.getLogger("__stt-standalone-worker__")
 logger.setLevel(logging.INFO)
 
 # If websocket streaming route is enabled
-if os.environ.get("ENABLE_STREAMING", False) in [True, "true", 1]:
+if os.environ.get("ENABLE_STREAMING", "false").lower() in ["true", "1"]:
     from flask_sock import Sock
     from stt.processing.streaming import ws_streaming
 
@@ -84,7 +84,9 @@ def transcribe():
 
         logger.error(traceback.format_exc())
         logger.error(repr(error))
-        return "Server Error: {}".format(str(error)), 400 if isinstance(error, ValueError) else 500
+        return "Server Error: {}".format(str(error)), (
+            400 if isinstance(error, ValueError) else 500
+        )
 
 
 @app.errorhandler(405)
@@ -128,12 +130,18 @@ if __name__ == "__main__":
         serving_type = GunicornServing
         logger.debug("Serving with gunicorn")
 
+    def post_worker_init(worker):
+        logger.info(f"Worker {worker.pid} init")
+        warmup()
+        logger.info(f"Worker {worker.pid} fully initialized")
+
     serving = serving_type(
         app,
         {
             "bind": f"0.0.0.0:{args.service_port}",
             "workers": args.workers,
             "timeout": 3600 * 24,
+            "post_worker_init": post_worker_init,
         },
     )
     logger.info(args)

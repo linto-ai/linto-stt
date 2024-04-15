@@ -1,3 +1,10 @@
+# 1.0.3
+- Make Voice Activity Detection (VAD) configurable
+- Change default VAD from silero (neural approach) to auditok (heuristical approach), because silero can have unpredictable behaviour on different corner cases
+- Streaming support
+- New NUM_THREADS env variable to control the number of threads
+- Load the model when launching the service (not at the first request)
+
 # 1.0.2
 - ct2/faster_whisper: Upgrade faster_whisper and support recent distilled models
 - ct2/faster_whisper: Fix possible gluing of different words together

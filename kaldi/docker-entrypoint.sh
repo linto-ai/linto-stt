@@ -25,7 +25,7 @@ fi
 # Launch parameters, environement variables and dependencies check
 if [ -z "$SERVICE_MODE" ]
 then
-    echo "ERROR: Must specify a serving mode: [ http | task | websocket ]"
+    echo "ERROR: Must specify an environment variable SERVICE_MODE in [ http | task | websocket ] (None was specified)"
     exit -1
 else
     if [ "$SERVICE_MODE" = "http" ] 
@@ -48,7 +48,7 @@ else
         echo "Running Websocket server on port ${STREAMING_PORT:=80}"
         python websocket/websocketserver.py
     else
-        echo "ERROR: Wrong serving command: $1"
+        echo "ERROR: Must specify an environment variable SERVICE_MODE in [ http | task | websocket ] (got SERVICE_MODE=$SERVICE_MODE)"
         exit -1
     fi
 fi
