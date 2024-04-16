@@ -262,7 +262,7 @@ Websocket server's mode deploy a streaming transcription service only.
 
 The SERVICE_MODE value in the .env should be set to ```websocket```.
 
-Usage is the same as the [http streaming API](#/streaming).
+Usage is the same as the [http streaming API](#streaming).
 
 ## Usages
 ### HTTP API
@@ -344,8 +344,6 @@ On a successfull transcription the returned object is a json object structured a
 
 
 ## Tests
-
-See [Test scripts](../test/README.md) for more details about testing. 
 
 ### Curl
 You can test your http API using curl:
