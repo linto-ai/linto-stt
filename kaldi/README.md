@@ -4,6 +4,8 @@ LinTO-STT-Kaldi is an API for Automatic Speech Recognition (ASR) based on models
 
 LinTO-STT-Kaldi can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
+It can be used to do offline or real-time transcriptions.
+
 ## Pre-requisites
 
 ### Hardware
