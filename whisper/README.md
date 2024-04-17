@@ -2,7 +2,9 @@
 
 LinTO-STT-Whisper is an API for Automatic Speech Recognition (ASR) based on [Whisper models](https://openai.com/research/whisper).
 
-LinTO-STT-Whisper can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+LinTO-STT-Whisper can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector. 
+
+It can be used to do offline or real-time transcriptions.
 
 ## Pre-requisites
 
