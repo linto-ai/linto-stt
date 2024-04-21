@@ -55,7 +55,7 @@ PROMPT=
 # CUDA_VISIBLE_DEVICES=0
 
 # Number of threads per worker when running on CPU
-NUM_THREADS=4
+# NUM_THREADS=4
 
 # Number of workers minus one (all except from the main one)
 CONCURRENCY=2
