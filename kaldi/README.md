@@ -50,6 +50,8 @@ Have the acoustic and language model ready at AM_PATH and LM_PATH if you are usi
 
 **3- Fill the .env**
 
+An example of .env file is provided in [kaldi/.envdefault](https://github.com/linto-ai/linto-stt/blob/master/kaldi/.envdefault).
+
 ```bash
 cp kaldi/.envdefault kaldi/.env
 ```

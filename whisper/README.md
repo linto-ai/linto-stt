@@ -110,6 +110,8 @@ docker pull lintoai/linto-stt-whisper
 
 ### 2- Fill the .env
 
+An example of .env file is provided in [whisper/.envdefault](https://github.com/linto-ai/linto-stt/blob/master/whisper/.envdefault).
+
 ```bash
 cp whisper/.envdefault whisper/.env
 ```
