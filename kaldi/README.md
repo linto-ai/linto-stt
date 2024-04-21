@@ -48,13 +48,9 @@ docker pull lintoai/linto-stt-kaldi
 
 Have the acoustic and language model ready at AM_PATH and LM_PATH if you are using LinTO models. If you are using a Vosk model, have it ready at MODEL.
 
-**3- Fill the .env**
+**3- Fill the .env file**
 
 An example of .env file is provided in [kaldi/.envdefault](https://github.com/linto-ai/linto-stt/blob/master/kaldi/.envdefault).
-
-```bash
-cp kaldi/.envdefault kaldi/.env
-```
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
@@ -89,7 +85,7 @@ docker run --rm \
 -p HOST_SERVING_PORT:80 \
 -v AM_PATH:/opt/AM \
 -v LM_PATH:/opt/LM \
---env-file kaldi/.env \
+--env-file .env \
 linto-stt-kaldi:latest
 ```
 
@@ -115,7 +111,7 @@ docker run --rm \
 -v AM_PATH:/opt/AM \
 -v LM_PATH:/opt/LM \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
---env-file kaldi/.env \
+--env-file .env \
 linto-stt-kaldi:latest
 ```
 
