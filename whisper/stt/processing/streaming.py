@@ -3,10 +3,10 @@ import sys
 import string
 import numpy as np
 from .vad import remove_non_speech
-from stt import logger, USE_CTRANSLATE2, VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION
+from stt import logger, USE_CTRANSLATE2, VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION, \
+    STREAMING_BUFFER_TRIMMING_SEC, STREAMING_MIN_CHUNK_SIZE
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
-
 
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
@@ -43,7 +43,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
     online = OnlineASRProcessor(
-        asr, logfile=sys.stderr, buffer_trimming=8, vad=VAD, sample_rate=sample_rate, \
+        asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
     )
     logger.info("Starting transcription ...")
@@ -62,10 +62,16 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             logger.info(f"End of stream {message}")
             await ws.close(reason="End of stream")
             break
-        online.insert_audio_chunk(bytes_to_array(message))
-        o, _ = online.process_iter()
-        logger.info(o)
-        await ws.send(whisper_to_json(o))
+        audio_chunk = bytes_to_array(message)
+        online.insert_audio_chunk(audio_chunk)
+        logger.info(f"{online.get_buffer_size()}>{STREAMING_MIN_CHUNK_SIZE}= {online.get_buffer_size() > STREAMING_MIN_CHUNK_SIZE}")
+        if online.get_buffer_size() > STREAMING_MIN_CHUNK_SIZE:
+            o, _ = online.process_iter()
+            logger.info(o)
+            await ws.send(whisper_to_json(o))
+        else:
+            logger.info(f"Chunk too small {len(audio_chunk)/sample_rate}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
+            await ws.send(whisper_to_json((None, None, "")))
 
 
 def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
@@ -86,7 +92,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         logger.info("Using whisper_timestamped for decoding")
         asr = WhisperTimestampedASR(model=model, lan="fr")
     online = OnlineASRProcessor(
-        asr, logfile=sys.stderr, buffer_trimming=8, vad=VAD, sample_rate=sample_rate, \
+        asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
     )
     logger.info("Starting transcription ...")
@@ -105,9 +111,15 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
             logger.info(f"End of stream {message}")
             websocket_server.close()
             break
-        online.insert_audio_chunk(bytes_to_array(message))
-        o, _ = online.process_iter()
-        websocket_server.send(whisper_to_json(o))
+        audio_chunk = bytes_to_array(message)
+        online.insert_audio_chunk(audio_chunk)
+        if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
+            o, _ = online.process_iter()
+            logger.info(o)
+            websocket_server.send(whisper_to_json(o))
+        else:
+            logger.info(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
+            websocket_server.send(whisper_to_json((None, None, "")))
 
 
 class HypothesisBuffer:
@@ -138,11 +150,7 @@ class HypothesisBuffer:
                     cn = len(self.commited_in_buffer)
                     nn = len(self.new)
                     for i in range(1, min(min(cn, nn), 5) + 1):  # 5 is the maximum
-                        c = " ".join(
-                            [self.commited_in_buffer[-j][2] for j in range(1, i + 1)][
-                                ::-1
-                            ]
-                        )
+                        c = " ".join([self.commited_in_buffer[-j][2] for j in range(1, i + 1)][::-1])
                         tail = " ".join(self.new[j - 1][2] for j in range(1, i + 1))
                         if c == tail:
                             logger.debug(f"removing last {i} words:")
@@ -159,11 +167,7 @@ class HypothesisBuffer:
             if len(self.buffer) == 0:
                 break
 
-            if nt.lower().translate(
-                str.maketrans("", "", string.punctuation)
-            ) == self.buffer[0][2].lower().translate(
-                str.maketrans("", "", string.punctuation)
-            ):
+            if nt.lower().translate(str.maketrans("", "", string.punctuation)) == self.buffer[0][2].lower().translate(str.maketrans("", "", string.punctuation)):
                 commit.append((na, nb, nt))
                 self.last_commited_word = nt
                 self.last_commited_time = nb
@@ -172,9 +176,7 @@ class HypothesisBuffer:
             else:
                 break
         self.buffer = self.new
-        new_non_commit = [
-            i for i in self.buffer if i[1] > self.last_buffered_time - 0.1
-        ]
+        new_non_commit = [i for i in self.buffer if i[1] > self.last_buffered_time - 0.1]
         self.last_buffered_time = self.buffer[-1][1] if self.buffer else -1
         self.new = []
         self.commited_in_buffer.extend(commit)
@@ -194,6 +196,7 @@ class OnlineASRProcessor:
         self,
         asr,
         buffer_trimming=15,
+        buffer_trimming_words=None,
         vad="auditok",
         logfile=sys.stderr,
         sample_rate=16000,
@@ -213,6 +216,7 @@ class OnlineASRProcessor:
         self.init()
 
         self.buffer_trimming_sec = buffer_trimming
+        self.buffer_trimming_words = buffer_trimming_words
         self.vad = vad
         self.vad_dilatation = dilatation
         self.vad_min_speech_duration = min_speech_duration
@@ -232,6 +236,9 @@ class OnlineASRProcessor:
 
     def insert_audio_chunk(self, audio):
         self.audio_buffer = np.append(self.audio_buffer, audio)
+        
+    def get_buffer_size(self):
+        return len(self.audio_buffer) / self.sampling_rate
 
     def prompt(self):
         """Returns a tuple: (prompt, context), where "prompt" is a 200-character suffix of commited text that is inside of the scrolled away part of audio buffer.
@@ -284,12 +291,7 @@ class OnlineASRProcessor:
         self.transcript_buffer.insert(tsw, self.buffer_time_offset)
         o, buffer = self.transcript_buffer.flush()
         self.commited.extend(o)
-        if (
-            buffer
-            and (self.buffer_time_offset + len(self.audio_buffer) / self.sampling_rate)
-            - buffer[-1][1]
-            < 0.05
-        ):
+        if (buffer and (self.buffer_time_offset + len(self.audio_buffer) / self.sampling_rate)- buffer[-1][1]< 0.05):
             # remove the last word if it is too close to the end of the buffer
             buffer.pop(-1)
         logger.debug(f"New committed text:{self.to_flush(o)}")
@@ -310,20 +312,26 @@ class OnlineASRProcessor:
         return self.to_flush(o), self.to_flush(buffer)
 
     def chunk_completed_segment(self, res, chunk_silence=False, speech_segments=None):
-        if self.commited == [] and not chunk_silence:
-            return
+        # if self.commited == [] and not chunk_silence:
+        #     return
         ends = self.asr.segments_end_ts(res)
-        t = self.commited[-1][1]
-        if len(ends) > 1:
+        if len(ends) > 1 and self.commited:
+            t = self.commited[-1][1]
             e = ends[-2] + self.buffer_time_offset
             while len(ends) > 2 and e > t:
                 ends.pop(-1)
                 e = ends[-2] + self.buffer_time_offset
-            if e <= t:
-                logger.debug(f"--- segment chunked at {e:2.2f}")
+            # buffer_length = len(self.audio_buffer) / self.sampling_rate
+            if e <= t:# and (self.buffer_trimming_words is None or self.buffer_time_offset+buffer_length - e < self.buffer_trimming_words):
+                logger.debug(f"--- segment chunked at {e:2.2f}")# ({ self.buffer_time_offset+buffer_length} - {e}<{self.buffer_trimming_words})")
                 self.chunk_at(e)
+            # elif self.buffer_trimming_words is not None:
+            #     e = t
+            #     logger.debug(f"--- words chunked at {e:2.2f}")
+            #     self.chunk_at(e)
             else:
-                logger.debug(f"--- last segment not within commited area")
+                logger.debug(f"--- not enough segments to chunk")
+                
         elif chunk_silence:
             lenght = len(self.audio_buffer) / self.sampling_rate
             e = self.buffer_time_offset + lenght - 2
