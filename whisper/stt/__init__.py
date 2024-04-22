@@ -23,9 +23,6 @@ VAD_DILATATION = float(os.environ.get("VAD_DILATATION", 0.5))
 VAD_MIN_SPEECH_DURATION = float(os.environ.get("VAD_MIN_SPEECH_DURATION", 0.1))
 VAD_MIN_SILENCE_DURATION = float(os.environ.get("VAD_MAX_SILENCE_DURATION", 0.1))
 
-NUM_THREADS = os.environ.get("NUM_THREADS", os.environ.get("OMP_NUM_THREADS"))
-NUM_THREADS = int(NUM_THREADS)
-
 try:
     import faster_whisper
 
@@ -55,6 +52,7 @@ if USE_CTRANSLATE2:
     def set_num_threads(n):
         # os.environ["OMP_NUM_THREADS"] = str(n)
         pass
+    DEFAULT_NUM_THREADS = None
 else:
     import torch
     DEFAULT_NUM_THREADS = torch.get_num_threads()
@@ -62,6 +60,7 @@ else:
         torch.set_num_threads(n)
 
 # Number of CPU threads
+NUM_THREADS = os.environ.get("NUM_THREADS", os.environ.get("OMP_NUM_THREADS"))
 if NUM_THREADS is None:
     NUM_THREADS = DEFAULT_NUM_THREADS
 if NUM_THREADS is not None:
