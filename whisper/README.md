@@ -2,7 +2,9 @@
 
 LinTO-STT-Whisper is an API for Automatic Speech Recognition (ASR) based on [Whisper models](https://openai.com/research/whisper).
 
-LinTO-STT-Whisper can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+LinTO-STT-Whisper can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector. 
+
+It can be used to do offline or real-time transcriptions.
 
 ## Pre-requisites
 
@@ -106,11 +108,9 @@ or
 docker pull lintoai/linto-stt-whisper
 ```
 
-### 2- Fill the .env
+### 2- Fill the .env file
 
-```bash
-cp whisper/.envdefault whisper/.env
-```
+An example of .env file is provided in [whisper/.envdefault](https://github.com/linto-ai/linto-stt/blob/master/whisper/.envdefault).
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
@@ -184,7 +184,7 @@ yo(yoruba), zh(chinese)
 ```
 and also `yue(cantonese)` since large-v3.
 
-### Serving mode 
+#### SERVING_MODE
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
 
 STT can be used in two ways:
@@ -195,6 +195,7 @@ Mode is specified using the .env value or environment variable ```SERVING_MODE``
 ```bash
 SERVICE_MODE=http
 ```
+
 ### HTTP Server
 The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route.
 
@@ -203,7 +204,7 @@ The SERVICE_MODE value in the .env should be set to ```http```.
 ```bash
 docker run --rm \
 -p HOST_SERVING_PORT:80 \
---env-file whisper/.env \
+--env-file .env \
 linto-stt-whisper:latest
 ```
 
@@ -236,7 +237,7 @@ You need a message broker up and running at MY_SERVICE_BROKER.
 ```bash
 docker run --rm \
 -v SHARED_AUDIO_FOLDER:/opt/audio \
---env-file whisper/.env \
+--env-file .env \
 linto-stt-whisper:latest
 ```
 
