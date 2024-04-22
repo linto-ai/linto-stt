@@ -18,9 +18,9 @@ def processor_output_to_text(o):
     return o[2]
 
 
-def whisper_to_json(o):
+def whisper_to_json(o, partial=False):
     result = dict()
-    result["text"] = processor_output_to_text(o)
+    result["partial" if partial else "text"] = processor_output_to_text(o)
     json_res = json.dumps(result)
     return json_res
 
@@ -66,8 +66,9 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         online.insert_audio_chunk(audio_chunk)
         logger.info(f"{online.get_buffer_size()}>{STREAMING_MIN_CHUNK_SIZE}= {online.get_buffer_size() > STREAMING_MIN_CHUNK_SIZE}")
         if online.get_buffer_size() > STREAMING_MIN_CHUNK_SIZE:
-            o, _ = online.process_iter()
+            o, p = online.process_iter()
             logger.info(o)
+            await ws.send(whisper_to_json(p, partial=True))
             await ws.send(whisper_to_json(o))
         else:
             logger.info(f"Chunk too small {len(audio_chunk)/sample_rate}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
@@ -114,8 +115,9 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         audio_chunk = bytes_to_array(message)
         online.insert_audio_chunk(audio_chunk)
         if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
-            o, _ = online.process_iter()
+            o, p = online.process_iter()
             logger.info(o)
+            websocket_server.send(whisper_to_json(p, partial=True))
             websocket_server.send(whisper_to_json(o))
         else:
             logger.info(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
