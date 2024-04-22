@@ -1,6 +1,3 @@
-# 1.0.4
-- Fix NUM_THREADS env variable (don't fail when not specified)
-
 # 1.0.3
 - Make Voice Activity Detection (VAD) configurable
 - Change default VAD from silero (neural approach) to auditok (heuristical approach), because silero can have unpredictable behaviour on different corner cases
