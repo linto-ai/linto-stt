@@ -1,8 +1,11 @@
 import asyncio
 import websockets
 import json
+import time
 import shutil
-    
+import subprocess
+
+  
 def linstt_streaming(*kargs, **kwargs):
     text = asyncio.run(_linstt_streaming(*kargs, **kwargs))
     return text
@@ -21,18 +24,17 @@ async def _linstt_streaming(
         if verbose > 1:
             print("Start recording")
     else:
-        stream = open(audio_file, "rb")
-
+        subprocess.run(["ffmpeg", "-y", "-i", audio_file, "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", "tmp.wav"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stream = open("tmp.wav", "rb")
     alive = True
     text = ""
     partial = None
-    
     try:
         async with websockets.connect(ws_api) as websocket:
             await websocket.send(json.dumps({"config" : {"sample_rate": 16000 }}))
             while alive:
                 try:
-                    data = stream.read(32000)
+                    data = stream.read(2*2*16000)
                     if audio_file and not data:
                         if verbose > 1:
                             print("\nAudio file finished")
@@ -46,11 +48,11 @@ async def _linstt_streaming(
                         continue
                     if "partial" in message.keys():
                         partial = message["partial"]
-                        if verbose:
+                        if partial and verbose:
                             print_partial(partial)
                     elif "text" in message.keys():
                         line = message["text"]
-                        if verbose:
+                        if line and verbose:
                             print_final(line)
                         if line:
                             if text:
@@ -58,6 +60,7 @@ async def _linstt_streaming(
                             text += line
                     elif verbose:
                         print("???", message)
+                    # time.sleep(0.5)
                 except KeyboardInterrupt:
                     if verbose > 1:
                         print("\nKeyboard interrupt")
@@ -117,4 +120,4 @@ if __name__ == "__main__":
     parser.add_argument("--audio_file", default=None, help="A path to an audio file to transcribe (if not provided, use mic)")
     args = parser.parse_args()
 
-    res = linstt_streaming(args.audio_file, args.server, verbose=2 if args.verbose else 1)
+    res = linstt_streaming(args.audio_file, args.server, verbose=True if args.verbose else False)

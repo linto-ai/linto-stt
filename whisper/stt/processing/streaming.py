@@ -20,7 +20,13 @@ def processor_output_to_text(o):
 
 def whisper_to_json(o, partial=False):
     result = dict()
-    result["partial" if partial else "text"] = processor_output_to_text(o)
+    key = "partial" if partial else "text"
+    if isinstance(o, list):
+        result[key] = ""
+        for i in o:
+            result[key] += processor_output_to_text(i)
+    else:
+        result["partial" if partial else "text"] = processor_output_to_text(o)
     json_res = json.dumps(result)
     return json_res
 
@@ -80,8 +86,10 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     res = websocket_server.receive(timeout=10)
     try:
         config = json.loads(res)["config"]
-        sample_rate = config["sample_rate"]
         logger.info(f"Received config: {config}")
+        sample_rate = config["sample_rate"]
+        if sample_rate != 16000:
+            raise NotImplementedError("Only 16000 sample rate is supported")
     except Exception as e:
         logger.error("Failed to read stream configuration")
         websocket_server.close()
@@ -107,9 +115,12 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
             logger.info(f"Connection closed by client: {e}")
             break
         if "eof" in str(message):
-            o = online.finish()
-            websocket_server.send(whisper_to_json(o))
             logger.info(f"End of stream {message}")
+            o, _ = online.process_iter()
+            logger.info(f"Last committed text: {o}")
+            b = online.finish()
+            logger.info(f"Last buffered text: {o}")
+            websocket_server.send(whisper_to_json([o, b]))
             websocket_server.close()
             break
         audio_chunk = bytes_to_array(message)
@@ -117,8 +128,8 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
             o, p = online.process_iter()
             logger.info(o)
-            websocket_server.send(whisper_to_json(p, partial=True))
             websocket_server.send(whisper_to_json(o))
+            # websocket_server.send(whisper_to_json(p, partial=True))
         else:
             logger.info(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
             websocket_server.send(whisper_to_json((None, None, "")))
@@ -325,8 +336,8 @@ class OnlineASRProcessor:
                 e = ends[-2] + self.buffer_time_offset
             # buffer_length = len(self.audio_buffer) / self.sampling_rate
             if e <= t:# and (self.buffer_trimming_words is None or self.buffer_time_offset+buffer_length - e < self.buffer_trimming_words):
-                logger.debug(f"--- segment chunked at {e:2.2f}")# ({ self.buffer_time_offset+buffer_length} - {e}<{self.buffer_trimming_words})")
-                self.chunk_at(e)
+                logger.debug(f"--- segment chunked at {e-1:2.2f}")# ({ self.buffer_time_offset+buffer_length} - {e}<{self.buffer_trimming_words})")
+                self.chunk_at(e-1)
             # elif self.buffer_trimming_words is not None:
             #     e = t
             #     logger.debug(f"--- words chunked at {e:2.2f}")
