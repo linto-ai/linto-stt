@@ -3,8 +3,12 @@ import sys
 import string
 import numpy as np
 from .vad import remove_non_speech
-from stt import logger, USE_CTRANSLATE2, VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION, \
-    STREAMING_BUFFER_TRIMMING_SEC, STREAMING_MIN_CHUNK_SIZE
+from stt import (
+   logger,
+   USE_CTRANSLATE2,
+   VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION,
+   STREAMING_BUFFER_TRIMMING_SEC, STREAMING_MIN_CHUNK_SIZE,
+)
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
 
@@ -74,7 +78,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         if online.get_buffer_size() > STREAMING_MIN_CHUNK_SIZE:
             o, p = online.process_iter()
             logger.info(o)
-            await ws.send(whisper_to_json(p, partial=True))
+            # await ws.send(whisper_to_json(p, partial=True))
             await ws.send(whisper_to_json(o))
         else:
             logger.info(f"Chunk too small {len(audio_chunk)/sample_rate}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
@@ -83,7 +87,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
 
 def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     """Sync Decode function endpoint"""
-    res = websocket_server.receive(timeout=10)
+    res = websocket_server.receive(timeout=15)
     try:
         config = json.loads(res)["config"]
         logger.info(f"Received config: {config}")
@@ -107,15 +111,15 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     logger.info("Starting transcription ...")
     while True:
         try:
-            message = websocket_server.receive(timeout=10)
-            if message is None or message == "":  # Timeout
-                logger.info("Connection closed by client")
+            message = websocket_server.receive(timeout=60)
+            if not message:  # Timeout
+                logger.info(f"Connection closed by client: {message}")
                 websocket_server.close()
         except Exception as e:
             logger.info(f"Connection closed by client: {e}")
             break
-        if "eof" in str(message):
-            logger.info(f"End of stream {message}")
+        if str(message).startswith('{"eof":'):
+            logger.info(f"End of stream '{message}'")
             o, _ = online.process_iter()
             logger.info(f"Last committed text: {o}")
             b = online.finish()
@@ -128,8 +132,10 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
             o, p = online.process_iter()
             logger.info(o)
-            websocket_server.send(whisper_to_json(o))
-            # websocket_server.send(whisper_to_json(p, partial=True))
+            if o[0] is not None:
+                websocket_server.send(whisper_to_json(o))
+            else:
+                websocket_server.send(whisper_to_json(p, partial=True))
         else:
             logger.info(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
             websocket_server.send(whisper_to_json((None, None, "")))
