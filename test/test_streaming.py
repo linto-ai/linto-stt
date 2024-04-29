@@ -1,7 +1,7 @@
 import asyncio
 import websockets
 import json
-import time
+import os
 import shutil
 import subprocess
 
@@ -26,65 +26,52 @@ async def _linstt_streaming(
     else:
         subprocess.run(["ffmpeg", "-y", "-i", audio_file, "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", "tmp.wav"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stream = open("tmp.wav", "rb")
-    alive = True
     text = ""
     partial = None
-    try:
-        async with websockets.connect(ws_api) as websocket:
-            await websocket.send(json.dumps({"config" : {"sample_rate": 16000 }}))
-            while alive:
-                try:
-                    data = stream.read(2*2*16000)
-                    if audio_file and not data:
-                        if verbose > 1:
-                            print("\nAudio file finished")
-                        alive = False
-                    await websocket.send(data)
-                    res = await websocket.recv()
-                    message = json.loads(res)
-                    if message is None:
-                        if verbose > 1:
-                            print("\n Received None")
-                        continue
-                    if "partial" in message.keys():
-                        partial = message["partial"]
-                        if partial and verbose:
-                            print_partial(partial)
-                    elif "text" in message.keys():
-                        line = message["text"]
-                        if line and verbose:
-                            print_final(line)
-                        if line:
-                            if text:
-                                text += "\n"
-                            text += line
-                    elif verbose:
-                        print("???", message)
-                    # time.sleep(0.5)
-                except KeyboardInterrupt:
-                    if verbose > 1:
-                        print("\nKeyboard interrupt")
-                    alive = False
-            await websocket.send(json.dumps({"eof" : 1}))
+    async with websockets.connect(ws_api) as websocket:
+        await websocket.send(json.dumps({"config" : {"sample_rate": 16000 }}))
+        while True:
+            data = stream.read(2*2*16000)
+            if audio_file and not data:
+                if verbose > 1:
+                    print("\nAudio file finished")
+                break
+            await websocket.send(data)
             res = await websocket.recv()
             message = json.loads(res)
-            if isinstance(message, str):
-                message = json.loads(message)
-            if text:
-                text += " "
-            text += message["text"]
-            try:
-                res = await websocket.recv()
-            except websockets.ConnectionClosedOK:
+            if message is None:
                 if verbose > 1:
-                    print("Websocket Closed")
-    except KeyboardInterrupt:
+                    print("\n Received None")
+                continue
+            if "partial" in message.keys():
+                partial = message["partial"]
+                if partial and verbose:
+                    print_partial(partial)
+            elif "text" in message.keys():
+                line = message["text"]
+                if line and verbose:
+                    print_final(line)
+                if line:
+                    if text:
+                        text += "\n"
+                    text += line
+            elif verbose:
+                print("???", message)
         if verbose > 1:
-            print("\nKeyboard interrupt")
+            print("Sending EOF")
+        await websocket.send(json.dumps({"eof" : 1}))
+        res = await websocket.recv()
+        message = json.loads(res)
+        if verbose > 1:
+            print("Received EOF", message)
+        if text:
+            text += " "
+        text += message["text"]
     if verbose:
         print_final("= FULL TRANSCRIPTION ", background="=")
         print(text)
-
+    if audio_file is not None:
+        os.remove("tmp.wav")
     return text
     
 def print_partial(text):
@@ -120,4 +107,4 @@ if __name__ == "__main__":
     parser.add_argument("--audio_file", default=None, help="A path to an audio file to transcribe (if not provided, use mic)")
     args = parser.parse_args()
 
-    res = linstt_streaming(args.audio_file, args.server, verbose=True if args.verbose else False)
+    res = linstt_streaming(args.audio_file, args.server, verbose=2 if args.verbose else False)
