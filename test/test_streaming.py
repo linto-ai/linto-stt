@@ -56,7 +56,7 @@ async def _linstt_streaming(
                         text += "\n"
                     text += line
             elif verbose:
-                print("???", message)
+                print(f"??? {message}")
         if verbose > 1:
             print("Sending EOF")
         await websocket.send(json.dumps({"eof" : 1}))

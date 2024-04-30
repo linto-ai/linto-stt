@@ -93,7 +93,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         logger.info(f"Received config: {config}")
         sample_rate = config["sample_rate"]
         if sample_rate != 16000:
-            raise NotImplementedError("Only 16000 sample rate is supported")
+            raise NotImplementedError("Only 16000 sample rate is supported for the model. Please resample the audio.")
     except Exception as e:
         logger.error("Failed to read stream configuration")
         websocket_server.close()
@@ -120,7 +120,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
             break
         if str(message).startswith('{"eof":'):
             logger.info(f"End of stream '{message}'")
-            o, _ = online.process_iter()
+            o, _ = online.process_iter()    # make a last prediction in case chunk was too small
             logger.info(f"Last committed text: {o}")
             b = online.finish()
             logger.info(f"Last buffered text: {o}")
@@ -286,11 +286,11 @@ class OnlineASRProcessor:
         The non-emty text is confirmed (committed) partial transcript.
         """
         prompt, non_prompt = self.prompt()
-        logger.debug(f"PROMPT:{prompt}")
-        logger.debug(f"CONTEXT:{non_prompt}")
         logger.debug(
             f"Transcribing {len(self.audio_buffer)/self.sampling_rate:2.2f} seconds starting at {self.buffer_time_offset:2.2f}s"
         )
+        logger.debug(f"PROMPT:{prompt}")
+        logger.debug(f"CONTEXT:{non_prompt}")
         if self.vad:
             np_buffer = np.array(self.audio_buffer)
             audio_speech, segments, convertion_function = remove_non_speech(
@@ -313,10 +313,10 @@ class OnlineASRProcessor:
         if (buffer and (self.buffer_time_offset + len(self.audio_buffer) / self.sampling_rate)- buffer[-1][1]< 0.05):
             # remove the last word if it is too close to the end of the buffer
             buffer.pop(-1)
-        logger.debug(f"New committed text:{self.to_flush(o)}")
-        logger.debug(
-            f"Buffered text:{self.to_flush(self.transcript_buffer.complete())}"
-        )
+        # logger.debug(f"New committed text:{self.to_flush(o)}")
+        # logger.debug(
+        #     f"Buffered text:{self.to_flush(self.transcript_buffer.complete())}"
+        # )
 
         if len(self.audio_buffer) / self.sampling_rate > self.buffer_trimming_sec:
             self.chunk_completed_segment(
@@ -333,6 +333,7 @@ class OnlineASRProcessor:
     def chunk_completed_segment(self, res, chunk_silence=False, speech_segments=None):
         # if self.commited == [] and not chunk_silence:
         #     return
+        self.buffer_trimming_words = None       # deactivated option - allow to set a limit to the buffer size, over this limit it will cut on last commited word instead of segments
         ends = self.asr.segments_end_ts(res)
         if len(ends) > 1 and self.commited:
             t = self.commited[-1][1]
@@ -340,30 +341,29 @@ class OnlineASRProcessor:
             while len(ends) > 2 and e > t:
                 ends.pop(-1)
                 e = ends[-2] + self.buffer_time_offset
-            # buffer_length = len(self.audio_buffer) / self.sampling_rate
-            if e <= t:# and (self.buffer_trimming_words is None or self.buffer_time_offset+buffer_length - e < self.buffer_trimming_words):
-                logger.debug(f"--- segment chunked at {e-1:2.2f}")# ({ self.buffer_time_offset+buffer_length} - {e}<{self.buffer_trimming_words})")
-                self.chunk_at(e-1)
-            # elif self.buffer_trimming_words is not None:
-            #     e = t
-            #     logger.debug(f"--- words chunked at {e:2.2f}")
-            #     self.chunk_at(e)
-            else:
-                logger.debug(f"--- not enough segments to chunk")
-                
+            buffer_length = len(self.audio_buffer) / self.sampling_rate
+            if e <= t and (self.buffer_trimming_words is None or self.buffer_time_offset+buffer_length - e < self.buffer_trimming_words):
+                logger.debug(f"Segment chunked at {e:2.2f}s")# : {ends[1]+ self.buffer_time_offset} ")
+                self.chunk_at(e)
+                return
+            elif self.buffer_trimming_words is not None:
+                logger.debug(f"Words chunked at {t:2.2f}")
+                self.chunk_at(t-0.5)
+                return
         elif chunk_silence:
             lenght = len(self.audio_buffer) / self.sampling_rate
             e = self.buffer_time_offset + lenght - 2
             if speech_segments:
                 end_silence = lenght - speech_segments[-1][1]
                 if end_silence > 2:
-                    logger.debug(f"--- Silence segment chunked at {e:2.2f}")
+                    logger.debug(f"Silence segment chunked at {e:2.2f}")
                     self.chunk_at(e)
+                    return
             elif speech_segments is not None:
-                logger.debug(f"--- Silence segment chunked at {e:2.2f}")
+                logger.debug(f"Silence segment chunked at {e:2.2f}")
                 self.chunk_at(e)
-        else:
-            logger.debug(f"--- not enough segments to chunk")
+                return
+        logger.debug(f"Not enough segments to chunk")
 
     def chunk_at(self, time):
         """trims the hypothesis and audio buffer at "time" """
