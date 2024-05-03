@@ -123,10 +123,13 @@ An example of .env file is provided in [whisper/.envdefault](https://github.com/
 | CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 | CONCURRENCY | Maximum number of parallel requests (number of workers minus one) | `2` |
 | VAD | Voice Activity Detection method. Use "false" to disable. If not specified, the default is auditok VAD. | `true` \| `false` \| `1` \| `0` \| `auditok` \| `silero`
+| VAD_DILATATION | How much (in sec) to enlarge each speech segment detected by the VAD. If not specified, the default is auditok 0.5 | `0.1` \| `0.5` \| ...
+| VAD_MIN_SPEECH_DURATION | Minimum duration (in sec) of a speech segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
+| VAD_MIN_SILENCE_DURATION | Minimum duration (in sec) of a silence segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
 | ENABLE_STREAMING | (For the http mode) enable the /streaming websocket route  | `true\|false` |
 | STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | `80` |
-| STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing | `0` \| `26` \| ... |
-| STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made | `8` \| `20` \| ... |
+| STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing. If not specified, the default is 0 | `0` \| `26` \| ... |
+| STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made. If not specified, the default is 8 | `8` \| `20` \| ... |
 | SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
 | SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
