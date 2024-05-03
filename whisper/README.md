@@ -125,6 +125,8 @@ An example of .env file is provided in [whisper/.envdefault](https://github.com/
 | VAD | Voice Activity Detection method. Use "false" to disable. If not specified, the default is auditok VAD. | `true` \| `false` \| `1` \| `0` \| `auditok` \| `silero`
 | ENABLE_STREAMING | (For the http mode) enable the /streaming websocket route  | `true\|false` |
 | STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | `80` |
+| STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing | `0` \| `26` \| ... |
+| STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made | `8` \| `20` \| ... |
 | SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
 | SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
