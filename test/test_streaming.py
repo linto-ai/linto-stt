@@ -107,4 +107,4 @@ if __name__ == "__main__":
     parser.add_argument("--audio_file", default=None, help="A path to an audio file to transcribe (if not provided, use mic)")
     args = parser.parse_args()
 
-    res = linstt_streaming(args.audio_file, args.server, verbose=2 if args.verbose else False)
+    res = linstt_streaming(args.audio_file, args.server, verbose=2 if args.verbose else 1)

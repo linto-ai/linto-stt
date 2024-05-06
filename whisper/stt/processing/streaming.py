@@ -9,6 +9,7 @@ from stt import (
    USE_CTRANSLATE2,
    VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION,
    STREAMING_BUFFER_TRIMMING_SEC, STREAMING_MIN_CHUNK_SIZE,
+   DEFAULT_TEMPERATURE, DEFAULT_BEST_OF, DEFAULT_BEAM_SIZE
 )
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
@@ -16,12 +17,10 @@ from simple_websocket.ws import Server as WSServer
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
 
-
 def processor_output_to_text(o):
     if o[0] is None:
         return ""
     return o[2]
-
 
 def whisper_to_json(o, partial=False):
     result = dict()
@@ -49,10 +48,10 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     model, _ = model_and_alignementmodel
     if USE_CTRANSLATE2:
         logger.info("Using ctranslate2 for decoding")
-        asr = FasterWhisperASR(model=model, lan="fr")
+        asr = FasterWhisperASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     else:
         logger.info("Using whisper_timestamped for decoding")
-        asr = WhisperTimestampedASR(model=model, lan="fr")
+        asr = WhisperTimestampedASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     online = OnlineASRProcessor(
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
@@ -106,10 +105,10 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     model, _ = model_and_alignementmodel
     if USE_CTRANSLATE2:
         logger.info("Using ctranslate2 for decoding")
-        asr = FasterWhisperASR(model=model, lan="fr")
+        asr = FasterWhisperASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     else:
         logger.info("Using whisper_timestamped for decoding")
-        asr = WhisperTimestampedASR(model=model, lan="fr")
+        asr = WhisperTimestampedASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     online = OnlineASRProcessor(
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
@@ -441,9 +440,8 @@ class ASRBase:
     sep = " "  # join transcribe words with this character (" " for whisper_timestamped,
     # "" for faster-whisper because it emits the spaces when needed)
 
-    def __init__(
-        self, lan, model=None, logfile=sys.stderr, condition_on_previous_text=None
-    ):
+    def __init__(self, lan, model=None, logfile=sys.stderr, condition_on_previous_text=None, beam_size=None, best_of=None, temperature=None):
+
         self.logfile = logfile
 
         self.transcribe_kargs = {}
@@ -462,13 +460,11 @@ class FasterWhisperASR(ASRBase):
 
     sep = ""
 
-    def __init__(
-        self, lan, model=None, logfile=sys.stderr, condition_on_previous_text=None
-    ):
+    def __init__(self, lan, model=None, logfile=sys.stderr, condition_on_previous_text=None, beam_size=None, best_of=None, temperature=None):
         super().__init__(lan, model=model, logfile=logfile)
-        self.transcribe_kargs["beam_size"] = 1
-        self.transcribe_kargs["best_of"] = 1
-        self.transcribe_kargs["temperature"] = 0
+        self.transcribe_kargs["beam_size"] = beam_size if beam_size is not None else 1
+        self.transcribe_kargs["best_of"] = best_of if best_of is not None else 1
+        self.transcribe_kargs["temperature"] = temperature
         self.transcribe_kargs["condition_on_previous_text"] = (
             False if condition_on_previous_text is None else condition_on_previous_text
         )
@@ -508,14 +504,12 @@ class WhisperTimestampedASR(ASRBase):
 
     sep = " "
 
-    def __init__(
-        self, lan, model=None, logfile=sys.stderr, condition_on_previous_text=None
-    ):
+    def __init__(self, lan, model=None, logfile=sys.stderr, condition_on_previous_text=None, beam_size=None, best_of=None, temperature=None):
         super().__init__(lan, model=model, logfile=logfile)
         self.transcribe_kargs["verbose"] = None
-        self.transcribe_kargs["beam_size"] = None
-        self.transcribe_kargs["best_of"] = None
-        self.transcribe_kargs["temperature"] = 0
+        self.transcribe_kargs["beam_size"] = beam_size
+        self.transcribe_kargs["best_of"] = best_of
+        self.transcribe_kargs["temperature"] = temperature
         self.transcribe_kargs["condition_on_previous_text"] = (
             False if condition_on_previous_text is None else condition_on_previous_text
         )

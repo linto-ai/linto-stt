@@ -96,6 +96,3 @@ try:
         warmup()
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err
-
-
-    

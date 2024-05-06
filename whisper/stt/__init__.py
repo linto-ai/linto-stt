@@ -70,3 +70,19 @@ if NUM_THREADS is not None:
     NUM_THREADS = int(NUM_THREADS)
 # For Torch, we will set it afterward, because setting that before loading the model can hang the process (see https://github.com/pytorch/pytorch/issues/58962)
 set_num_threads(1)
+
+if os.environ.get("USE_ACCURATE","true").lower() in ["true", "1"]:
+    USE_ACCURATE = True
+elif os.environ.get("USE_ACCURATE","true").lower() in ["false", "0"]:
+    USE_ACCURATE = False
+else:
+    raise ValueError(f"USE_ACCURATE must be true, 1, false or 0. Got {os.environ.get('USE_ACCURATE')}")
+
+if USE_ACCURATE:
+    DEFAULT_BEAM_SIZE = 5
+    DEFAULT_BEST_OF = 5
+    DEFAULT_TEMPERATURE = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
+else:
+    DEFAULT_BEAM_SIZE = None
+    DEFAULT_BEST_OF = None
+    DEFAULT_TEMPERATURE = 0.0

@@ -127,6 +127,7 @@ An example of .env file is provided in [whisper/.envdefault](https://github.com/
 | VAD_MIN_SPEECH_DURATION | Minimum duration (in sec) of a speech segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
 | VAD_MIN_SILENCE_DURATION | Minimum duration (in sec) of a silence segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
 | ENABLE_STREAMING | (For the http mode) enable the /streaming websocket route  | `true\|false` |
+| USE_ACCURATE | Use more expensive parameters for better transcriptions (but slower). If not specified, the default is true |  `true` \| `false` \| `1` \| `0` |
 | STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | `80` |
 | STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing. If not specified, the default is 0 | `0` \| `26` \| ... |
 | STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made. If not specified, the default is 8 | `8` \| `20` \| ... |
