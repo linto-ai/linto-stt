@@ -57,6 +57,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
     )
+    eof_regex = re.compile(r' *\{.*"eof" *: *1.*\} *$')
     logger.info("Starting transcription ...")
     while True:
         try:
@@ -67,7 +68,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         except Exception as e:
             logger.info(f"Connection closed by client: {e}")
             break
-        if str(message).replace(' ', '').startswith('{"eof":'):
+        if (isinstance(message, str) and re.match(eof_regex, message)):
             logger.info(f"End of stream '{message}'")
             o, _ = online.process_iter()    # make a last prediction in case chunk was too small
             logger.info(f"Last committed text: {o}")
