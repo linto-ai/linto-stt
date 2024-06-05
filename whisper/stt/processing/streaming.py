@@ -68,25 +68,26 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             logger.info(f"Connection closed by client: {e}")
             break
         if (isinstance(message, str) and re.match(eof_regex, message)):
-            logger.info(f"End of stream '{message}'")
+            logger.debug(f"End of stream '{message}'")
             o, _ = online.process_iter()    # make a last prediction in case chunk was too small
-            logger.info(f"Last committed text: {o}")
+            logger.debug(f"Last committed text: {o}")
             b = online.finish()
-            logger.info(f"Last buffered text: {o}")
+            logger.debug(f"Last buffered text: {o}")
             await ws.send(whisper_to_json([o, b]))
             await ws.close()
             break
         audio_chunk = bytes_to_array(message)
         online.insert_audio_chunk(audio_chunk)
         if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
+            logger.debug(f"Transcribing, {online.get_buffer_size()}>={STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate})")
             o, p = online.process_iter()
-            logger.info(o)
+            logger.debug(o)
             if o[0] is not None:
                 await ws.send(whisper_to_json(o))
             else:
                 await ws.send(whisper_to_json(p, partial=True))
         else:
-            logger.info(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
+            logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
             await ws.send(whisper_to_json((None, None, "")))
 
 
@@ -117,7 +118,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     logger.info("Starting transcription ...")
     while True:
         try:
-            message = websocket_server.receive(timeout=60)
+            message = websocket_server.receive(timeout=120)
             if not message:  # Timeout
                 logger.info(f"Connection closed by client: {message}")
                 websocket_server.close()
@@ -125,17 +126,18 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
             logger.info(f"Connection closed by client: {e}")
             break
         if (isinstance(message, str) and re.match(eof_regex, message)):
-            logger.info(f"End of stream '{message}'")
+            logger.debug(f"End of stream '{message}'")
             o, _ = online.process_iter()    # make a last prediction in case chunk was too small
-            logger.info(f"Last committed text: {o}")
+            logger.debug(f"Last committed text: {o}")
             b = online.finish()
-            logger.info(f"Last buffered text: {o}")
+            logger.debug(f"Last buffered text: {o}")
             websocket_server.send(whisper_to_json([o, b]))
             websocket_server.close()
             break
         audio_chunk = bytes_to_array(message)
         online.insert_audio_chunk(audio_chunk)
         if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
+            logger.debug(f"Transcribing, {online.get_buffer_size()}>={STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate})")
             o, p = online.process_iter()
             logger.info(o)
             if o[0] is not None:
@@ -143,7 +145,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
             else:
                 websocket_server.send(whisper_to_json(p, partial=True))
         else:
-            logger.info(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
+            logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
             websocket_server.send(whisper_to_json((None, None, "")))
 
 
