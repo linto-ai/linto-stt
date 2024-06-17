@@ -62,6 +62,8 @@ async def _linstt_streaming(
         await websocket.send('{"eof" : 1}')
         res = await websocket.recv()
         message = json.loads(res)
+        if isinstance(message, str):
+            message = json.loads(message)
         if verbose > 1:
             print("Received EOF", message)
         if text:

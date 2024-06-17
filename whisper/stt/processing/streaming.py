@@ -14,6 +14,8 @@ from stt import (
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
 
+EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
+
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
 
@@ -56,7 +58,6 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
     )
-    eof_regex = re.compile(r' *\{.*"eof" *: *1.*\} *$')
     logger.info("Starting transcription ...")
     while True:
         try:
@@ -67,7 +68,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         except Exception as e:
             logger.info(f"Connection closed by client: {e}")
             break
-        if (isinstance(message, str) and re.match(eof_regex, message)):
+        if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             logger.debug(f"End of stream '{message}'")
             o, _ = online.process_iter()    # make a last prediction in case chunk was too small
             logger.debug(f"Last committed text: {o}")
@@ -114,7 +115,6 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
     )
-    eof_regex = re.compile(r' *\{.*"eof" *: *1.*\} *$')
     logger.info("Starting transcription ...")
     while True:
         try:
@@ -125,7 +125,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         except Exception as e:
             logger.info(f"Connection closed by client: {e}")
             break
-        if (isinstance(message, str) and re.match(eof_regex, message)):
+        if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             logger.debug(f"End of stream '{message}'")
             o, _ = online.process_iter()    # make a last prediction in case chunk was too small
             logger.debug(f"Last committed text: {o}")

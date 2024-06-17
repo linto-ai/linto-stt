@@ -12,9 +12,10 @@ logger = logging.getLogger("__stt__")
 # see https://github.com/guillaumekln/faster-whisper/issues/150
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # GPU in the right order
 
-if os.environ.get("VAD","auditok").lower() in ["true", "1"]:
+vad = os.environ.get("VAD","auditok").lower()
+if vad in ["true", "1"]:
     VAD = "auditok"
-elif os.environ.get("VAD","auditok").lower() in ["false", "0"]:
+elif vad in ["false", "0"]:
     VAD = False
 else:
     VAD = os.environ.get("VAD","auditok")
@@ -71,9 +72,10 @@ if NUM_THREADS is not None:
 # For Torch, we will set it afterward, because setting that before loading the model can hang the process (see https://github.com/pytorch/pytorch/issues/58962)
 set_num_threads(1)
 
-if os.environ.get("USE_ACCURATE","true").lower() in ["true", "1"]:
+use_accurate=os.environ.get("USE_ACCURATE","true").lower()
+if use_accurate in ["true", "1"]:
     USE_ACCURATE = True
-elif os.environ.get("USE_ACCURATE","true").lower() in ["false", "0"]:
+elif use_accurate in ["false", "0"]:
     USE_ACCURATE = False
 else:
     raise ValueError(f"USE_ACCURATE must be true, 1, false or 0. Got {os.environ.get('USE_ACCURATE')}")
