@@ -5,8 +5,12 @@ import regex as re
 from typing import Tuple, Union
 
 import numpy as np
-from stt import (USE_CTRANSLATE2, VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION, 
-                 DEFAULT_BEAM_SIZE, DEFAULT_BEST_OF, DEFAULT_TEMPERATURE, logger)
+from stt import (
+    logger, 
+    USE_CTRANSLATE2, 
+    VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION, 
+    DEFAULT_BEAM_SIZE, DEFAULT_BEST_OF, DEFAULT_TEMPERATURE
+)
 
 from .vad import remove_non_speech
 from .alignment_model import get_alignment_model, load_alignment_model

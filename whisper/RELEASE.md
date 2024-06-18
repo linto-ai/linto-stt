@@ -3,6 +3,7 @@
 - Add environment variables to control streaming performance (STREAMING_MIN_CHUNK_SIZE, STREAMING_BUFFER_TRIMMING_SEC)
 - Add environment variables to control VAD (VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION)
 - Fix corner case where VAD detects no speech zone
+- Fix corner case in streaming where "eof" was found in message
 
 # 1.0.3
 - Make Voice Activity Detection (VAD) configurable
