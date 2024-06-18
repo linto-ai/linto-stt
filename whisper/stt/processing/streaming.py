@@ -39,71 +39,29 @@ def whisper_to_json(o, partial=False):
 
 async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     """Async Decode function endpoint"""
-    res = await ws.recv()
-    try:
-        config = json.loads(res)["config"]
-        sample_rate = config["sample_rate"]
-        logger.info(f"Received config: {config}")
-    except Exception as e:
-        logger.error("Failed to read stream configuration")
-        await ws.close(reason="Failed to load configuration")
-    model, _ = model_and_alignementmodel
-    if USE_CTRANSLATE2:
-        logger.info("Using ctranslate2 for decoding")
-        asr = FasterWhisperASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
-    else:
-        logger.info("Using whisper_timestamped for decoding")
-        asr = WhisperTimestampedASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
-    online = OnlineASRProcessor(
-        asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
-            dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
-    )
-    logger.info("Starting transcription ...")
-    while True:
-        try:
-            message = await ws.recv()
-            if not message:  # Timeout
-                logger.info(f"Connection closed by client: {message}")
-                ws.close()
-        except Exception as e:
-            logger.info(f"Connection closed by client: {e}")
-            break
-        if (isinstance(message, str) and re.match(EOF_REGEX, message)):
-            logger.debug(f"End of stream '{message}'")
-            o, _ = online.process_iter()    # make a last prediction in case chunk was too small
-            logger.debug(f"Last committed text: {o}")
-            b = online.finish()
-            logger.debug(f"Last buffered text: {o}")
-            await ws.send(whisper_to_json([o, b]))
-            await ws.close()
-            break
-        audio_chunk = bytes_to_array(message)
-        online.insert_audio_chunk(audio_chunk)
-        if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
-            logger.debug(f"Transcribing, {online.get_buffer_size()}>={STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate})")
-            o, p = online.process_iter()
-            logger.debug(o)
-            if o[0] is not None:
-                await ws.send(whisper_to_json(o))
-            else:
-                await ws.send(whisper_to_json(p, partial=True))
-        else:
-            logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
-            await ws.send(whisper_to_json((None, None, "")))
-
+    async def ws_send(message):
+        await ws.send(message)
+    async def ws_close():
+        await ws.close()
+    async def ws_recv(timeout):
+        return await ws.recv()
+    process_streaming(model_and_alignementmodel, ws_recv, ws_send, ws_close)
 
 def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
-    """Sync Decode function endpoint"""
-    res = websocket_server.receive(timeout=15)
+    process_streaming(model_and_alignementmodel, websocket_server.receive, websocket_server.send, websocket_server.close)
+
+def process_streaming(model_and_alignementmodel, ws_receive, ws_send, ws_close):
+    res = ws_receive(timeout=120)
     try:
         config = json.loads(res)["config"]
         logger.info(f"Received config: {config}")
         sample_rate = config["sample_rate"]
         if sample_rate != 16000:
+            # Conversion before sending to whisper network is not implemented
             raise NotImplementedError("Only 16000 sample rate is supported for the model. Please resample the audio.")
     except Exception as e:
         logger.error("Failed to read stream configuration")
-        websocket_server.close()
+        ws_close()
     model, _ = model_and_alignementmodel
     if USE_CTRANSLATE2:
         logger.info("Using ctranslate2 for decoding")
@@ -118,10 +76,10 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     logger.info("Starting transcription ...")
     while True:
         try:
-            message = websocket_server.receive(timeout=120)
+            message = ws_receive(timeout=120)
             if not message:  # Timeout
                 logger.info(f"Connection closed by client: {message}")
-                websocket_server.close()
+                ws_close()
         except Exception as e:
             logger.info(f"Connection closed by client: {e}")
             break
@@ -131,8 +89,8 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
             logger.debug(f"Last committed text: {o}")
             b = online.finish()
             logger.debug(f"Last buffered text: {o}")
-            websocket_server.send(whisper_to_json([o, b]))
-            websocket_server.close()
+            ws_send(whisper_to_json([o, b]))
+            ws_close()
             break
         audio_chunk = bytes_to_array(message)
         online.insert_audio_chunk(audio_chunk)
@@ -141,12 +99,12 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
             o, p = online.process_iter()
             logger.info(o)
             if o[0] is not None:
-                websocket_server.send(whisper_to_json(o))
+                ws_send(whisper_to_json(o))
             else:
-                websocket_server.send(whisper_to_json(p, partial=True))
+                ws_send(whisper_to_json(p, partial=True))
         else:
             logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
-            websocket_server.send(whisper_to_json((None, None, "")))
+            ws_send(whisper_to_json((None, None, "")))
 
 
 class HypothesisBuffer:
