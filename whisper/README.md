@@ -316,11 +316,21 @@ The route accepts websocket connexions. Exchanges are structured as followed:
 
 > Connexion will be closed and the worker will be freed if no chunk are received for 120s. 
 
-How to choose the 2 streaming parameters "STREAMING_MIN_CHUNK_SIZE" and "STREAMING_BUFFER_TRIMMING_SEC" ?
-- If you want to have a low latency, you will need to choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5s (just to not make useless predictions). For "STREAMING_BUFFER_TRIMMING_SEC", I found out that 10s was a good compromise between keeping latency down and having a good WER. Depending on the hardware and the model, this value should go from 6 to 15s.
-- If you want to have a high latency (30s), you will need to choose a big value for "STREAMING_MIN_CHUNK_SIZE". From my experiments, 26s should give a latency around 30s. For "STREAMING_BUFFER_TRIMMING_SEC", you will need to have a value under "STREAMING_MIN_CHUNK_SIZE". I had pretty good results when using 8s and values between 6 and 12. The lower the value, the lower the GPU usage will be but you will probably increase the WER a bit by removing some context.
+We advise to run streaming on a GPU device.
 
-When testing on a small custom french dataset, we had around 20% of WER in offline, around 30% with high latency and a bit less than 40% with low latency.
+How to choose the 2 streaming parameters "`STREAMING_MIN_CHUNK_SIZE`" and "`STREAMING_BUFFER_TRIMMING_SEC`"?
+- If you want a low latency (1 to a few seconds), choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5 seconds (to avoid making useless predictions).
+For "`STREAMING_BUFFER_TRIMMING_SEC`", around 10 seconds is a good compromise between keeping latency low and having a good transcription accuracy.
+Depending on the hardware and the model, this value should go from 6 to 15 seconds.
+- If you can efford to have a high latency (30 seconds) and want to minimize GPU activity, choose a big value for "`STREAMING_MIN_CHUNK_SIZE`", such as 26s (which will give latency around 30 seconds).
+For "`STREAMING_BUFFER_TRIMMING_SEC`", you will need to have a value lower than "`STREAMING_MIN_CHUNK_SIZE`".
+Good results can be obtained by using a value between 6 and 12 seconds.
+The lower the value, the lower the GPU usage will be, but you will probably degrade transcription accuracy (more error on words because the model will miss some context).
+
+<!-- Concerning transcription accuracies, some tests on transcription in French gave the following results:
+* around 20% WER (Word Error Rate) with offline transcription,
+* around 30% WER with high latency streaming (around 30 seconds latency on a GPU), and
+* around 40% WER with low latency streaming (beween 2 and 3 seconds latency on average on a GPU). -->
 
 
 #### /docs
