@@ -123,8 +123,14 @@ An example of .env file is provided in [whisper/.envdefault](https://github.com/
 | CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 | CONCURRENCY | Maximum number of parallel requests (number of workers minus one) | `2` |
 | VAD | Voice Activity Detection method. Use "false" to disable. If not specified, the default is auditok VAD. | `true` \| `false` \| `1` \| `0` \| `auditok` \| `silero`
+| VAD_DILATATION | How much (in sec) to enlarge each speech segment detected by the VAD. If not specified, the default is auditok 0.5 | `0.1` \| `0.5` \| ...
+| VAD_MIN_SPEECH_DURATION | Minimum duration (in sec) of a speech segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
+| VAD_MIN_SILENCE_DURATION | Minimum duration (in sec) of a silence segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
 | ENABLE_STREAMING | (For the http mode) enable the /streaming websocket route  | `true\|false` |
+| USE_ACCURATE | Use more expensive parameters for better transcriptions (but slower). If not specified, the default is true |  `true` \| `false` \| `1` \| `0` |
 | STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | `80` |
+| STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing. If not specified, the default is 0.5 | `0.5` \| `26` \| ... |
+| STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made. If not specified, the default is 8 | `8` \| `10` \| ... |
 | SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
 | SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
@@ -308,7 +314,24 @@ The route accepts websocket connexions. Exchanges are structured as followed:
 4. Back to 2-
 5. Server send a final result and close the connexion.
 
-> Connexion will be closed and the worker will be freed if no chunk are received for 10s. 
+> Connexion will be closed and the worker will be freed if no chunk are received for 120s. 
+
+We advise to run streaming on a GPU device.
+
+How to choose the 2 streaming parameters "`STREAMING_MIN_CHUNK_SIZE`" and "`STREAMING_BUFFER_TRIMMING_SEC`"?
+- If you want a low latency (2 to a 5 seconds on a NVIDIA 4090 Laptop), choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5 seconds (to avoid making useless predictions).
+For "`STREAMING_BUFFER_TRIMMING_SEC`", around 10 seconds is a good compromise between keeping latency low and having a good transcription accuracy.
+Depending on the hardware and the model, this value should go from 6 to 15 seconds.
+- If you can efford to have a high latency (30 seconds) and want to minimize GPU activity, choose a big value for "`STREAMING_MIN_CHUNK_SIZE`", such as 26s (which will give latency around 30 seconds).
+For "`STREAMING_BUFFER_TRIMMING_SEC`", you will need to have a value lower than "`STREAMING_MIN_CHUNK_SIZE`".
+Good results can be obtained by using a value between 6 and 12 seconds.
+The lower the value, the lower the GPU usage will be, but you will probably degrade transcription accuracy (more error on words because the model will miss some context).
+
+<!-- Concerning transcription accuracies, some tests on transcription in French gave the following results:
+* around 20% WER (Word Error Rate) with offline transcription,
+* around 30% WER with high latency streaming (around 30 seconds latency on a GPU), and
+* around 40% WER with low latency streaming (beween 2 and 3 seconds latency on average on a GPU). -->
+
 
 #### /docs
 The /docs route offers a OpenAPI/swagger interface.

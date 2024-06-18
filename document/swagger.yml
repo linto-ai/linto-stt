@@ -24,7 +24,6 @@ paths:
       - "multipart/form-data"
       produces:
       - "application/json"
-      - "text/plain"
       parameters: 
       - name: "file"
         in: "formData"

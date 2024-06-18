@@ -2,7 +2,7 @@ import logging
 import os
 
 from lockfile import FileLock
-from stt import USE_CTRANSLATE2, VAD, logger, set_num_threads, NUM_THREADS
+from stt import USE_CTRANSLATE2, USE_ACCURATE, VAD, logger, set_num_threads, NUM_THREADS
 
 from .alignment_model import get_alignment_model, load_alignment_model
 from .decoding import decode
@@ -67,6 +67,7 @@ logger.info(f"Using language {language}")
 
 logger.info(f"VAD={VAD}")
 logger.info(f"USE_CTRANSLATE2={USE_CTRANSLATE2}")
+logger.info(f"USE_ACCURATE={USE_ACCURATE}")
 
 # Load alignment model (if any)
 alignment_model = get_alignment_model(os.environ.get("alignment_model"), language)
@@ -96,6 +97,3 @@ try:
         warmup()
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err
-
-
-    
