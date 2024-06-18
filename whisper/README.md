@@ -129,8 +129,8 @@ An example of .env file is provided in [whisper/.envdefault](https://github.com/
 | ENABLE_STREAMING | (For the http mode) enable the /streaming websocket route  | `true\|false` |
 | USE_ACCURATE | Use more expensive parameters for better transcriptions (but slower). If not specified, the default is true |  `true` \| `false` \| `1` \| `0` |
 | STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | `80` |
-| STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing. If not specified, the default is 0 | `0` \| `26` \| ... |
-| STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made. If not specified, the default is 8 | `8` \| `20` \| ... |
+| STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing. If not specified, the default is 0.5 | `0.5` \| `26` \| ... |
+| STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made. If not specified, the default is 8 | `8` \| `10` \| ... |
 | SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
 | SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
@@ -314,7 +314,14 @@ The route accepts websocket connexions. Exchanges are structured as followed:
 4. Back to 2-
 5. Server send a final result and close the connexion.
 
-> Connexion will be closed and the worker will be freed if no chunk are received for 10s. 
+> Connexion will be closed and the worker will be freed if no chunk are received for 120s. 
+
+How to choose the 2 streaming parameters "STREAMING_MIN_CHUNK_SIZE" and "STREAMING_BUFFER_TRIMMING_SEC" ?
+- If you want to have a low latency, you will need to choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5s (just to not make useless predictions). For "STREAMING_BUFFER_TRIMMING_SEC", I found out that 10s was a good compromise between keeping latency down and having a good WER. Depending on the hardware and the model, this value should go from 6 to 15s.
+- If you want to have a high latency (30s), you will need to choose a big value for "STREAMING_MIN_CHUNK_SIZE". From my experiments, 26s should give a latency around 30s. For "STREAMING_BUFFER_TRIMMING_SEC", you will need to have a value under "STREAMING_MIN_CHUNK_SIZE". I had pretty good results when using 8s and values between 6 and 12. The lower the value, the lower the GPU usage will be but you will probably increase the WER a bit by removing some context.
+
+When testing on a small custom french dataset, we had around 20% of WER in offline, around 30% with high latency and a bit less than 40% with low latency.
+
 
 #### /docs
 The /docs route offers a OpenAPI/swagger interface.

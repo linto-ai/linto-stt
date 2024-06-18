@@ -94,7 +94,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
 
 def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     """Sync Decode function endpoint"""
-    res = websocket_server.receive(timeout=15)
+    res = websocket_server.receive(timeout=30)
     try:
         config = json.loads(res)["config"]
         logger.info(f"Received config: {config}")
