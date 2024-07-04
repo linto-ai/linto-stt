@@ -1,3 +1,6 @@
+#  1.0.3   
+- Fix corner case in streaming where "eof" was found in message
+
 #  1.0.2    
 - Fix task mode for kaldi by updating SERVICES_BROKER and BROKER_PASS in .envdefault
 

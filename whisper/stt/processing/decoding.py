@@ -5,7 +5,12 @@ import regex as re
 from typing import Tuple, Union
 
 import numpy as np
-from stt import USE_CTRANSLATE2, VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION, logger
+from stt import (
+    logger, 
+    USE_CTRANSLATE2, 
+    VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION, 
+    DEFAULT_BEAM_SIZE, DEFAULT_BEST_OF, DEFAULT_TEMPERATURE
+)
 
 from .vad import remove_non_speech
 from .alignment_model import get_alignment_model, load_alignment_model
@@ -17,17 +22,6 @@ if not USE_CTRANSLATE2:
     import torch
     import whisper_timestamped
 
-USE_ACCURATE = True
-
-if USE_ACCURATE:
-    default_beam_size = 5
-    default_best_of = 5
-    default_temperature = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
-else:
-    default_beam_size = None
-    default_best_of = None
-    default_temperature = 0.0
-
 default_prompt = os.environ.get("PROMPT", None)
 
 
@@ -37,9 +31,9 @@ def decode(
     with_word_timestamps: bool,
     language: str = None,
     remove_punctuation_from_words=False,
-    beam_size: int = default_beam_size,
-    best_of: int = default_best_of,
-    temperature: Union[float, Tuple[float, ...]] = default_temperature,
+    beam_size: int = DEFAULT_BEAM_SIZE,
+    best_of: int = DEFAULT_BEST_OF,
+    temperature: Union[float, Tuple[float, ...]] = DEFAULT_TEMPERATURE,
     condition_on_previous_text: bool = False,
     no_speech_threshold: float = 0.6,
     compression_ratio_threshold: float = 2.4,

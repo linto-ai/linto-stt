@@ -41,9 +41,15 @@ PROMPT=
 # VAD=auditok
 
 # Voice Activity Detection (VAD) parameters
-# VAD_DILATATION=0.1
-# VAD_MIN_SPEECH_DURATION=0.1
-# VAD_MIN_SILENCE_DURATION=0.1
+# VAD_DILATATION=0.1                # Time to add before and after the detected speech
+# VAD_MIN_SPEECH_DURATION=0.1       # Minimum duration of speech to keep
+# VAD_MIN_SILENCE_DURATION=0.1      # Minimum duration of silence to keep
+
+# Streaming parameters
+# STREAMING_MIN_CHUNK_SIZE=26       # Minimum size of the buffer before transcribing
+# STREAMING_BUFFER_TRIMMING_SEC=5   # Maximum targeted size of the buffer after a transcription
+
+# USE_ACCURATE=true       # Use more expensive parameters that will slow down transcription but for better accuracy
 
 ############################################
 # EFFICIENCY PARAMETERS

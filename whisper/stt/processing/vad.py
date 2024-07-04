@@ -65,7 +65,7 @@ def remove_non_speech(
         if avoid_empty_speech:
             segments = [(0, audio.shape[-1])]
         else:
-            np.array([]), [], lambda t, t2=None: t if t2 is None else [t, t2]
+            return np.array([]), [], lambda t, t2=None: t if t2 is None else [t, t2]
     if not use_sample:
         segments = [
             (float(s) / sample_rate, float(e) / sample_rate) for s, e in segments
