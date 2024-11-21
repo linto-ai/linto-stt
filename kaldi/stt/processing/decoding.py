@@ -3,6 +3,9 @@ import re
 
 from vosk import KaldiRecognizer, Model
 
+from punctuation.recasepunc import load_model, apply_recasepunc
+
+_PUNCTUATION_MODEL = load_model()
 
 def decode(audio: tuple[bytes, int], model: Model, with_metadata: bool) -> dict:
     """Transcribe the audio data using the vosk library with the defined model."""
@@ -23,7 +26,10 @@ def decode(audio: tuple[bytes, int], model: Model, with_metadata: bool) -> dict:
         decoder_result = json.loads(decoder_result_raw)
     except Exception:
         return result
-    result["text"] = re.sub("<unk> ", "", decoder_result["text"])
+
+    if _PUNCTUATION_MODEL:
+        result = apply_recasepunc(_PUNCTUATION_MODEL, result)
+
     if "result" in decoder_result:
         result["words"] = [w for w in decoder_result["result"] if w["word"] != "<unk>"]
         if result["words"]:

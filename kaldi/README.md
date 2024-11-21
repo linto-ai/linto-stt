@@ -62,6 +62,8 @@ An example of .env file is provided in [kaldi/.envdefault](https://github.com/li
 | BROKER_PASS | Using the task mode, broker password | my-password |
 | STREAMING_PORT | Using the websocket mode, the listening port for ingoing WS connexions.  | 80 |
 | CONCURRENCY | Maximum number of parallel requests | >1 |
+| PUNCTUATION_MODEL | Path to a recasepunc model, for recovering punctuation and upper letter in streaming | opt/PUNCT |
+
 
 ### Serving mode 
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
