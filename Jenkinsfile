@@ -1,16 +1,19 @@
 def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFiles) {
-    if (changedFiles.contains(main_folder) || changedFiles.contains('celery_app') || changedFiles.contains('http_server') || changedFiles.contains('websocket') || changedFiles.contains('document')) {
+    boolean has_changed = changedFiles.contains(main_folder) || changedFiles.contains('celery_app') || changedFiles.contains('http_server') || changedFiles.contains('websocket') || changedFiles.contains('document')
+    if (main_folder == "kaldi") {
+        // Kaldi also depends on recasepunc
+        has_changed = has_changed || changedFiles.contains('punctuation')
+    }
+    if (has_changed) {
         echo "Building Dockerfile for ${image_name} with version ${version} (using ${dockerfilePath})"
 
         script {
             def image = docker.build(image_name, "-f ${dockerfilePath} .")
 
             docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-                if (version  == 'latest-unstable') {
-                    image.push('latest-unstable')
-                } else {
+                image.push(version)
+                if (version != 'latest-unstable') {
                     image.push('latest')
-                    image.push(version)
                 }
             }
         }
