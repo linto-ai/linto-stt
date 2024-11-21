@@ -300,6 +300,7 @@ Return the transcripted text using "text/plain" or a json object when using "app
         },
         ...
     ],
+    "language": "en",
     "confidence-score": 0.879
 }
 ```
