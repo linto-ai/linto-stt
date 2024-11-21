@@ -7,9 +7,7 @@ from stt import logger
 from vosk import KaldiRecognizer, Model
 from websockets.legacy.server import WebSocketServerProtocol
 
-from punctuation.recasepunc import load_model, apply_recasepunc
-
-_PUNCTUATION_MODEL = load_model()    
+from punctuation.recasepunc import apply_recasepunc
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
 
@@ -17,6 +15,8 @@ async def wssDecode(ws: WebSocketServerProtocol, model: Model):
     """Async Decode function endpoint"""
     # Wait for config
     res = await ws.recv()
+
+    model, punctuation_model = model
 
     # Parse config
     try:
@@ -46,8 +46,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model: Model):
         # End frame
         if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             ret = recognizer.FinalResult()
-            if _PUNCTUATION_MODEL:
-                ret = apply_recasepunc(_PUNCTUATION_MODEL, ret)
+            ret = apply_recasepunc(punctuation_model, ret)
             await ws.send(json.dumps(ret))
             await ws.close(reason="End of stream")
             break
@@ -55,8 +54,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model: Model):
         # Audio chunk
         if recognizer.AcceptWaveform(message):
             ret = recognizer.Result()  # Result seems to not work properly
-            if _PUNCTUATION_MODEL:
-                ret = apply_recasepunc(_PUNCTUATION_MODEL, ret)
+            ret = apply_recasepunc(punctuation_model, ret)
             await ws.send(ret)
 
         else:
@@ -69,6 +67,8 @@ def ws_streaming(websocket_server: WSServer, model: Model):
     """Sync Decode function endpoint"""
     # Wait for config
     res = websocket_server.receive(timeout=10)
+
+    model, punctuation_model = model
 
     # Timeout
     if res is None:
@@ -101,8 +101,7 @@ def ws_streaming(websocket_server: WSServer, model: Model):
         # End frame
         if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             ret = recognizer.FinalResult()
-            if _PUNCTUATION_MODEL:
-                ret = apply_recasepunc(_PUNCTUATION_MODEL, ret)
+            ret = apply_recasepunc(punctuation_model, ret)
             websocket_server.send(json.dumps(re.sub("<unk> ", "", ret)))
             websocket_server.close()
             break
@@ -110,8 +109,7 @@ def ws_streaming(websocket_server: WSServer, model: Model):
         print("Received chunk")
         if recognizer.AcceptWaveform(message):
             ret = recognizer.Result()
-            if _PUNCTUATION_MODEL:
-                ret = apply_recasepunc(_PUNCTUATION_MODEL, ret)
+            ret = apply_recasepunc(punctuation_model, ret)
             websocket_server.send(re.sub("<unk> ", "", ret))
 
         else:

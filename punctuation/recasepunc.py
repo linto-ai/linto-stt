@@ -119,7 +119,14 @@ def recase(token, label):
         return token.upper()
     return token
 
-def load_model(config=None):
+_PUNCTUATION_MODEL = None
+
+def load_recasepunc_model(config=None):
+
+    global _PUNCTUATION_MODEL
+    memoize = (config is None)
+    if memoize and _PUNCTUATION_MODEL is not None:
+        return _PUNCTUATION_MODEL
 
     checkpoint_path = os.environ.get('PUNCTUATION_MODEL')
     if not checkpoint_path:
@@ -135,6 +142,8 @@ def load_model(config=None):
         else:
             config.device = 'cpu'
 
+    print(f"Loading recasepunc model from {checkpoint_path} on device={config.device}") # TODO: use logger.info
+
     loaded = torch.load(checkpoint_path, map_location=config.device)
     if 'config' in loaded:
         config = Config(**loaded['config'])
@@ -149,10 +158,16 @@ def load_model(config=None):
 
     config.model = model
 
+    if memoize:
+        _PUNCTUATION_MODEL = config
     return config
 
 
 def apply_recasepunc(config, line, ignore_disfluencies=False):
+
+    num_threads = os.environ.get("OMP_NUM_THREADS")
+    if num_threads:
+        torch.set_num_threads(int(num_threads))
 
     if isinstance(line, list):
         return [apply_recasepunc(config, l, ignore_disfluencies=ignore_disfluencies) for l in line]
@@ -174,6 +189,16 @@ def apply_recasepunc(config, line, ignore_disfluencies=False):
         assert isinstance(line, dict)
         return json.dumps(apply_recasepunc(config, line, ignore_disfluencies=ignore_disfluencies), indent=2, ensure_ascii=False)
     
+    if not line:
+        # Avoid hanging on empty lines
+        return ""
+
+    # Remove <unk> tokens (Ugly: LinTO/Kaldi model specific here)
+    line = re.sub("<unk> ", "", line)
+
+    if config is None:
+        return line
+
     model = config.model
     set_seed(config.seed)
 
@@ -186,9 +211,6 @@ def apply_recasepunc(config, line, ignore_disfluencies=False):
         line = collapse_whitespace(line)
         line = re.sub(r"(\w) *' *(\w)", r"\1'\2", line) # glue apostrophes to words
         disfluencies, line = remove_simple_disfluences(line)
-
-    # Remove <unk> tokens (Ugly: LinTO/Kaldi model specific here)
-    line = re.sub("<unk> ", "", line)
 
     output = ''
     if config.debug:
