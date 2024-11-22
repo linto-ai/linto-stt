@@ -14,6 +14,7 @@ async def _linstt_streaming(
     audio_file,
     ws_api = "ws://localhost:8080/streaming",
     verbose = False,
+    language = None
 ):
     
     if audio_file is None:
@@ -29,7 +30,11 @@ async def _linstt_streaming(
     text = ""
     partial = None
     async with websockets.connect(ws_api) as websocket:
-        await websocket.send(json.dumps({"config" : {"sample_rate": 16000 }}))
+        if language is not None:
+            config = {"config" : {"sample_rate": 16000, "language": language}}
+        else: 
+            config = {"config" : {"sample_rate": 16000}}
+        await websocket.send(json.dumps(config))
         while True:
             data = stream.read(2*2*16000)
             if audio_file and not data:
@@ -107,6 +112,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode")
     parser.add_argument("--audio_file", default=None, help="A path to an audio file to transcribe (if not provided, use mic)")
+    parser.add_argument("--language", default=None, help="Language model to use")
     args = parser.parse_args()
 
-    res = linstt_streaming(args.audio_file, args.server, verbose=2 if args.verbose else 1)
+    res = linstt_streaming(args.audio_file, args.server, verbose=2 if args.verbose else 1, language=args.language)
