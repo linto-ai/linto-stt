@@ -15,43 +15,42 @@ TESTDIR = os.path.basename(TESTDIR)
 
 
 
-def generate_whisper_test_setups():
-    dockerfiles = [
-        "whisper/Dockerfile.ctranslate2",
-        "whisper/Dockerfile.ctranslate2.cpu",
-        "whisper/Dockerfile.torch",
-        "whisper/Dockerfile.torch.cpu",
-    ]
-
+def generate_whisper_test_setups(device="cpu", vads=[None, "false", "auditok", "silero"]):
+    # reduce the number of tests because it takes multiples hours
+    if device == "cpu":
+        dockerfiles = [
+            "whisper/Dockerfile.ctranslate2.cpu",
+            "whisper/Dockerfile.torch.cpu",
+        ]
+    elif device == "cuda":
+        dockerfiles = [
+            "whisper/Dockerfile.ctranslate2",
+            "whisper/Dockerfile.torch",
+        ]
+    else:
+        dockerfiles = [
+            "whisper/Dockerfile.ctranslate2",
+            "whisper/Dockerfile.ctranslate2.cpu",
+            "whisper/Dockerfile.torch",
+            "whisper/Dockerfile.torch.cpu",
+        ]
+    
     servings = ["http", "task"]
 
-    vads = [None, "false", "auditok", "silero"]
-    devices = [None, "cpu", "cuda"]
     models = ["tiny"]
 
     for dockerfile in dockerfiles:
-        for device in devices:
-            for vad in vads:
-                for model in models:
-                    for serving in servings:
+        for vad in vads:
+            for model in models:
+                for serving in servings:
+                    env_variables = ""
+                    if vad:
+                        env_variables += f"VAD={vad} "
+                    if device:
+                        env_variables += f"DEVICE={device} "
+                    env_variables += f"MODEL={model}"
 
-                        # Test CPU dockerfile only on CPU
-                        if dockerfile.endswith("cpu") and device != "cpu":
-                            continue
-
-                        # Do not test all VAD settings if not on CPU
-                        if vad not in [None, "silero"]:
-                            if device != "cpu":
-                                continue
-
-                        env_variables = ""
-                        if vad:
-                            env_variables += f"VAD={vad} "
-                        if device:
-                            env_variables += f"DEVICE={device} "
-                        env_variables += f"MODEL={model}"
-
-                        yield dockerfile, serving, env_variables
+                    yield dockerfile, serving, env_variables
 
 def generate_kaldi_test_setups():
     dockerfiles = ["kaldi/Dockerfile"]
@@ -263,8 +262,20 @@ class TestRunner(unittest.TestCase):
         self.run_test(dockerfile, serving=serving, env_variables=env_variables)
             
             
-    @idata(generate_whisper_test_setups())
-    def test_03_whisper_integration(self, setup):
+    @idata(generate_whisper_test_setups(device="cpu"))
+    def test_04_whisper_integration(self, setup):
+        dockerfile, serving, env_variables = setup
+        copy_env_file("whisper/.envdefault", env_variables)
+        self.run_test(dockerfile, serving=serving, env_variables=env_variables)
+
+    @idata(generate_whisper_test_setups(device="cuda", vads=[None, "silero"]))
+    def test_05_whisper_integration(self, setup):
+        dockerfile, serving, env_variables = setup
+        copy_env_file("whisper/.envdefault", env_variables)
+        self.run_test(dockerfile, serving=serving, env_variables=env_variables)
+
+    @idata(generate_whisper_test_setups(device=None, vads=[None, "silero"]))
+    def test_06_whisper_integration(self, setup):
         dockerfile, serving, env_variables = setup
         copy_env_file("whisper/.envdefault", env_variables)
         self.run_test(dockerfile, serving=serving, env_variables=env_variables)
@@ -287,10 +298,16 @@ class TestRunner(unittest.TestCase):
         copy_env_file("whisper/.envdefault", env_variables)
         self.assertIn("Got unexpected VAD method whatever", self.run_test(env_variables=env_variables, expect_failure=True))
 
-    def test_04_model_whisper(self):
+    def test_03_model_whisper(self):
         env_variables = "MODEL=small"
         copy_env_file("whisper/.envdefault", env_variables)
         self.run_test(env_variables=env_variables)
+        
+    # TODO: Add test for english
+    
+    # TODO: add test for *
+    
+    # TODO: add test for sending language over transcription config instead of env variable
 
 def finalize_tests():
     subprocess.run(["docker", "stop", "test_container"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
