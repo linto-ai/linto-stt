@@ -13,6 +13,7 @@ from stt import (
 )
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
+from .utils import get_language
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
 
@@ -43,17 +44,20 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     try:
         config = json.loads(res)["config"]
         sample_rate = config["sample_rate"]
+        language = config.get("language", None)
         logger.info(f"Received config: {config}")
     except Exception as e:
         logger.error("Failed to read stream configuration")
         await ws.close(reason="Failed to load configuration")
     model, _ = model_and_alignementmodel
+    if language is None:
+        language = get_language()
     if USE_CTRANSLATE2:
         logger.info("Using ctranslate2 for decoding")
-        asr = FasterWhisperASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
+        asr = FasterWhisperASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     else:
         logger.info("Using whisper_timestamped for decoding")
-        asr = WhisperTimestampedASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
+        asr = WhisperTimestampedASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     online = OnlineASRProcessor(
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
@@ -99,18 +103,21 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
         config = json.loads(res)["config"]
         logger.info(f"Received config: {config}")
         sample_rate = config["sample_rate"]
+        language = config.get("language", None)
         if sample_rate != 16000:
             raise NotImplementedError("Only 16000 sample rate is supported for the model. Please resample the audio.")
     except Exception as e:
         logger.error("Failed to read stream configuration")
         websocket_server.close()
     model, _ = model_and_alignementmodel
+    if language is None:
+        language = get_language()
     if USE_CTRANSLATE2:
         logger.info("Using ctranslate2 for decoding")
-        asr = FasterWhisperASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
+        asr = FasterWhisperASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     else:
         logger.info("Using whisper_timestamped for decoding")
-        asr = WhisperTimestampedASR(model=model, lan="fr", beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
+        asr = WhisperTimestampedASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     online = OnlineASRProcessor(
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
