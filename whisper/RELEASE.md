@@ -1,3 +1,6 @@
+# 1.0.5
+- Upgrade faster-whisper and support (large v3) turbo models
+
 # 1.0.4
 - Add environment variables to control decoding strategy (USE_ACCURATE=0/1)
 - Add environment variables to control streaming performance (STREAMING_MIN_CHUNK_SIZE, STREAMING_BUFFER_TRIMMING_SEC)

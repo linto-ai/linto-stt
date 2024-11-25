@@ -16,4 +16,4 @@ websockets
 whisper-timestamped
 onnxruntime
 torchaudio
-auditok
+auditok<0.3.0
