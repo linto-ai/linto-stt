@@ -44,6 +44,9 @@ RUN git clone -b vosk --single-branch https://github.com/alphacep/kaldi /opt/kal
     && sed -i 's: -O1 : -O3 :g' kaldi.mk \
     && make -j $(( $(nproc) < 8 ? $(nproc) : 8 )) online2 lm rnnlm
 
+# Upgrade pip
+RUN pip install --no-cache-dir --upgrade pip
+
 # Install python dependencies
 COPY kaldi/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
@@ -57,6 +60,12 @@ RUN git clone --depth 1 https://github.com/alphacep/vosk-api /opt/vosk-api && cd
 
 WORKDIR /usr/src/app
 
+# Install what's needed for punctuation
+COPY punctuation/requirements.cpu.txt ./
+RUN pip install --no-cache-dir -r requirements.cpu.txt -f https://download.pytorch.org/whl/torch_stable.html
+RUN rm requirements.cpu.txt
+
+# Copy code
 COPY celery_app /usr/src/app/celery_app
 COPY http_server /usr/src/app/http_server
 COPY websocket /usr/src/app/websocket
@@ -64,6 +73,7 @@ COPY document /usr/src/app/document
 COPY kaldi/stt /usr/src/app/stt
 COPY kaldi/docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY kaldi/lin_to_vosk.py /usr/src/app/lin_to_vosk.py
+COPY punctuation ./punctuation
 
 RUN mkdir -p /var/log/supervisor/
 
