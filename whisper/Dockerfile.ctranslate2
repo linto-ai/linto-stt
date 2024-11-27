@@ -3,12 +3,6 @@ LABEL maintainer="contact@linto.ai, jlouradour@linagora.com, abert@linagora.com"
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg git
 
-RUN python3 -m pip install --upgrade pip
-# Install Rust and set environment variables for Cargo
-RUN apt-get install -y curl build-essential
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
 # Install python dependencies
 COPY whisper/requirements.ctranslate2.txt ./
 RUN pip install --no-cache-dir -r requirements.ctranslate2.txt && rm requirements.ctranslate2.txt
