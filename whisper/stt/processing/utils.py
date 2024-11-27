@@ -48,11 +48,12 @@ def get_device():
     return device, use_gpu
 
 
-def get_language():
+def get_language(language = None):
     """
     Get the language from the environment variable LANGUAGE, and format as expected by Whisper.
     """
-    language = os.environ.get("LANGUAGE", "*")
+    if language is None:
+        language = os.environ.get("LANGUAGE", "*")
     # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
     if len(language) > 2 and language[2] == "-":
         language = language.split("-")[0]
