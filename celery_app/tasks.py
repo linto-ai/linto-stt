@@ -14,7 +14,6 @@ def transcribe_task(file_name: str, with_metadata: bool, language: Optional[str]
     logger.info(f"Received transcription task for {file_name}")
 
     # Load wave
-    print(language, type(language))
     file_path = os.path.join("/opt/audio", file_name)
     try:
         file_content = load_audiofile(file_path)
