@@ -286,6 +286,7 @@ Transcription API
 * Method: POST
 * Response content: text/plain or application/json
 * File: An Wave file 16b 16Khz
+* Language (optional): For overriding env language
 
 Return the transcripted text using "text/plain" or a json object when using "application/json" structure as followed:
 ```json
@@ -308,7 +309,7 @@ Return the transcripted text using "text/plain" or a json object when using "app
 The /streaming route is accessible if the ENABLE_STREAMING environment variable is set to true.
 
 The route accepts websocket connexions. Exchanges are structured as followed:
-1. Client send a json {"config": {"sample_rate":16000}}.
+1. Client send a json {"config": {"sample_rate":16000, "language":"en"}}. Language is optional, if not specified it will use the language from the env.
 2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
 3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
 4. Back to 2-
