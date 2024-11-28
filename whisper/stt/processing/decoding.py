@@ -39,8 +39,7 @@ def decode(
     compression_ratio_threshold: float = 2.4,
     prompt: str = default_prompt,
 ) -> dict:
-    if language is None:
-        language = get_language()
+    language = get_language(language)
     kwargs = copy.copy(locals())
     kwargs.pop("model_and_alignementmodel")
     kwargs["model"], kwargs["alignment_model"] = model_and_alignementmodel

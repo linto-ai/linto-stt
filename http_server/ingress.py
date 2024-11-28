@@ -69,11 +69,12 @@ def transcribe():
             raise ValueError(f"No audio file was uploaded (missing 'file' key)")
 
         file_buffer = request.files["file"].read()
-
+        language = request.form.get("language")
+        
         audio_data = load_wave_buffer(file_buffer)
 
         # Transcription
-        transcription = decode(audio_data, MODEL, join_metadata)
+        transcription = decode(audio_data, MODEL, join_metadata, language=language)
 
         if join_metadata:
             return json.dumps(transcription, ensure_ascii=False), 200

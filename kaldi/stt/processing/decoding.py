@@ -4,10 +4,13 @@ import re
 from vosk import KaldiRecognizer, Model
 
 
-def decode(audio: tuple[bytes, int], model: Model, with_metadata: bool) -> dict:
+def decode(audio: tuple[bytes, int], model: Model, with_metadata: bool, language=None) -> dict:
     """Transcribe the audio data using the vosk library with the defined model."""
     result = {"text": "", "confidence-score": 0.0, "words": []}
 
+    if language:
+        raise NotImplementedError("Language selection is not implemented for kaldi.")
+    
     audio_data, sampling_rate = audio
 
     recognizer = KaldiRecognizer(model, sampling_rate)
