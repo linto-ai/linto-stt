@@ -173,22 +173,11 @@ automatic language detection will be performed by Whisper.
 The language can be a code of two or three letters. The list of languages supported by Whisper are:
 ```
 af(afrikaans), am(amharic), ar(arabic), as(assamese), az(azerbaijani),
-ba(bashkir), be(belarusian), bg(bulgarian), bn(bengali), bo(tibetan), br(breton), bs(bosnian),
-ca(catalan), cs(czech), cy(welsh), da(danish), de(german), el(greek), en(english), es(spanish),
-et(estonian), eu(basque), fa(persian), fi(finnish), fo(faroese), fr(french), gl(galician),
-gu(gujarati), ha(hausa), haw(hawaiian), he(hebrew), hi(hindi), hr(croatian), ht(haitian creole),
-hu(hungarian), hy(armenian), id(indonesian), is(icelandic), it(italian), ja(japanese),
-jw(javanese), ka(georgian), kk(kazakh), km(khmer), kn(kannada), ko(korean), la(latin),
-lb(luxembourgish), ln(lingala), lo(lao), lt(lithuanian), lv(latvian), mg(malagasy), mi(maori),
-mk(macedonian), ml(malayalam), mn(mongolian), mr(marathi), ms(malay), mt(maltese), my(myanmar),
-ne(nepali), nl(dutch), nn(nynorsk), no(norwegian), oc(occitan), pa(punjabi), pl(polish),
-ps(pashto), pt(portuguese), ro(romanian), ru(russian), sa(sanskrit), sd(sindhi), si(sinhala),
-sk(slovak), sl(slovenian), sn(shona), so(somali), sq(albanian), sr(serbian), su(sundanese),
-sv(swedish), sw(swahili), ta(tamil), te(telugu), tg(tajik), th(thai), tk(turkmen), tl(tagalog),
-tr(turkish), tt(tatar), uk(ukrainian), ur(urdu), uz(uzbek), vi(vietnamese), yi(yiddish),
-yo(yoruba), zh(chinese)
+ba(bashkir), be(belarusian), bg(bulgarian), bn(bengali), bo(tibetan), br(breton), bs(bosnian), ca(catalan), cs(czech), cy(welsh), da(danish), de(german), el(greek), en(english), es(spanish), et(estonian), eu(basque), fa(persian), fi(finnish), fo(faroese), fr(french), gl(galician), gu(gujarati), ha(hausa), haw(hawaiian), he(hebrew), hi(hindi), hr(croatian), ht(haitian creole), hu(hungarian), hy(armenian), id(indonesian), is(icelandic), it(italian), ja(japanese), jw(javanese), ka(georgian), kk(kazakh), km(khmer), kn(kannada), ko(korean), la(latin), lb(luxembourgish), ln(lingala), lo(lao), lt(lithuanian), lv(latvian), mg(malagasy), mi(maori), mk(macedonian), ml(malayalam), mn(mongolian), mr(marathi), ms(malay), mt(maltese), my(myanmar), ne(nepali), nl(dutch), nn(nynorsk), no(norwegian), oc(occitan), pa(punjabi), pl(polish), ps(pashto), pt(portuguese), ro(romanian), ru(russian), sa(sanskrit), sd(sindhi), si(sinhala), sk(slovak), sl(slovenian), sn(shona), so(somali), sq(albanian), sr(serbian), su(sundanese), sv(swedish), sw(swahili), ta(tamil), te(telugu), tg(tajik), th(thai), tk(turkmen), tl(tagalog), tr(turkish), tt(tatar), uk(ukrainian), ur(urdu), uz(uzbek), vi(vietnamese), yi(yiddish), yo(yoruba), zh(chinese)
 ```
 and also `yue(cantonese)` since large-v3.
+
+Language codes with "-" in them like "fr-FR" are also supported, but the part after "-" is ignored. So "fr-CA" (Canadian french) is equivalent to just "fr". Languages names like "French" are also supported and will be converted to "fr".
 
 #### SERVING_MODE
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
