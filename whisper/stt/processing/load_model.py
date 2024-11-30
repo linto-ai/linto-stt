@@ -60,6 +60,9 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
             )
             logger.info(f"CTranslate2 model in {output_dir}")
             if not os.path.isdir(output_dir):
+
+                check_torch_installed()
+
                 from transformers.utils import cached_file
                 import json
 
@@ -95,8 +98,6 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
                             break
                     if hf_path is None:
                         raise RuntimeError(f"Could not find pytorch_model.bin in {model_type_or_file}")
-
-                check_torch_installed()
 
                 # from ctranslate2.converters.transformers import TransformersConverter
                 # converter = TransformersConverter(

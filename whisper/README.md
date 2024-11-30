@@ -67,6 +67,13 @@ for some model sizes, depending on the backend
     <td>8.2G</td>
     <td>10.4G</td>
  </tr>
+ <tr>
+    <td>large-v3-turbo</td>
+    <td>1.3G</td>
+    <td>2.0G</td>
+    <td>4.0G</td>
+    <td>6.0G</td>
+ </tr>
 </table>
 
 ### Model(s)
@@ -154,13 +161,14 @@ you may want to download one of OpenAI Whisper models:
     * [large-v1](https://openaipublic.azureedge.net/main/whisper/models/e4b87e7e0bf463eb8e6956e646f1e277e901512310def2c24bf0e11bd3c28e9a/large-v1.pt)
     * [large-v2](https://openaipublic.azureedge.net/main/whisper/models/81f7c96c852ee8fc832187b0132e569d6c3065a3252ed18e56effd0b6a73e524/large-v2.pt)
     * [large-v3](https://openaipublic.azureedge.net/main/whisper/models/e5b1a55b89c1367dacf97e3e19bfd829a01529dbfdeefa8caeb59b3f1b81dadb/large-v3.pt)
+    * [large-v3-turbo](https://openaipublic.azureedge.net/main/whisper/models/aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a/large-v3-turbo.pt)
 * Whisper models specialized for English can also be found here:
     * [tiny.en](https://openaipublic.azureedge.net/main/whisper/models/d3dd57d32accea0b295c96e26691aa14d8822fac7d9d27d5dc00b4ca2826dd03/tiny.en.pt)
     * [base.en](https://openaipublic.azureedge.net/main/whisper/models/25a8566e1d0c1e2231d1c762132cd20e0f96a85d16145c3a00adf5d1ac670ead/base.en.pt)
     * [small.en](https://openaipublic.azureedge.net/main/whisper/models/f953ad0fd29cacd07d5a9eda5624af0f6bcf2258be67c92b79389873d91e0872/small.en.pt)
     * [medium.en](https://openaipublic.azureedge.net/main/whisper/models/d7440d1dc186f76616474e0ff0b3b6b879abc9d1a4926b7adfa41db2d497ab4f/medium.en.pt)
 
-If you already used Whisper in the past locally using [OpenAI-Whipser](https://github.com/openai/whisper), models can be found under ~/.cache/whisper.
+If you already used Whisper in the past locally using [OpenAI-Whipser](https://github.com/openai/whisper), models can be found under `~/.cache/whisper`.
 
 The same apply for Whisper models from Hugging Face (transformers), as for instance https://huggingface.co/distil-whisper/distil-large-v2
 (you can either download the model or use the Hugging Face identifier `distil-whisper/distil-large-v2`).
@@ -290,6 +298,7 @@ Return the transcripted text using "text/plain" or a json object when using "app
         },
         ...
     ],
+    "language": "en",
     "confidence-score": 0.879
 }
 ```

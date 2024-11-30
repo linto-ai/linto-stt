@@ -272,8 +272,8 @@ def get_vad_segments(
             data = (audio.numpy() * 32767).astype(np.int16).tobytes() 
             
         audio_duration = len(audio) / sample_rate
-        from auditok import split
-        segments = split(
+        import auditok
+        segments = auditok.split(
             data,
             sampling_rate=sample_rate,  # sampling frequency in Hz
             channels=1,  # number of channels
@@ -287,10 +287,16 @@ def get_vad_segments(
             drop_trailing_silence=True,
         )
 
-        segments = [
-            {"start": s._meta.start * sample_rate, "end": s._meta.end * sample_rate}
-            for s in segments
-        ]
+        if auditok.__version__ < "0.3.0":
+            segments = [
+                {"start": s._meta.start * sample_rate, "end": s._meta.end * sample_rate}
+                for s in segments
+            ]
+        else:
+            segments = [
+                {"start": s.start * sample_rate, "end": s.end * sample_rate}
+                for s in segments
+            ]
 
     else:
         raise ValueError(f"Got unexpected VAD method {method}")

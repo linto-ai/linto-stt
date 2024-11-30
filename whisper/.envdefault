@@ -20,8 +20,8 @@ STREAMING_PORT=80
 ############################################
 
 # The model can be a path to a model (e.g. "/root/.cache/whisper/large-v3.pt", "/root/.cache/huggingface/hub/models--openai--whisper-large-v3"),
-# or a model size ("tiny", "base", "small", "medium", "large-v1", "large-v2" or "large-v3")
-# or a HuggingFace model name (e.g. "distil-whisper/distil-large-v2")
+# or a model size ("tiny", "base", "small", "medium", "large-v1", "large-v2", "large-v3" or "large-v3-turbo")
+# or a HuggingFace model name (e.g. "distil-whisper/distil-large-v2", "bofenghuang/whisper-large-v3-french-distil-dec8", ...)
 MODEL=large-v3
 
 # The language can be in different formats: "en", "en-US", "English", ...

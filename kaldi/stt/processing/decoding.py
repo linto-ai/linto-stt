@@ -3,15 +3,18 @@ import re
 
 from vosk import KaldiRecognizer, Model
 
+from punctuation.recasepunc import apply_recasepunc
 
 def decode(audio: tuple[bytes, int], model: Model, with_metadata: bool, language=None) -> dict:
     """Transcribe the audio data using the vosk library with the defined model."""
-    result = {"text": "", "confidence-score": 0.0, "words": []}
+    decoder_result = {"text": "", "confidence-score": 0.0, "words": []}
 
     if language:
         raise NotImplementedError("Language selection is not implemented for kaldi.")
     
     audio_data, sampling_rate = audio
+
+    model, punctuation_model = model
 
     recognizer = KaldiRecognizer(model, sampling_rate)
     recognizer.SetMaxAlternatives(0)  # Set confidence per words
@@ -25,12 +28,14 @@ def decode(audio: tuple[bytes, int], model: Model, with_metadata: bool, language
     try:
         decoder_result = json.loads(decoder_result_raw)
     except Exception:
-        return result
-    result["text"] = re.sub("<unk> ", "", decoder_result["text"])
-    if "result" in decoder_result:
-        result["words"] = [w for w in decoder_result["result"] if w["word"] != "<unk>"]
-        if result["words"]:
-            result["confidence-score"] = sum([w["conf"] for w in result["words"]]) / len(
-                result["words"]
+        return decoder_result
+
+    decoder_result = apply_recasepunc(punctuation_model, decoder_result)
+
+    if "decoder_result" in decoder_result:
+        decoder_result["words"] = [w for w in decoder_result["decoder_result"] if w["word"] != "<unk>"]
+        if decoder_result["words"]:
+            decoder_result["confidence-score"] = sum([w["conf"] for w in decoder_result["words"]]) / len(
+                decoder_result["words"]
             )
-    return result
+    return decoder_result

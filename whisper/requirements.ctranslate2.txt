@@ -11,7 +11,7 @@ regex
 requests>=2.26.0
 wavio>=0.0.4
 websockets
-auditok
-#faster_whisper==1.0.1
-# This is version faster_whisper==1.0.1 + option for (persistent) prompt + fix for large-v3
+auditok<0.3.0
+# faster_whisper==1.1.0
+# vvv This is version faster_whisper==1.1.0 + option for (persistent) prompt + fix for large-v3 (and turbo) models
 git+https://github.com/linto-ai/faster-whisper.git

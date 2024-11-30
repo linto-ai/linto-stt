@@ -15,12 +15,28 @@ To run the transcription models you'll need:
 * One CPU per worker. Inference time scales on CPU performances. 
 
 ### Model
-LinTO-STT-Kaldi accepts two kinds of models:
+If not done alreadt, download and unzip model folders into a directory accessible from the docker container.
+
+LinTO-STT-Kaldi accepts two kinds of ASR models:
 * LinTO Acoustic and Languages models.
-* Vosk models.
+* Vosk models (all in one).
 
 We provide home-cured models (v2) on [dl.linto.ai](https://doc.linto.ai/docs/developpers/apis/ASR/models).
 Or you can also use Vosk models available [here](https://alphacephei.com/vosk/models).
+
+
+If you want text with upper case letters and punctuation, you can specify a recasepunc model.
+Some recasepunc models trained on [Common Crawl](http://data.statmt.org/cc-100/) are available on [recasepunc](https://github.com/benob/recasepunc) for the following the languages:
+* French
+  * [fr-txt.large.19000](https://github.com/benob/recasepunc/releases/download/0.3/fr-txt.large.19000)
+  <!-- * [fr.22000](https://github.com/benob/recasepunc/releases/download/0.3/fr.22000) -->
+* English
+  * [en.23000](https://github.com/benob/recasepunc/releases/download/0.3/en.23000)
+* Italian
+  * [it.22000](https://github.com/CoffeePerry/recasepunc/releases/download/v0.1.0/it.22000)
+* Chinese
+  * [zh.24000](https://github.com/benob/recasepunc/releases/download/0.3/zh.24000)
+
 
 ### Docker
 The transcription service requires docker up and running.
@@ -62,6 +78,8 @@ An example of .env file is provided in [kaldi/.envdefault](https://github.com/li
 | BROKER_PASS | Using the task mode, broker password | my-password |
 | STREAMING_PORT | Using the websocket mode, the listening port for ingoing WS connexions.  | 80 |
 | CONCURRENCY | Maximum number of parallel requests | >1 |
+| PUNCTUATION_MODEL | Path to a recasepunc model, for recovering punctuation and upper letter in streaming | opt/PUNCT |
+
 
 ### Serving mode 
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
@@ -87,6 +105,12 @@ docker run --rm \
 -v LM_PATH:/opt/LM \
 --env-file .env \
 linto-stt-kaldi:latest
+```
+
+If you have a recasepunc model do recover punctuation marks, you can add the following option:
+```bash
+-v <</path/to/recasepunc/model/folder>>:/opt/PUNCT
+--env PUNCTUATION_MODEL=/opt/PUNCT
 ```
 
 This will run a container providing an [HTTP API](#http-api) binded on the host HOST_SERVING_PORT port.
