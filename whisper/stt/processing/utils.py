@@ -55,7 +55,6 @@ def get_language(language = None):
     if language is None:
         language = os.environ.get("LANGUAGE", "*")
     # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
-    language = language.split("-")[0].lower()
     language_fields = language.split("-")
     if len(language_fields) == 2:
         language = language_fields[0]
@@ -65,7 +64,7 @@ def get_language(language = None):
         language = None
     # Convert French -> fr
     if isinstance(language, str) and language not in LANGUAGES:
-        language = {v: k for k, v in LANGUAGES.items()}.get(language.lower(), language)
+        language = {v: k for k, v in LANGUAGES.items()}.get(language)
         # Raise an exception for unknown languages
         if language not in LANGUAGES:
             available_languages = [f"{k}({v})" for k, v in LANGUAGES.items()]
