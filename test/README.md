@@ -51,20 +51,25 @@ To test the Kaldi models, you will need to download the models (see [Kaldi model
 
 To launch the test you can do :
 ```bash
-python test/test.py
+python test/automated/whisper.py
 ```
+To launch tests for whisper or 
+```bash
+python test/automated/kaldi.py
+```
+To launch tests for kaldi.
 
 > ⚠️ Be sure to launch it from the root folder of the repository.
 
 If you want the test to stop at the first fail use the -f flag:
 ```bash
-python test/test.py -f
+python test/automated/whisper.py -f
 ```
-If you want to run a subset of test you can use -k with a part of a test name. for example only kaldi tests:
+If you want to run a subset of test you can use -k with a part of a test name. For example only torch tests:
 ```bash
-python test/test.py -k kaldi
+python test/automated/whisper.py -k torch
 ```
 or test with VAD=auditok, DEVICE=cuda:
 ```bash
-python test/test.py -k VAD_auditok_DEVICE_cuda
+python test/automated/whisper.py -k VAD_auditok_DEVICE_cuda
 ```
