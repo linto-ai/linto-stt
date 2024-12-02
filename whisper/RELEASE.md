@@ -1,5 +1,8 @@
 # 1.0.5
 - Upgrade faster-whisper and support (large v3) turbo models
+- Support language as an option given in the request (now the LANGUAGE environment variable is just a default for this option).
+  language=* means automatic language detection.
+- Add "language" field to each segment in the output result (either the language passed as option or the detected language).
 
 # 1.0.4
 - Add environment variables to control decoding strategy (USE_ACCURATE=0/1)
