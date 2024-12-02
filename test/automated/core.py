@@ -4,84 +4,20 @@ import time
 import subprocess
 import requests
 import re
-from ddt import ddt, idata
-from pathlib import Path
 import warnings
+from ddt import ddt
+from pathlib import Path
+from automated_utils import AUTOMATEDTESTDIR, TESTDIR, SERVER_STARTING_TIMEOUT, get_file_regex, parse_env_variables
 
-TESTDIR = os.path.dirname(os.path.realpath(__file__))
-ROOTDIR = os.path.dirname(TESTDIR)
-os.chdir(ROOTDIR)
-TESTDIR = os.path.basename(TESTDIR)
-
-
-
-def generate_whisper_test_setups():
-    dockerfiles = [
-        "whisper/Dockerfile.ctranslate2",
-        "whisper/Dockerfile.ctranslate2.cpu",
-        "whisper/Dockerfile.torch",
-        "whisper/Dockerfile.torch.cpu",
-    ]
-
-    servings = ["http", "task"]
-
-    vads = [None, "false", "auditok", "silero"]
-    devices = [None, "cpu", "cuda"]
-    models = ["tiny"]
-
-    for dockerfile in dockerfiles:
-        for device in devices:
-            for vad in vads:
-                for model in models:
-                    for serving in servings:
-
-                        # Test CPU dockerfile only on CPU
-                        if dockerfile.endswith("cpu") and device != "cpu":
-                            continue
-
-                        # Do not test all VAD settings if not on CPU
-                        if vad not in [None, "silero"]:
-                            if device != "cpu":
-                                continue
-
-                        env_variables = ""
-                        if vad:
-                            env_variables += f"VAD={vad} "
-                        if device:
-                            env_variables += f"DEVICE={device} "
-                        env_variables += f"MODEL={model}"
-
-                        yield dockerfile, serving, env_variables
-
-def generate_kaldi_test_setups():
-    dockerfiles = ["kaldi/Dockerfile"]
-
-    servings = ["http", "task"]
-    
-    for dockerfile in dockerfiles:
-        for serving in servings:
-            env_variables = ""
-            yield dockerfile, serving, env_variables
-
-def copy_env_file(env_file, env_variables=""):
-    env_variables = env_variables.split()
-    env_variables.append("SERVICE_MODE=")
-    with open(env_file, "r") as f:
-        lines = f.readlines()
-    with open(f"{TESTDIR}/.env", "w") as f:
-        for line in lines:
-            if not any([line.startswith(b.split("=")[0] + "=") for b in env_variables]):
-                f.write(line)
+def finalize_tests():
+    subprocess.run(["docker", "stop", "test_container"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["docker", "stop", "test_redis"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)    
 
 @ddt
 class TestRunner(unittest.TestCase):
 
     built_images = []
     redis_launched = False
-
-    # def __init__(self, *args, **kwargs):
-    #     super(TestRunner, self).__init__(*args, **kwargs)
-    #     self.cleanup()
 
     def echo_success(self, message):
         print('\033[0;32m' + u'\u2714' + '\033[0m ' + message)
@@ -173,7 +109,7 @@ class TestRunner(unittest.TestCase):
 
         if serving == "task":
             self.launch_redis()
-            build_args += "-v {}/:/opt/audio ".format(os.getcwd())
+            build_args += f"-v {TESTDIR}/:/opt/audio "
 
         tag = f"test_{os.path.basename(docker_image)}"
         if tag not in TestRunner.built_images:
@@ -190,7 +126,7 @@ class TestRunner(unittest.TestCase):
             self.echo_note(f"Docker image has been successfully built in {end_time - start_time:.0f} sec.")
             TestRunner.built_images.append(tag)
 
-        cmd=f"docker run --rm -p 8080:80 --name test_container --env-file {TESTDIR}/.env --gpus all {build_args} linto-stt-test:{tag}"
+        cmd=f"docker run --rm -p 8080:80 --name test_container --env-file {AUTOMATEDTESTDIR}/.env --gpus all {build_args} linto-stt-test:{tag}"
         self.echo_command(cmd)
         p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if p.poll() is not None:
@@ -210,11 +146,9 @@ class TestRunner(unittest.TestCase):
         self.echo_note(f"{success_message} has transcribed {test_file} in {end - start:.0f} sec.")
         return
 
-    def run_test(self, docker_image="whisper/Dockerfile.ctranslate2", serving="http", env_variables="", test_file=f"{TESTDIR}/bonjour.wav", use_local_cache=True, expect_failure=False):
+    def run_test(self, docker_image="whisper/Dockerfile.ctranslate2", serving="http", env_variables="", test_file=f"{TESTDIR}/bonjour.wav", language=None, use_local_cache=True, expect_failure=False):
         warnings.simplefilter("ignore", ResourceWarning)
-        regex = ""
-        if os.path.basename(test_file) == "bonjour.wav":
-            regex = re.compile("[bB]onjour")
+        regex = get_file_regex(test_file, parse_env_variables(env_variables).get("LANGUAGE", "fr") if language is None else language)
         r, pid = self.build_and_run_container(serving, docker_image, env_variables, use_local_cache)
         if r:
             return self.report_failure(r, expect_failure=expect_failure)
@@ -223,16 +157,22 @@ class TestRunner(unittest.TestCase):
             if r:
                 return self.report_failure(r, expect_failure=expect_failure)
             cmd = f'curl -X POST "http://localhost:8080/transcribe" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "file=@{test_file};type=audio/wav"'
+            if language:
+                cmd += f' -F "language={language}"'
             self.echo_command(cmd)
             r = self.transcribe(cmd, regex, test_file, "Error transcription", "HTTP route 'transcribe'")
             if r:
                 return self.report_failure(r, expect_failure=expect_failure)
             cmd = f"python3 {TESTDIR}/test_streaming.py --audio_file {test_file}"
+            if language:
+                cmd += f" --language {language}"
             self.echo_command(cmd)
             r = self.transcribe(cmd, regex, test_file, "Error streaming", "HTTP route 'streaming'")
         elif serving == "task":
             # you can be stuck here if the server crashed bc the task will be in the queue forever
-            cmd = f"python3 {TESTDIR}/test_celery.py {test_file}"
+            cmd = f"python3 {TESTDIR}/test_celery.py --audio_file {os.path.basename(test_file)}"
+            if language:
+                cmd += f" --language {language}"
             self.echo_command(cmd)
             r = self.transcribe(cmd, regex, test_file, "Error task", "TASK route", timeout=60)
         else:
@@ -250,69 +190,3 @@ class TestRunner(unittest.TestCase):
 
     def tearDown(self):
         print("-"*70)
-
-    @idata(generate_kaldi_test_setups())
-    def test_01_kaldi_integration(self, setup):
-        dockerfile, serving, env_variables = setup
-        if AM_PATH is None or LM_PATH is None or AM_PATH=="" or LM_PATH=="":
-            self.fail("AM or LM path not provided. Skipping kaldi test.")
-        if not os.path.exists(AM_PATH) or not os.path.exists(LM_PATH):
-            self.fail(f"AM or LM path not found: {AM_PATH} or {LM_PATH}")
-        copy_env_file("kaldi/.envdefault")
-        env_variables += f"-v {AM_PATH}:/opt/AM -v {LM_PATH}:/opt/LM"
-        self.run_test(dockerfile, serving=serving, env_variables=env_variables)
-            
-            
-    @idata(generate_whisper_test_setups())
-    def test_03_whisper_integration(self, setup):
-        dockerfile, serving, env_variables = setup
-        copy_env_file("whisper/.envdefault", env_variables)
-        self.run_test(dockerfile, serving=serving, env_variables=env_variables)
-            
-    def test_02_whisper_failures_cuda_on_cpu_dockerfile(self):
-        env_variables = "MODEL=tiny  DEVICE=cuda"
-        dockerfile = "whisper/Dockerfile.ctranslate2.cpu"
-        copy_env_file("whisper/.envdefault", env_variables)
-        self.assertIn("cannot open shared object file", self.run_test(dockerfile, env_variables=env_variables, expect_failure=True))
-
-    def test_02_whisper_failures_not_existing_file(self):
-        env_variables = "MODEL=tiny"
-        copy_env_file("whisper/.envdefault", env_variables)
-        with self.assertRaises(FileNotFoundError):
-            self.run_test(test_file="notexisting", env_variables=env_variables, expect_failure=True)
-        self.cleanup()
-
-    def test_02_whisper_failures_wrong_vad(self):
-        env_variables = "VAD=whatever MODEL=tiny"
-        copy_env_file("whisper/.envdefault", env_variables)
-        self.assertIn("Got unexpected VAD method whatever", self.run_test(env_variables=env_variables, expect_failure=True))
-
-    def test_04_model_whisper(self):
-        env_variables = "MODEL=small"
-        copy_env_file("whisper/.envdefault", env_variables)
-        self.run_test(env_variables=env_variables)
-
-def finalize_tests():
-    subprocess.run(["docker", "stop", "test_container"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(["docker", "stop", "test_redis"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)    
-
-
-AM_PATH = None
-LM_PATH = None
-SERVER_STARTING_TIMEOUT = 60
-
-if __name__ == '__main__':
-    from configparser import ConfigParser
-    config = ConfigParser()
-
-    config.read(f"{TESTDIR}/test_config.ini")
-    
-    SERVER_STARTING_TIMEOUT = int(config.get('server', 'STARTING_TIMEOUT')) if config.get('server', 'STARTING_TIMEOUT')!="" else SERVER_STARTING_TIMEOUT
-    
-    AM_PATH = config.get('kaldi', 'AM_PATH')
-    LM_PATH = config.get('kaldi', 'LM_PATH')
-    
-    try:
-        unittest.main(verbosity=2)
-    finally:
-        finalize_tests()

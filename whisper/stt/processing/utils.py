@@ -48,27 +48,27 @@ def get_device():
     return device, use_gpu
 
 
-def get_language():
+def get_language(language = None):
     """
     Get the language from the environment variable LANGUAGE, and format as expected by Whisper.
     """
-    language = os.environ.get("LANGUAGE", "*")
+    if language is None:
+        language = os.environ.get("LANGUAGE", "*")
     # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
-    if len(language) > 2 and language[2] == "-":
-        language = language.split("-")[0]
+    language_fields = language.split("-")
+    if len(language_fields) == 2:
+        language = language_fields[0]
+    language = language.lower()
     # "*" means "all languages"
     if language == "*":
         language = None
     # Convert French -> fr
     if isinstance(language, str) and language not in LANGUAGES:
-        language = {v: k for k, v in LANGUAGES.items()}.get(language.lower(), language)
+        language = {v: k for k, v in LANGUAGES.items()}.get(language)
         # Raise an exception for unknown languages
         if language not in LANGUAGES:
-            available_languages = (
-                list(LANGUAGES.keys())
-                + [k[0].upper() + k[1:] for k in LANGUAGES.values()]
-                + ["*", None]
-            )
+            available_languages = [f"{k}({v})" for k, v in LANGUAGES.items()]
+            available_languages.append("*")
             raise ValueError(
                 f"Language '{language}' is not available. Available languages are: {available_languages}"
             )

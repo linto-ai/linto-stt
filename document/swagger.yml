@@ -30,6 +30,11 @@ paths:
         description: "Audio File - WaveFile PCM 16b 16KHz"
         required: true
         type: "file"
+      - name: "language"
+        in: "formData"
+        description: "Language (code or *)"
+        required: false
+        type: string
       responses:
         200:
           description: Successfully transcribe the audio

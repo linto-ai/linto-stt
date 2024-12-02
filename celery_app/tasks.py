@@ -6,10 +6,10 @@ from stt.processing import MODEL, decode
 from stt.processing.utils import load_audiofile
 
 from celery_app.celeryapp import celery
-
+from typing import Optional
 
 @celery.task(name="transcribe_task")
-def transcribe_task(file_name: str, with_metadata: bool):
+def transcribe_task(file_name: str, with_metadata: bool, language: Optional[str] = None):
     """transcribe_task"""
     logger.info(f"Received transcription task for {file_name}")
 
@@ -26,7 +26,7 @@ def transcribe_task(file_name: str, with_metadata: bool):
 
     # Decode
     try:
-        result = decode(file_content, MODEL, with_metadata)
+        result = decode(file_content, MODEL, with_metadata, language=language)
     except Exception as err:
         import traceback
 

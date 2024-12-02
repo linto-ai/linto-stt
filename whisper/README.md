@@ -121,7 +121,7 @@ An example of .env file is provided in [whisper/.envdefault](https://github.com/
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
-| SERVICE_MODE | (Required) STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` |
+| SERVICE_MODE | (Required) STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` \| `websocket` |
 | MODEL | (Required) Path to a Whisper model, type of Whisper model used, or HuggingFace identifier of a Whisper model. | `large-v3` \| `distil-whisper/distil-large-v2` \| \<ASR_PATH\> \| ... |
 | LANGUAGE | Language to recognize | `*` \| `fr` \| `fr-FR` \| `French` \| `en` \| `en-US` \| `English` \| ... |
 | PROMPT | Prompt to use for the Whisper model | `some free text to encourage a certain transcription style (disfluencies, no punctuation, ...)` |
@@ -175,28 +175,36 @@ The same apply for Whisper models from Hugging Face (transformers), as for insta
 
 #### LANGUAGE
 
-If `*` is used for the `LANGUAGE` environment variable, or if `LANGUAGE` is not defined,
-automatic language detection will be performed by Whisper.
+The `LANGUAGE` environment variable
+can be used to set the default language
+(which can be "`*`" for automatic language detection).
+Note that the `language` can also be passed as a parameter in the request: in this case, it will override the `LANGUAGE` environment variable.
 
-The language can be a code of two or three letters. The list of languages supported by Whisper are:
-```
-af(afrikaans), am(amharic), ar(arabic), as(assamese), az(azerbaijani),
-ba(bashkir), be(belarusian), bg(bulgarian), bn(bengali), bo(tibetan), br(breton), bs(bosnian),
-ca(catalan), cs(czech), cy(welsh), da(danish), de(german), el(greek), en(english), es(spanish),
-et(estonian), eu(basque), fa(persian), fi(finnish), fo(faroese), fr(french), gl(galician),
-gu(gujarati), ha(hausa), haw(hawaiian), he(hebrew), hi(hindi), hr(croatian), ht(haitian creole),
-hu(hungarian), hy(armenian), id(indonesian), is(icelandic), it(italian), ja(japanese),
-jw(javanese), ka(georgian), kk(kazakh), km(khmer), kn(kannada), ko(korean), la(latin),
-lb(luxembourgish), ln(lingala), lo(lao), lt(lithuanian), lv(latvian), mg(malagasy), mi(maori),
-mk(macedonian), ml(malayalam), mn(mongolian), mr(marathi), ms(malay), mt(maltese), my(myanmar),
-ne(nepali), nl(dutch), nn(nynorsk), no(norwegian), oc(occitan), pa(punjabi), pl(polish),
-ps(pashto), pt(portuguese), ro(romanian), ru(russian), sa(sanskrit), sd(sindhi), si(sinhala),
-sk(slovak), sl(slovenian), sn(shona), so(somali), sq(albanian), sr(serbian), su(sundanese),
-sv(swedish), sw(swahili), ta(tamil), te(telugu), tg(tajik), th(thai), tk(turkmen), tl(tagalog),
-tr(turkish), tt(tatar), uk(ukrainian), ur(urdu), uz(uzbek), vi(vietnamese), yi(yiddish),
-yo(yoruba), zh(chinese)
-```
-and also `yue(cantonese)` since large-v3.
+The language value can be:
+* the wildcard "`*`", for automatic language detection (by Whisper model),
+* a language BCP-47 code ("`fr-FR`", "`en-US`", "`yue-HK`", ...),
+* a language code of two or three letters  ("`fr`", "`en`", "`yue`", ...).
+  Note that this is the only part of the BCP-47 code that is effectively used.
+* a language name ("`French`", "`English`", "`Cantonese`", ...).
+
+The list of languages supported by Whisper are:
+`af`(afrikaans), `am`(amharic), `ar`(arabic), `as`(assamese), `az`(azerbaijani),
+`ba`(bashkir), `be`(belarusian), `bg`(bulgarian), `bn`(bengali), `bo`(tibetan), `br`(breton), `bs`(bosnian),
+`ca`(catalan), `cs`(czech), `cy`(welsh), `da`(danish), `de`(german), `el`(greek), `en`(english), `es`(spanish),
+`et`(estonian), `eu`(basque), `fa`(persian), `fi`(finnish), `fo`(faroese), `fr`(french), `gl`(galician),
+`gu`(gujarati), `ha`(hausa), `haw`(hawaiian), `he`(hebrew), `hi`(hindi), `hr`(croatian), `ht`(haitian creole),
+`hu`(hungarian), `hy`(armenian), `id`(indonesian), `is`(icelandic), `it`(italian), `ja`(japanese),
+`jw`(javanese), `ka`(georgian), `kk`(kazakh), `km`(khmer), `kn`(kannada), `ko`(korean), `la`(latin),
+`lb`(luxembourgish), `ln`(lingala), `lo`(lao), `lt`(lithuanian), `lv`(latvian), `mg`(malagasy), `mi`(maori),
+`mk`(macedonian), `ml`(malayalam), `mn`(mongolian), `mr`(marathi), `ms`(malay), `mt`(maltese), `my`(myanmar),
+`ne`(nepali), `nl`(dutch), `nn`(nynorsk), `no`(norwegian), `oc`(occitan), `pa`(punjabi), `pl`(polish),
+`ps`(pashto), `pt`(portuguese), `ro`(romanian), `ru`(russian), `sa`(sanskrit), `sd`(sindhi), `si`(sinhala),
+`sk`(slovak), `sl`(slovenian), `sn`(shona), `so`(somali), `sq`(albanian), `sr`(serbian), `su`(sundanese),
+`sv`(swedish), `sw`(swahili), `ta`(tamil), `te`(telugu), `tg`(tajik), `th`(thai), `tk`(turkmen), `tl`(tagalog),
+`tr`(turkish), `tt`(tatar), `uk`(ukrainian), `ur`(urdu), `uz`(uzbek), `vi`(vietnamese), `yi`(yiddish),
+`yo`(yoruba), `zh`(chinese).
+
+Model `large-v3` and recent models derived from it also supports `yue`(cantonese).
 
 #### SERVING_MODE
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
@@ -294,6 +302,7 @@ Transcription API
 * Method: POST
 * Response content: text/plain or application/json
 * File: An Wave file 16b 16Khz
+* Language (optional): Override environment variable `LANGUAGE`
 
 Return the transcripted text using "text/plain" or a json object when using "application/json" structure as followed:
 ```json
@@ -317,7 +326,7 @@ Return the transcripted text using "text/plain" or a json object when using "app
 The /streaming route is accessible if the ENABLE_STREAMING environment variable is set to true.
 
 The route accepts websocket connexions. Exchanges are structured as followed:
-1. Client send a json {"config": {"sample_rate":16000}}.
+1. Client send a json {"config": {"sample_rate":16000, "language":"en"}}. Language is optional, if not specified it will use the language from the env.
 2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
 3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
 4. Back to 2-
