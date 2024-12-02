@@ -47,7 +47,7 @@ def generate_whisper_test_setups(
 @ddt
 class WhisperTestRunner(TestRunner):
 
-    @idata(generate_whisper_test_setups(device="cpu"))
+    @idata(generate_whisper_test_setups(device="cpu", vads=["false", "auditok", "silero"]))
     def test_04_integration_cpu(self, setup):
         dockerfile, serving, env_variables = setup
         copy_env_file("whisper/.envdefault", env_variables)
