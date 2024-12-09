@@ -29,14 +29,18 @@ async def _linstt_streaming(
         stream = open("tmp.wav", "rb")
     text = ""
     partial = None
+    duration = 0
     async with websockets.connect(ws_api) as websocket:
         if language is not None:
             config = {"config" : {"sample_rate": 16000, "language": language}}
         else: 
             config = {"config" : {"sample_rate": 16000}}
         await websocket.send(json.dumps(config))
+        last_text_partial = None
+        stream_duration = 1
         while True:
-            data = stream.read(2*2*16000)
+            data = stream.read(stream_duration*2*16000)
+            duration += stream_duration
             if audio_file and not data:
                 if verbose > 1:
                     print("\nAudio file finished")
@@ -51,11 +55,13 @@ async def _linstt_streaming(
             if "partial" in message.keys():
                 partial = message["partial"]
                 if partial and verbose:
-                    print_partial(partial)
+                    print_streaming(partial, partial=True, last_partial=last_text_partial)
+                    last_text_partial = partial
             elif "text" in message.keys():
                 line = message["text"]
                 if line and verbose:
-                    print_final(line)
+                    print_streaming(line, partial=False, last_partial=last_text_partial) 
+                last_text_partial = None
                 if line:
                     if text:
                         text += "\n"
@@ -75,30 +81,24 @@ async def _linstt_streaming(
             text += " "
         text += message["text"]
     if verbose:
-        print_final("= FULL TRANSCRIPTION ", background="=")
+        terminal_size = shutil.get_terminal_size()
+        width = terminal_size.columns
+        print()
+        print(" FULL TRANSCRIPTION ".center(width, "-"))
         print(text)
     if audio_file is not None:
         os.remove("tmp.wav")
     return text
     
-def print_partial(text):
-    text = text + "…"
+def print_streaming(text, partial=True, last_partial=None):
+    if partial:
+        text = text + "…"
     terminal_size = shutil.get_terminal_size()
     width = terminal_size.columns
-    start = ((len(text) - 1)// width) * width
-    if start > 0:
-        print(" "*width, end="\r")
-        if start < len(text) - 1:
-            print("…"+text[start+1:]+" "*(width-len(text)-start-1), end="\r")
-        else:
-            print(text[-width:], end="\r")
-    else:
-        print(text, end="\r")
-
-def print_final(text, background=" "):
-    terminal_size = shutil.get_terminal_size()
-    width = terminal_size.columns
-    print(background * width, end="\r")
+    if last_partial is not None:
+        number_of_lines = ((len(last_partial)+1)//width)+1
+        for i in range(number_of_lines):
+            print("\033[F\033[K", end="")
     print(text)
     
 if __name__ == "__main__":
