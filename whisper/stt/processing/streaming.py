@@ -14,6 +14,9 @@ from stt import (
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
 from .utils import get_language
+import logging
+logger = logging.getLogger("__streaming__")
+logger.setLevel(logging.INFO)
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
 
@@ -96,7 +99,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
 
 def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     """Sync Decode function endpoint"""
-    res = websocket_server.receive(timeout=30)
+    res = websocket_server.receive(timeout=None)
     try:
         config = json.loads(res)["config"]
         logger.info(f"Received config: {config}")
@@ -121,7 +124,7 @@ def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
     logger.info("Starting transcription ...")
     while True:
         try:
-            message = websocket_server.receive(timeout=120)
+            message = websocket_server.receive(timeout=None)
             if not message:  # Timeout
                 logger.info(f"Connection closed by client: {message}")
                 websocket_server.close()
