@@ -58,20 +58,20 @@ def get_language(language = None):
     language_fields = language.split("-")
     if len(language_fields) == 2:
         language = language_fields[0]
-    language = language.lower()
     # "*" means "all languages"
     if language == "*":
         language = None
     # Convert French -> fr
     if isinstance(language, str) and language not in LANGUAGES:
-        language = {v: k for k, v in LANGUAGES.items()}.get(language)
+        candidate_language = {v: k for k, v in LANGUAGES.items()}.get(language.lower())
         # Raise an exception for unknown languages
-        if language not in LANGUAGES:
+        if candidate_language not in LANGUAGES:
             available_languages = [f"{k}({v})" for k, v in LANGUAGES.items()]
             available_languages.append("*")
             raise ValueError(
                 f"Language '{language}' is not available. Available languages are: {available_languages}"
             )
+        language = candidate_language
     return language
 
 
@@ -222,4 +222,5 @@ LANGUAGES = {  # whisper.tokenizer.LANGUAGES
     "ba": "bashkir",
     "jw": "javanese",
     "su": "sundanese",
+    "yue": "cantonese",
 }
