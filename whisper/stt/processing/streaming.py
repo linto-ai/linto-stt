@@ -2,7 +2,11 @@ import json
 import sys
 import string
 import numpy as np
+import logging
+import asyncio
 import re
+
+from concurrent.futures import ThreadPoolExecutor
 from .vad import remove_non_speech
 from stt import (
    logger,
@@ -14,7 +18,7 @@ from stt import (
 from websockets.legacy.server import WebSocketServerProtocol
 from simple_websocket.ws import Server as WSServer
 from .utils import get_language
-import logging
+
 logger = logging.getLogger("__streaming__")
 logger.setLevel(logging.INFO)
 
@@ -64,37 +68,60 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
     )
     logger.info("Starting transcription ...")
+    executor = ThreadPoolExecutor()
+    current_task = None  # Stocke la tâche en cours
+    received_chunk_size = None
+    pile = []
+    TIMEOUT_FOR_SILENCE = 1.5 # will consider that silence is detected if no audio is received for the duration of the paquet * this varible
     while True:
         try:
-            message = await ws.recv()
-            if not message:  # Timeout
-                logger.info(f"Connection closed by client: {message}")
-                ws.close()
-        except Exception as e:
-            logger.info(f"Connection closed by client: {e}")
-            break
+            message = await asyncio.wait_for(ws.recv(), timeout=received_chunk_size*TIMEOUT_FOR_SILENCE)
+        except asyncio.TimeoutError:
+            message = None
+        pile.append(message)
         if (isinstance(message, str) and re.match(EOF_REGEX, message)):
+            final = []
+            if current_task:
+                o, _ = await current_task
+                final.append(o)
             logger.debug(f"End of stream '{message}'")
             o, _ = online.process_iter()    # make a last prediction in case chunk was too small
+            final.append(o)
             logger.debug(f"Last committed text: {o}")
             b = online.finish()
+            final.append(b)
             logger.debug(f"Last buffered text: {o}")
-            await ws.send(whisper_to_json([o, b]))
+            await ws.send(whisper_to_json(final))
             await ws.close()
             break
-        audio_chunk = bytes_to_array(message)
-        online.insert_audio_chunk(audio_chunk)
+        if message is None:
+            silence_chunk = np.zeros(int(sample_rate * received_chunk_size* 1), dtype=np.float32)
+            off = online.buffer_time_offset
+            dur = len(online.audio_buffer)/online.sampling_rate
+            online.insert_audio_chunk(silence_chunk)
+            print(f"Silence chunk inserted ({(len(silence_chunk)/online.sampling_rate):.2f}s) at {off:.2f} for {dur:.2f} (now {(len(online.audio_buffer)/online.sampling_rate):.2f})")
+        else:
+            audio_chunk = bytes_to_array(message)
+            if received_chunk_size is None:
+                received_chunk_size = len(audio_chunk)/sample_rate
+            online.insert_audio_chunk(audio_chunk)
         if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
-            logger.debug(f"Transcribing, {online.get_buffer_size()}>={STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate})")
-            o, p = online.process_iter()
-            logger.debug(o)
-            if o[0] is not None:
-                await ws.send(whisper_to_json(o))
+            if current_task and not current_task.done():
+                continue
             else:
-                await ws.send(whisper_to_json(p, partial=True))
+                # Récupérez le résultat précédent s'il est terminé
+                if current_task:
+                    o, p = await current_task
+                    if o[0] is not None:
+                        await ws.send(whisper_to_json(o))
+                    else:
+                        await ws.send(whisper_to_json(p, partial=True))
+                if len(pile)>0:
+                    print(f"Launching new task t={(len(online.audio_buffer)/online.sampling_rate)+online.buffer_time_offset:.2f}s")
+                    current_task = asyncio.get_event_loop().run_in_executor(executor, online.process_iter)
+                    pile.pop(0)
         else:
             logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
-            await ws.send(whisper_to_json((None, None, "")))
 
 
 def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
@@ -168,13 +195,17 @@ class HypothesisBuffer:
 
         self.logfile = logfile
 
-    def insert(self, new, offset):
+    def insert(self, new, offset, audio_buffer_duration):
         # compare self.commited_in_buffer and new. It inserts only the words in new that extend the commited_in_buffer, it means they are roughly behind last_commited_time and new in content
         # the new tail is added to self.new
-
+        max_timestamp_possible = offset + audio_buffer_duration + 0.1
         new = [(a + offset, b + offset, t) for a, b, t in new]
+        for a, b, t in new:
+            if a>max_timestamp_possible:
+                print(f"Skipping {t} at {a:.2f} because it is too far in the future")
+                break
+        new = [(a, b, t) for a, b, t in new if a<max_timestamp_possible]
         self.new = [(a, b, t) for a, b, t in new if a > self.last_commited_time - 0.1]
-
         if len(self.new) >= 1:
             a, b, t = self.new[0]
             if abs(a - self.last_commited_time) < 1:
@@ -209,11 +240,10 @@ class HypothesisBuffer:
             else:
                 break
         self.buffer = self.new
-        new_non_commit = [i for i in self.buffer if i[1] > self.last_buffered_time - 0.1]
-        self.last_buffered_time = self.buffer[-1][1] if self.buffer else -1
         self.new = []
         self.commited_in_buffer.extend(commit)
-        return commit, new_non_commit
+        self
+        return commit, self.buffer
 
     def pop_commited(self, time):
         while self.commited_in_buffer and self.commited_in_buffer[0][1] <= time:
@@ -266,6 +296,7 @@ class OnlineASRProcessor:
         self.last_chunked_at = 0
 
         self.silence_iters = 0
+        self.buffered_final = []
 
     def insert_audio_chunk(self, audio):
         self.audio_buffer = np.append(self.audio_buffer, audio)
@@ -297,7 +328,7 @@ class OnlineASRProcessor:
     def process_iter(self):
         """Runs on the current audio buffer.
         Returns: a tuple (beg_timestamp, end_timestamp, "text"), or (None, None, "").
-        The non-emty text is confirmed (committed) partial transcript.
+        The non-empty text is confirmed (committed) partial transcript.
         """
         prompt, non_prompt = self.prompt()
         logger.debug(
@@ -321,17 +352,13 @@ class OnlineASRProcessor:
             res = self.asr.transcribe(self.audio_buffer, init_prompt=prompt)
         # transform to [(beg,end,"word1"), ...]
         tsw = self.asr.ts_words(res, convertion_function if self.vad else None)
-        self.transcript_buffer.insert(tsw, self.buffer_time_offset)
+        self.transcript_buffer.insert(tsw, self.buffer_time_offset, len(self.audio_buffer)/self.sampling_rate)
         o, buffer = self.transcript_buffer.flush()
-        self.commited.extend(o)
-        if (buffer and (self.buffer_time_offset + len(self.audio_buffer) / self.sampling_rate)- buffer[-1][1]< 0.05):
+        self.commited.extend(o)         # contains all text that is commited
+        self.buffered_final.extend(o)   # contains text for final
+        if (buffer and (self.buffer_time_offset + len(self.audio_buffer) / self.sampling_rate) - buffer[-1][1]< 0.05):
             # remove the last word if it is too close to the end of the buffer
             buffer.pop(-1)
-        # logger.debug(f"New committed text:{self.to_flush(o)}")
-        # logger.debug(
-        #     f"Buffered text:{self.to_flush(self.transcript_buffer.complete())}"
-        # )
-
         if len(self.audio_buffer) / self.sampling_rate > self.buffer_trimming_sec:
             self.chunk_completed_segment(
                 res,
@@ -342,7 +369,32 @@ class OnlineASRProcessor:
         logger.debug(
             f"Len of buffer now: {len(self.audio_buffer)/self.sampling_rate:2.2f}s"
         )
-        return self.to_flush(o), self.to_flush(buffer)
+        final = (None, None, "")
+        
+        if len(self.buffered_final)>0 and self.buffered_final[-1][2][-1] in string.punctuation:
+            end_word = self.buffered_final[-1][1]
+        else:
+            end_word = None
+        if len(buffer)==0:
+            buffer_end_audio_timestamp = (len(self.audio_buffer)/self.sampling_rate)+self.buffer_time_offset
+        elif len(buffer)<=3:
+            buffer_end_audio_timestamp = buffer[0][1]
+        else:
+            buffer_end_audio_timestamp = None
+        if end_word and buffer_end_audio_timestamp and end_word+1 < buffer_end_audio_timestamp :
+            f = []
+            for i in self.buffered_final:
+                if i[1]>end_word:
+                    break
+                f.append(i)
+            if f:
+                final = self.to_flush(f)
+                self.buffered_final = self.buffered_final[len(f):]
+        partial = self.buffered_final.copy()
+        partial.extend(buffer)
+        return final, self.to_flush(partial)
+        
+        
 
     def chunk_completed_segment(self, res, chunk_silence=False, speech_segments=None):
         # if self.commited == [] and not chunk_silence:
@@ -418,7 +470,10 @@ class OnlineASRProcessor:
         Returns: the same format as self.process_iter()
         """
         o = self.transcript_buffer.complete()
-        f = self.to_flush(o)
+        
+        self.buffered_final.extend(o)
+        f = self.to_flush(self.buffered_final)
+        
         logger.debug(f"last, noncommited:{f}")
         return f
 
