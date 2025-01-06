@@ -23,6 +23,8 @@ logger = logging.getLogger("__streaming__")
 logger.setLevel(logging.INFO)
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
+TIMEOUT_FOR_SILENCE = 1.5 # will consider that silence is detected if no audio is received for the duration of the paquet * this variable
+PAUSE_FOR_FINAL = 1.5
 
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
@@ -65,17 +67,18 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         asr = WhisperTimestampedASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
     online = OnlineASRProcessor(
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
-            dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
+            dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION,
+            pause_for_final=PAUSE_FOR_FINAL
     )
     logger.info("Starting transcription ...")
     executor = ThreadPoolExecutor()
     current_task = None  # Stocke la tâche en cours
     received_chunk_size = None
     pile = []
-    TIMEOUT_FOR_SILENCE = 1.5 # will consider that silence is detected if no audio is received for the duration of the paquet * this varible
+    timeout = None
     while True:
         try:
-            message = await asyncio.wait_for(ws.recv(), timeout=received_chunk_size*TIMEOUT_FOR_SILENCE)
+            message = await asyncio.wait_for(ws.recv(), timeout=timeout)
         except asyncio.TimeoutError:
             message = None
         pile.append(message)
@@ -99,11 +102,12 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             off = online.buffer_time_offset
             dur = len(online.audio_buffer)/online.sampling_rate
             online.insert_audio_chunk(silence_chunk)
-            print(f"Silence chunk inserted ({(len(silence_chunk)/online.sampling_rate):.2f}s) at {off:.2f} for {dur:.2f} (now {(len(online.audio_buffer)/online.sampling_rate):.2f})")
+            logger.debug(f"Silence chunk inserted ({(len(silence_chunk)/online.sampling_rate):.2f}s) at {off:.2f} for {dur:.2f} (now {(len(online.audio_buffer)/online.sampling_rate):.2f})")
         else:
             audio_chunk = bytes_to_array(message)
             if received_chunk_size is None:
                 received_chunk_size = len(audio_chunk)/sample_rate
+                timeout = received_chunk_size * TIMEOUT_FOR_SILENCE
             online.insert_audio_chunk(audio_chunk)
         if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
             if current_task and not current_task.done():
@@ -117,69 +121,11 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                     else:
                         await ws.send(whisper_to_json(p, partial=True))
                 if len(pile)>0:
-                    print(f"Launching new task t={(len(online.audio_buffer)/online.sampling_rate)+online.buffer_time_offset:.2f}s")
+                    logger.debug(f"Launching new task t={(len(online.audio_buffer)/online.sampling_rate)+online.buffer_time_offset:.2f}s")
                     current_task = asyncio.get_event_loop().run_in_executor(executor, online.process_iter)
                     pile.pop(0)
         else:
             logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
-
-
-def ws_streaming(websocket_server: WSServer, model_and_alignementmodel):
-    """Sync Decode function endpoint"""
-    res = websocket_server.receive(timeout=None)
-    try:
-        config = json.loads(res)["config"]
-        logger.info(f"Received config: {config}")
-        sample_rate = config["sample_rate"]
-        if sample_rate != 16000:
-            raise NotImplementedError("Only 16000 sample rate is supported for the model. Please resample the audio.")
-    except Exception as e:
-        logger.error("Failed to read stream configuration")
-        websocket_server.close()
-    model, _ = model_and_alignementmodel
-    language = get_language(config.get("language"))
-    if USE_CTRANSLATE2:
-        logger.info("Using ctranslate2 for decoding")
-        asr = FasterWhisperASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
-    else:
-        logger.info("Using whisper_timestamped for decoding")
-        asr = WhisperTimestampedASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
-    online = OnlineASRProcessor(
-        asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
-            dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION
-    )
-    logger.info("Starting transcription ...")
-    while True:
-        try:
-            message = websocket_server.receive(timeout=None)
-            if not message:  # Timeout
-                logger.info(f"Connection closed by client: {message}")
-                websocket_server.close()
-        except Exception as e:
-            logger.info(f"Connection closed by client: {e}")
-            break
-        if (isinstance(message, str) and re.match(EOF_REGEX, message)):
-            logger.debug(f"End of stream '{message}'")
-            o, _ = online.process_iter()    # make a last prediction in case chunk was too small
-            logger.debug(f"Last committed text: {o}")
-            b = online.finish()
-            logger.debug(f"Last buffered text: {o}")
-            websocket_server.send(whisper_to_json([o, b]))
-            websocket_server.close()
-            break
-        audio_chunk = bytes_to_array(message)
-        online.insert_audio_chunk(audio_chunk)
-        if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
-            logger.debug(f"Transcribing, {online.get_buffer_size()}>={STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate})")
-            o, p = online.process_iter()
-            logger.info(o)
-            if o[0] is not None:
-                websocket_server.send(whisper_to_json(o))
-            else:
-                websocket_server.send(whisper_to_json(p, partial=True))
-        else:
-            logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
-            websocket_server.send(whisper_to_json((None, None, "")))
 
 
 class HypothesisBuffer:
@@ -259,6 +205,7 @@ class OnlineASRProcessor:
         self,
         asr,
         buffer_trimming=15,
+        pause_for_final=1.5,
         buffer_trimming_words=None,
         vad="auditok",
         logfile=sys.stderr,
@@ -267,11 +214,8 @@ class OnlineASRProcessor:
         min_silence_duration=0.1,
         dilatation=0.5,
     ):
-        """asr: WhisperASR object
-        tokenizer: sentence tokenizer object for the target language. Must have a method *split* that behaves like the one of MosesTokenizer. It can be None, if "segment" buffer trimming option is used, then tokenizer is not used at all.
-        ("segment", 15)
-        buffer_trimming: a pair of (option, seconds), where option is either "sentence" or "segment", and seconds is a number. Buffer is trimmed if it is longer than "seconds" threshold. Default is the most recommended option.
-        logfile: where to store the log.
+        """
+        asr: WhisperASR object
         """
         self.asr = asr
         self.logfile = logfile
@@ -280,6 +224,7 @@ class OnlineASRProcessor:
 
         self.buffer_trimming_sec = buffer_trimming
         self.buffer_trimming_words = buffer_trimming_words
+        self.pause_for_final = pause_for_final
         self.vad = vad
         self.vad_dilatation = dilatation
         self.vad_min_speech_duration = min_speech_duration
@@ -381,7 +326,7 @@ class OnlineASRProcessor:
             buffer_end_audio_timestamp = buffer[0][1]
         else:
             buffer_end_audio_timestamp = None
-        if end_word and buffer_end_audio_timestamp and end_word+1 < buffer_end_audio_timestamp :
+        if end_word and buffer_end_audio_timestamp and end_word+self.pause_for_final < buffer_end_audio_timestamp :
             f = []
             for i in self.buffered_final:
                 if i[1]>end_word:
