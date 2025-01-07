@@ -13,6 +13,7 @@ from stt import (
    USE_CTRANSLATE2,
    VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION,
    STREAMING_BUFFER_TRIMMING_SEC, STREAMING_MIN_CHUNK_SIZE,
+   STREAMING_PAUSE_FOR_FINAL, STREAMING_TIMEOUT_FOR_SILENCE,
    DEFAULT_TEMPERATURE, DEFAULT_BEST_OF, DEFAULT_BEAM_SIZE
 )
 from websockets.legacy.server import WebSocketServerProtocol
@@ -23,8 +24,6 @@ logger = logging.getLogger("__streaming__")
 logger.setLevel(logging.INFO)
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
-TIMEOUT_FOR_SILENCE = 1.5 # will consider that silence is detected if no audio is received for the duration of the paquet * this variable
-PAUSE_FOR_FINAL = 1.5
 
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
@@ -73,7 +72,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     online = OnlineASRProcessor(
         asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
             dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION,
-            pause_for_final=PAUSE_FOR_FINAL
+            pause_for_final=STREAMING_PAUSE_FOR_FINAL
     )
     logger.info("Starting transcription ...")
     executor = ThreadPoolExecutor()
@@ -112,7 +111,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             audio_chunk = bytes_to_array(message)
             if received_chunk_size is None:
                 received_chunk_size = len(audio_chunk)/sample_rate
-                timeout = received_chunk_size * TIMEOUT_FOR_SILENCE
+                timeout = received_chunk_size * STREAMING_TIMEOUT_FOR_SILENCE
             online.insert_audio_chunk(audio_chunk)
         if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
             if current_task and not current_task.done():

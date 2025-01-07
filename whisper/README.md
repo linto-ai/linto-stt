@@ -133,11 +133,13 @@ An example of .env file is provided in [whisper/.envdefault](https://github.com/
 | VAD_DILATATION | How much (in sec) to enlarge each speech segment detected by the VAD. If not specified, the default is auditok 0.5 | `0.1` \| `0.5` \| ...
 | VAD_MIN_SPEECH_DURATION | Minimum duration (in sec) of a speech segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
 | VAD_MIN_SILENCE_DURATION | Minimum duration (in sec) of a silence segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
-| ENABLE_STREAMING | (For the http mode) Legacy, it redirects to websocket mode if enabled | `true\|false` |
+| ENABLE_STREAMING | (For the http mode) Legacy, it redirects to websocket mode if enabled | `true` \| `false` |
 | USE_ACCURATE | Use more expensive parameters for better transcriptions (but slower). If not specified, the default is true |  `true` \| `false` \| `1` \| `0` |
-| STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. | `80` |
+| STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. If not specified, the default is 80 | `80` |
 | STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing. If not specified, the default is 0.5 | `0.5` \| `26` \| ... |
 | STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made. If not specified, the default is 8 | `8` \| `10` \| ... |
+| STREAMING_PAUSE_FOR_FINAL | The minimum duration of silence (in seconds) needed to be able to output a final. If not specified, the default is 1.5 | `0.5` \| `2` \| ... |
+| STREAMING_TIMEOUT_FOR_SILENCE | If VAD is applied locally before sending data to the server, this will allow the server to find the silence. The `packet duration` is determined from the first packet. If a packet is not received during `packet duration * STREAMING_TIMEOUT_FOR_SILENCE` it considers that a silence (lasting the packet duration) is present. Value should be between 1 and 2. If not specified, the default is 1.5 | `1.8` \| ... |
 | SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
 | SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
