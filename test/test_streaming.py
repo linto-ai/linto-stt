@@ -65,7 +65,7 @@ async def _linstt_streaming(
 ):
     if verbose:
         logger.setLevel(logging.DEBUG)
-    stream_config = stream_config = {"language": language, "sample_rate": 16000, "vad": apply_vad, "stream_duration": 0.5, "stream_wait": 0.5}
+    stream_config = {"language": language, "sample_rate": 16000, "vad": apply_vad, "stream_duration": 0.5, "stream_wait": 0.5}
     if audio_file is None:
         import pyaudio
         # Init pyaudio
