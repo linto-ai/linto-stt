@@ -14,6 +14,7 @@ RUN apt-get update && \
         g++ \
         make \
         cmake \
+        curl \
         git \
         zlib1g-dev \
         automake \
