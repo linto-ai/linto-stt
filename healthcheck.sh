@@ -11,6 +11,12 @@ else
         # GPU is being utilized, assuming healthy
         exit 0
     else
-        celery --app=celery_app.celeryapp inspect ping -d ${SERVICE_NAME}_worker@$HOSTNAME || exit 1
+        if [ "$SERVICE_MODE" = "websocket" ]
+        then
+            python3 websocket/healthcheck.py ${STREAMING_PORT:=80} || exit 1
+            exit 0
+        else
+            celery --app=celery_app.celeryapp inspect ping -d ${SERVICE_NAME}_worker@$HOSTNAME || exit 1
+        fi
     fi
 fi

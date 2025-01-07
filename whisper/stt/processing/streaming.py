@@ -16,7 +16,7 @@ from stt import (
    DEFAULT_TEMPERATURE, DEFAULT_BEST_OF, DEFAULT_BEAM_SIZE
 )
 from websockets.legacy.server import WebSocketServerProtocol
-from simple_websocket.ws import Server as WSServer
+from websockets.exceptions import ConnectionClosedOK
 from .utils import get_language
 
 logger = logging.getLogger("__streaming__")
@@ -49,7 +49,12 @@ def whisper_to_json(o, partial=False):
 
 async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     """Async Decode function endpoint"""
-    res = await ws.recv()
+    try:
+        res = await ws.recv()
+    except ConnectionClosedOK as e:
+        logger.debug(f"Connection closed: {e}")
+        await ws.close()
+        return
     try:
         config = json.loads(res)["config"]
         sample_rate = config["sample_rate"]
