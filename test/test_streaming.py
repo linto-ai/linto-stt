@@ -38,14 +38,13 @@ async def send_data(websocket, stream, logger, stream_config):
                     logger.debug(f"Full silence for chunk: {duration - stream_config['stream_duration']:.1f}s --> {duration:.1f}s")
                     await asyncio.sleep(stream_config['stream_wait'])
                     continue
-
             await websocket.send(data)
             logger.debug(f"Sent audio chunk: {duration - stream_config['stream_duration']:.1f}s --> {duration:.1f}s")
             await asyncio.sleep(stream_config['stream_wait'])
 
-    except asyncio.CancelledError:
+    except asyncio.CancelledError:  # handle server errors and ctrl+c...
         logger.debug("Data sending task cancelled.")
-    except Exception as e:
+    except Exception as e:          # handle data loading errors
         logger.error(f"Error in data sending: {e}")
     logger.debug(f"Waiting before sending EOF")
     await asyncio.sleep(5)
@@ -68,7 +67,6 @@ async def _linstt_streaming(
     stream_config = {"language": language, "sample_rate": 16000, "vad": apply_vad, "stream_duration": 0.5, "stream_wait": 0.5}
     if audio_file is None:
         import pyaudio
-        # Init pyaudio
         audio = pyaudio.PyAudio()
         stream = audio.open(format=pyaudio.paInt16, channels=1, rate=stream_config['sample_rate'], input=True, frames_per_buffer=2048)
         logger.debug("Start recording")
@@ -114,10 +112,14 @@ async def _linstt_streaming(
                     logger.debug(f'Partial (after {duration:.1f}s): "{partial}"')
                 elif verbose:
                     logger.debug(f"??? {message}")
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # handle ctrl+c...
             logger.debug("Message processing thread stopped as websocket was closed.")
         except websockets.exceptions.ConnectionClosedOK:
             logger.debug("Websocket closed")
+        except websockets.exceptions.ConnectionClosedError as e:
+            logger.error(f"Websocket closed with error: {e}")
+        finally:
+            await websocket.close()
     if verbose:
         terminal_size = shutil.get_terminal_size()
         width = terminal_size.columns
