@@ -76,10 +76,10 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     )
     logger.info("Starting transcription ...")
     executor = ThreadPoolExecutor()
-    current_task = None  # Stocke la tâche en cours
+    current_task = None
     received_chunk_size = None
     pile = []
-    timeout = None
+    timeout = None  # it will be computed after the first chunk is received, it is for finding silence in the input stream
     while True:
         try:
             message = await asyncio.wait_for(ws.recv(), timeout=timeout)
@@ -88,7 +88,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         pile.append(message)
         if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             final = []
-            if current_task:
+            if current_task:    # wait for the last asynchronous prediction to finish
                 o, _ = await current_task
                 final.append(o)
             logger.debug(f"End of stream '{message}'")
@@ -117,14 +117,13 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             if current_task and not current_task.done():
                 continue
             else:
-                # Récupérez le résultat précédent s'il est terminé
-                if current_task:
+                if current_task:    # if the task is done, get the result
                     o, p = await current_task
                     if o[0] is not None:
                         await ws.send(whisper_to_json(o))
                     else:
                         await ws.send(whisper_to_json(p, partial=True))
-                if len(pile)>0:
+                if len(pile)>0:     # if there are messages in the pile, launch a new transcription task
                     logger.debug(f"Launching new task t={(len(online.audio_buffer)/online.sampling_rate)+online.buffer_time_offset:.2f}s")
                     current_task = asyncio.get_event_loop().run_in_executor(executor, online.process_iter)
                     pile.pop(0)
@@ -150,9 +149,9 @@ class HypothesisBuffer:
         # the new tail is added to self.new
         max_timestamp_possible = offset + audio_buffer_duration + 0.1
         new = [(a + offset, b + offset, t) for a, b, t in new]
-        for a, b, t in new:
-            if a>max_timestamp_possible:
-                print(f"Skipping {t} at {a:.2f} because it is too far in the future")
+        for a, b, t in new:     # Only for showing the debug messages
+            if a>=max_timestamp_possible:
+                logger.info(f"Skipping {t} at {a:.2f} because it is too far in the future")
                 break
         new = [(a, b, t) for a, b, t in new if a<max_timestamp_possible]
         self.new = [(a, b, t) for a, b, t in new if a > self.last_commited_time - 0.1]
@@ -192,7 +191,6 @@ class HypothesisBuffer:
         self.buffer = self.new
         self.new = []
         self.commited_in_buffer.extend(commit)
-        self
         return commit, self.buffer
 
     def pop_commited(self, time):
@@ -318,19 +316,23 @@ class OnlineASRProcessor:
         logger.debug(
             f"Len of buffer now: {len(self.audio_buffer)/self.sampling_rate:2.2f}s"
         )
+
         final = (None, None, "")
-        
+        # if last word of commited text is a punctuation, it should be the end of the final if other conditions are met
         if len(self.buffered_final)>0 and self.buffered_final[-1][2][-1] in string.punctuation:
             end_word = self.buffered_final[-1][1]
         else:
             end_word = None
+        # if there are no words in the buffer (all words are committed), a final should be output
         if len(buffer)==0:
             buffer_end_audio_timestamp = (len(self.audio_buffer)/self.sampling_rate)+self.buffer_time_offset
+        # if there are only a few words in the buffer, a final should be output with the text before the buffer
         elif len(buffer)<=3:
             buffer_end_audio_timestamp = buffer[0][1]
         else:
             buffer_end_audio_timestamp = None
         if end_word and buffer_end_audio_timestamp and end_word+self.pause_for_final < buffer_end_audio_timestamp :
+            # assemble the final
             f = []
             for i in self.buffered_final:
                 if i[1]>end_word:
