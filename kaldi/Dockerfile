@@ -15,6 +15,7 @@ RUN apt-get update && \
         make \
         cmake \
         curl \
+        netcat-traditional \
         git \
         zlib1g-dev \
         automake \
