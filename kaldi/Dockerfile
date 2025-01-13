@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.8
 LABEL maintainer="contact@linto.ai, jlouradour@linagora.com, dgaynullin@linagora.com"
 
 ARG KALDI_MKL
