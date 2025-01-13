@@ -17,7 +17,7 @@ from stt import (
    DEFAULT_TEMPERATURE, DEFAULT_BEST_OF, DEFAULT_BEAM_SIZE
 )
 from websockets.legacy.server import WebSocketServerProtocol
-from websockets.exceptions import ConnectionClosedOK
+from websockets.exceptions import ConnectionClosed
 from .utils import get_language
 
 logger = logging.getLogger("__streaming__")
@@ -50,85 +50,83 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
     """Async Decode function endpoint"""
     try:
         res = await ws.recv()
-    except ConnectionClosedOK as e:
-        logger.debug(f"Connection closed: {e}")
-        await ws.close()
-        return
-    try:
-        config = json.loads(res)["config"]
-        sample_rate = config["sample_rate"]
-        logger.info(f"Received config: {config}")
-    except Exception as e:
-        logger.error("Failed to read stream configuration")
-        await ws.close(reason="Failed to load configuration")
-    model, _ = model_and_alignementmodel
-    language = get_language(config.get("language"))
-    if USE_CTRANSLATE2:
-        logger.info("Using ctranslate2 for decoding")
-        asr = FasterWhisperASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
-    else:
-        logger.info("Using whisper_timestamped for decoding")
-        asr = WhisperTimestampedASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
-    online = OnlineASRProcessor(
-        asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
-            dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION,
-            pause_for_final=STREAMING_PAUSE_FOR_FINAL
-    )
-    logger.info("Starting transcription ...")
-    executor = ThreadPoolExecutor()
-    current_task = None
-    received_chunk_size = None
-    pile = []
-    timeout = None  # it will be computed after the first chunk is received, it is for finding silence in the input stream
-    while True:
         try:
-            message = await asyncio.wait_for(ws.recv(), timeout=timeout)
-        except asyncio.TimeoutError:
-            message = None
-        pile.append(message)
-        if (isinstance(message, str) and re.match(EOF_REGEX, message)):
-            final = []
-            if current_task:    # wait for the last asynchronous prediction to finish
-                o, _ = await current_task
+            config = json.loads(res)["config"]
+            sample_rate = config["sample_rate"]
+            logger.info(f"Received config: {config}")
+        except Exception as e:
+            logger.error(f"Failed to read stream configuration {e}")
+            await ws.close(reason="Failed to load configuration")
+        model, _ = model_and_alignementmodel
+        language = get_language(config.get("language"))
+        if USE_CTRANSLATE2:
+            logger.info("Using ctranslate2 for decoding")
+            asr = FasterWhisperASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
+        else:
+            logger.info("Using whisper_timestamped for decoding")
+            asr = WhisperTimestampedASR(model=model, lan=language, beam_size=DEFAULT_BEAM_SIZE, best_of=DEFAULT_BEST_OF, temperature=DEFAULT_TEMPERATURE)
+        online = OnlineASRProcessor(
+            asr, logfile=sys.stderr, buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, vad=VAD, sample_rate=sample_rate, \
+                dilatation=VAD_DILATATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, min_silence_duration=VAD_MIN_SILENCE_DURATION,
+                pause_for_final=STREAMING_PAUSE_FOR_FINAL
+        )
+        logger.info("Starting transcription ...")
+        executor = ThreadPoolExecutor()
+        current_task = None
+        received_chunk_size = None
+        pile = []
+        timeout = None  # it will be computed after the first chunk is received, it is for finding silence in the input stream
+        while True:
+            try:
+                message = await asyncio.wait_for(ws.recv(), timeout=timeout)
+            except asyncio.TimeoutError:
+                message = None
+            pile.append(message)
+            if (isinstance(message, str) and re.match(EOF_REGEX, message)):
+                final = []
+                if current_task:    # wait for the last asynchronous prediction to finish
+                    o, _ = await current_task
+                    final.append(o)
+                logger.debug(f"End of stream '{message}'")
+                o, _ = online.process_iter()    # make a last prediction in case chunk was too small
                 final.append(o)
-            logger.debug(f"End of stream '{message}'")
-            o, _ = online.process_iter()    # make a last prediction in case chunk was too small
-            final.append(o)
-            logger.debug(f"Last committed text: {o}")
-            b = online.finish()
-            final.append(b)
-            logger.debug(f"Last buffered text: {o}")
-            await ws.send(whisper_to_json(final))
-            await ws.close()
-            break
-        if message is None:
-            silence_chunk = np.zeros(int(sample_rate * received_chunk_size* 1), dtype=np.float32)
-            off = online.buffer_time_offset
-            dur = len(online.audio_buffer)/online.sampling_rate
-            online.insert_audio_chunk(silence_chunk)
-            logger.debug(f"Silence chunk inserted ({(len(silence_chunk)/online.sampling_rate):.2f}s) at {off:.2f} for {dur:.2f} (now {(len(online.audio_buffer)/online.sampling_rate):.2f})")
-        else:
-            audio_chunk = bytes_to_array(message)
-            if received_chunk_size is None:
-                received_chunk_size = len(audio_chunk)/sample_rate
-                timeout = received_chunk_size * STREAMING_TIMEOUT_FOR_SILENCE
-            online.insert_audio_chunk(audio_chunk)
-        if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
-            if current_task and not current_task.done():
-                continue
+                logger.debug(f"Last committed text: {o}")
+                b = online.finish()
+                final.append(b)
+                logger.debug(f"Last buffered text: {o}")
+                await ws.send(whisper_to_json(final))
+                await ws.close()
+                break
+            if message is None:
+                silence_chunk = np.zeros(int(sample_rate * received_chunk_size* 1), dtype=np.float32)
+                off = online.buffer_time_offset
+                dur = len(online.audio_buffer)/online.sampling_rate
+                online.insert_audio_chunk(silence_chunk)
+                logger.debug(f"Silence chunk inserted ({(len(silence_chunk)/online.sampling_rate):.2f}s) at {off:.2f} for {dur:.2f} (now {(len(online.audio_buffer)/online.sampling_rate):.2f})")
             else:
-                if current_task:    # if the task is done, get the result
-                    o, p = await current_task
-                    if o[0] is not None:
-                        await ws.send(whisper_to_json(o))
-                    else:
-                        await ws.send(whisper_to_json(p, partial=True))
-                if len(pile)>0:     # if there are messages in the pile, launch a new transcription task
-                    logger.debug(f"Launching new task t={(len(online.audio_buffer)/online.sampling_rate)+online.buffer_time_offset:.2f}s")
-                    current_task = asyncio.get_event_loop().run_in_executor(executor, online.process_iter)
-                    pile.pop(0)
-        else:
-            logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
+                audio_chunk = bytes_to_array(message)
+                if received_chunk_size is None:
+                    received_chunk_size = len(audio_chunk)/sample_rate
+                    timeout = received_chunk_size * STREAMING_TIMEOUT_FOR_SILENCE
+                online.insert_audio_chunk(audio_chunk)
+            if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
+                if current_task and not current_task.done():
+                    continue
+                else:
+                    if current_task:    # if the task is done, get the result
+                        o, p = await current_task
+                        if o[0] is not None:
+                            await ws.send(whisper_to_json(o))
+                        else:
+                            await ws.send(whisper_to_json(p, partial=True))
+                    if len(pile)>0:     # if there are messages in the pile, launch a new transcription task
+                        logger.debug(f"Launching new task t={(len(online.audio_buffer)/online.sampling_rate)+online.buffer_time_offset:.2f}s")
+                        current_task = asyncio.get_event_loop().run_in_executor(executor, online.process_iter)
+                        pile.pop(0)
+            else:
+                logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
+    except ConnectionClosed as e:
+        logger.info(f"Connection closed {e}")
 
 
 class HypothesisBuffer:
