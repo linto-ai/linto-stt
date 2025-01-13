@@ -1,5 +1,5 @@
 FROM python:3.8
-LABEL maintainer="contact@linto.ai, jlouradour@linagora.com, dgaynullin@linagora.com"
+LABEL maintainer="contact@linto.ai, jlouradour@linagora.com, abert@linagora.com"
 
 ARG KALDI_MKL
 
