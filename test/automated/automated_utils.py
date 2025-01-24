@@ -26,7 +26,14 @@ def parse_env_variables(env_variables):
     # make a dict
     env_variables = env_variables.split()
     env = {}
+    v_opt = False
     for env_variable in env_variables:
+        if env_variable=="-v":
+            v_opt = True
+            continue
+        if v_opt:
+            v_opt = False
+            continue   
         key, value = env_variable.split("=")
         env[key] = value
     return env

@@ -66,7 +66,7 @@ class TestRunner(unittest.TestCase):
         while elapsed_time < total_wait_time:
             try:
                 response = requests.head(server)
-                if response.status_code == 200:
+                if response.status_code == 200 or response.status_code == 400:
                     self.echo_note(f"Server: {server} is available after {elapsed_time} sec.")
                     return
             except requests.ConnectionError:
@@ -161,9 +161,11 @@ class TestRunner(unittest.TestCase):
                 cmd += f' -F "language={language}"'
             self.echo_command(cmd)
             r = self.transcribe(cmd, regex, test_file, "Error transcription", "HTTP route 'transcribe'")
+        elif serving == "websocket":
+            r=self.check_http_server_availability("http://localhost:8080", pid)
             if r:
                 return self.report_failure(r, expect_failure=expect_failure)
-            cmd = f"python3 {TESTDIR}/test_streaming.py --audio_file {test_file}"
+            cmd = f"python3 {TESTDIR}/test_streaming.py --audio_file {test_file} -v --stream_duration 1 --stream_wait 0.0"
             if language:
                 cmd += f" --language {language}"
             self.echo_command(cmd)

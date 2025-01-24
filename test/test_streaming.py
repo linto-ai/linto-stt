@@ -36,11 +36,13 @@ async def send_data(websocket, stream, logger, stream_config):
                 audio_events = list(audio_events)
                 if len(audio_events) == 0:
                     logger.debug(f"Full silence for chunk: {duration - stream_config['stream_duration']:.1f}s --> {duration:.1f}s")
-                    await asyncio.sleep(stream_config['stream_wait'])
+                    if stream_config['stream_wait']>0:
+                        await asyncio.sleep(stream_config['stream_wait'])
                     continue
             await websocket.send(data)
             logger.debug(f"Sent audio chunk: {duration - stream_config['stream_duration']:.1f}s --> {duration:.1f}s")
-            await asyncio.sleep(stream_config['stream_wait'])
+            if stream_config['stream_wait']>0:
+                await asyncio.sleep(stream_config['stream_wait'])
 
     except asyncio.CancelledError:  # handle server errors and ctrl+c...
         logger.debug("Data sending task cancelled.")
@@ -60,11 +62,13 @@ async def _linstt_streaming(
     ws_api = "ws://localhost:8080/streaming",
     verbose = False,
     language = None,
-    apply_vad = False
+    apply_vad = False,
+    stream_duration = 0.5,
+    stream_wait = 0.5
 ):
     if verbose:
         logger.setLevel(logging.DEBUG)
-    stream_config = {"language": language, "sample_rate": 16000, "vad": apply_vad, "stream_duration": 0.5, "stream_wait": 0.5}
+    stream_config = {"language": language, "sample_rate": 16000, "vad": apply_vad, "stream_duration": stream_duration, "stream_wait": stream_wait}
     if audio_file is None:
         import pyaudio
         audio = pyaudio.PyAudio()
@@ -118,6 +122,8 @@ async def _linstt_streaming(
             logger.debug("Websocket closed")
         except websockets.exceptions.ConnectionClosedError as e:
             logger.error(f"Websocket closed with error: {e}")
+        except Exception as e:
+            raise Exception(f"Error in message processing {message} {type(message)}: {e}")
         finally:
             await websocket.close()
     if verbose:
@@ -154,6 +160,8 @@ if __name__ == "__main__":
     parser.add_argument("--audio_file", default=None, help="A path to an audio file to transcribe (if not provided, use mic)")
     parser.add_argument("--language", default=None, help="Language model to use")
     parser.add_argument("--apply_vad", default=False, action="store_true", help="Apply VAD to the audio stream before sending it to the server")
+    parser.add_argument("--stream_duration", default=0.5, type=float, help="Duration of the audio stream sent to the server")
+    parser.add_argument("--stream_wait", default=0.5, type=float, help="Duration to wait between two audio stream chunks")
     args = parser.parse_args()
 
-    res = linstt_streaming(args.audio_file, args.server, verbose=args.verbose, language=args.language, apply_vad=args.apply_vad)
+    res = linstt_streaming(args.audio_file, args.server, verbose=args.verbose, language=args.language, apply_vad=args.apply_vad, stream_duration=args.stream_duration, stream_wait=args.stream_wait)
