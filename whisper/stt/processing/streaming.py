@@ -96,6 +96,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 logger.debug(f"Last buffered text: {o}")
                 await ws.send(whisper_to_json(final))
                 await ws.close()
+                logger.info("Closing connection")
                 break
             if message is None:
                 silence_chunk = np.zeros(int(sample_rate * received_chunk_size* 1), dtype=np.float32)

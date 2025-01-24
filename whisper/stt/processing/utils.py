@@ -64,7 +64,7 @@ def get_language(language = None):
         language = None
     # Convert French -> fr
     if isinstance(language, str) and language not in LANGUAGES:
-        language = {v: k for k, v in LANGUAGES.items()}.get(language)
+        language = {v: k for k, v in LANGUAGES.items()}.get(language, language)
         # Raise an exception for unknown languages
         if language not in LANGUAGES:
             available_languages = [f"{k}({v})" for k, v in LANGUAGES.items()]
