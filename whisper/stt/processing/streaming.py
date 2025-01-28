@@ -81,7 +81,8 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 message = await asyncio.wait_for(ws.recv(), timeout=timeout)
             except asyncio.TimeoutError:
                 message = None
-            pile.append(message)
+            if message and len(pile)<2:
+                pile.append(message)
             if (isinstance(message, str) and re.match(EOF_REGEX, message)):
                 final = []
                 if current_task:    # wait for the last asynchronous prediction to finish
@@ -110,12 +111,15 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                     received_chunk_size = len(audio_chunk)/sample_rate
                     timeout = received_chunk_size * STREAMING_TIMEOUT_FOR_SILENCE
                 online.insert_audio_chunk(audio_chunk)
+                logger.debug(f"Received chunk of {len(audio_chunk)/sample_rate:.2f}s")
             if online.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
                 if current_task and not current_task.done():
                     continue
                 else:
                     if current_task:    # if the task is done, get the result
                         o, p = await current_task
+                        logger.debug(f"Sending final '{o}'")
+                        logger.debug(f"Sending partial '{p}'")
                         if o[0] is not None:
                             await ws.send(whisper_to_json(o))
                         else:
@@ -150,7 +154,7 @@ class HypothesisBuffer:
         new = [(a + offset, b + offset, t) for a, b, t in new]
         for a, b, t in new:     # Only for showing the debug messages
             if a>=max_timestamp_possible:
-                logger.info(f"Skipping {t} at {a:.2f} because it is too far in the future")
+                logger.error(f"Skipping {t} at {a:.2f} because it is too far in the future (max possible is {max_timestamp_possible:.2f})")
                 break
         new = [(a, b, t) for a, b, t in new if a<max_timestamp_possible]
         self.new = [(a, b, t) for a, b, t in new if a > self.last_commited_time - 0.1]
@@ -546,7 +550,6 @@ class WhisperTimestampedASR(ASRBase):
         for s in r["segments"]:
             for w in s["words"]:
                 if timestamps_convert_function is not None:
-                    # print(f"start: {word.start}->{timestamps_convert_function(word.start)}, end: {word.end}->{timestamps_convert_function(word.end)}")
                     start, end = timestamps_convert_function(w["start"], w["end"])
                     t = (start, end, w["text"])
                 else:
