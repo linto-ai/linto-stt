@@ -147,16 +147,10 @@ class HypothesisBuffer:
 
         self.logfile = logfile
 
-    def insert(self, new, offset, audio_buffer_duration):
+    def insert(self, new, offset):
         # compare self.commited_in_buffer and new. It inserts only the words in new that extend the commited_in_buffer, it means they are roughly behind last_commited_time and new in content
         # the new tail is added to self.new
-        max_timestamp_possible = offset + audio_buffer_duration + 0.1
         new = [(a + offset, b + offset, t) for a, b, t in new]
-        for a, b, t in new:     # Only for showing the debug messages
-            if a>=max_timestamp_possible:
-                logger.error(f"Skipping {t} at {a:.2f} because it is too far in the future (max possible is {max_timestamp_possible:.2f})")
-                break
-        new = [(a, b, t) for a, b, t in new if a<max_timestamp_possible]
         self.new = [(a, b, t) for a, b, t in new if a > self.last_commited_time - 0.1]
         if len(self.new) >= 1:
             a, b, t = self.new[0]
@@ -302,7 +296,7 @@ class OnlineASRProcessor:
             res = self.asr.transcribe(self.audio_buffer, init_prompt=prompt)
         # transform to [(beg,end,"word1"), ...]
         tsw = self.asr.ts_words(res, convertion_function if self.vad else None)
-        self.transcript_buffer.insert(tsw, self.buffer_time_offset, len(self.audio_buffer)/self.sampling_rate)
+        self.transcript_buffer.insert(tsw, self.buffer_time_offset)
         o, buffer = self.transcript_buffer.flush()
         self.commited.extend(o)         # contains all text that is commited
         self.buffered_final.extend(o)   # contains text for final
