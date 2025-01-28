@@ -300,7 +300,7 @@ The exchanges are structured as followed:
 5. Server send a final result and close the connexion.
 
 
-We advise to run streaming on a GPU device with Whisper-large-v3-turbo or smaller models (avoid using Whisper-large-v3 because it is very expensive).
+We advise to run streaming on a GPU device with Whisper-large-v3-turbo or smaller models (avoid using Whisper-large-v3 because it is very expensive). We also recommend to use a VAD on the server side (silero for example).
 
 How to choose the 2 streaming parameters "`STREAMING_MIN_CHUNK_SIZE`" and "`STREAMING_BUFFER_TRIMMING_SEC`"?
 - If you want a low latency (2 to a 5 seconds on a NVIDIA 4090 Laptop), choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5 seconds (to avoid making useless predictions).
