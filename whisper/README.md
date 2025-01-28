@@ -300,7 +300,7 @@ The exchanges are structured as followed:
 5. Server send a final result and close the connexion.
 
 
-We advise to run streaming on a GPU device.
+We advise to run streaming on a GPU device with Whisper-large-v3-turbo or smaller models (avoid using Whisper-large-v3 because it is very expensive).
 
 How to choose the 2 streaming parameters "`STREAMING_MIN_CHUNK_SIZE`" and "`STREAMING_BUFFER_TRIMMING_SEC`"?
 - If you want a low latency (2 to a 5 seconds on a NVIDIA 4090 Laptop), choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5 seconds (to avoid making useless predictions).
@@ -309,7 +309,9 @@ Depending on the hardware and the model, this value should go from 6 to 15 secon
 - If you can efford to have a high latency (30 seconds) and want to minimize GPU activity, choose a big value for "`STREAMING_MIN_CHUNK_SIZE`", such as 26s (which will give latency around 30 seconds).
 For "`STREAMING_BUFFER_TRIMMING_SEC`", you will need to have a value lower than "`STREAMING_MIN_CHUNK_SIZE`".
 Good results can be obtained by using a value between 6 and 12 seconds.
-The lower the value, the lower the GPU usage will be, but you will probably degrade transcription accuracy (more error on words because the model will miss some context).
+The lower the value, the lower the GPU usage will be (because audio buffer will be smaller), but you will probably degrade transcription accuracy (more error on words because the model will miss some context).
+
+The "`STREAMING_PAUSE_FOR_FINAL`" value will depend on your type of speech. On prepared speech for example, you can probably lower it whereas on real discussions you can leave it as default or increase it. 
 
 <!-- Concerning transcription accuracies, some tests on transcription in French gave the following results:
 * around 20% WER (Word Error Rate) with offline transcription,
