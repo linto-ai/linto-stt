@@ -1,11 +1,12 @@
 import json
 import re
+from typing import Tuple
 
 from vosk import KaldiRecognizer, Model
 
 from punctuation.recasepunc import apply_recasepunc
 
-def decode(audio: tuple[bytes, int], model: Model, with_metadata: bool, language=None) -> dict:
+def decode(audio: Tuple[bytes, int], model: Model, with_metadata: bool, language=None) -> dict:
     """Transcribe the audio data using the vosk library with the defined model."""
     decoder_result = {"text": "", "confidence-score": 0.0, "words": []}
 

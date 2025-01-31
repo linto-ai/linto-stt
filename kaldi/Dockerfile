@@ -1,5 +1,5 @@
-FROM python:3.9
-LABEL maintainer="contact@linto.ai, jlouradour@linagora.com, dgaynullin@linagora.com"
+FROM python:3.8
+LABEL maintainer="contact@linto.ai, jlouradour@linagora.com, abert@linagora.com"
 
 ARG KALDI_MKL
 
@@ -14,6 +14,8 @@ RUN apt-get update && \
         g++ \
         make \
         cmake \
+        curl \
+        netcat-traditional \
         git \
         zlib1g-dev \
         automake \

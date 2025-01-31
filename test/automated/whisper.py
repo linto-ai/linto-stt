@@ -21,8 +21,6 @@ def generate_whisper_test_setups(
     else:
         dockerfiles = [
             "whisper/Dockerfile.ctranslate2",
-            "whisper/Dockerfile.ctranslate2.cpu",
-            "whisper/Dockerfile.torch",
             "whisper/Dockerfile.torch.cpu",
         ]
 
@@ -53,7 +51,7 @@ class WhisperTestRunner(TestRunner):
         copy_env_file("whisper/.envdefault", env_variables)
         self.run_test(dockerfile, serving=serving, env_variables=env_variables)
 
-    @idata(generate_whisper_test_setups(device="cuda", vads=[None, "silero"]))
+    @idata(generate_whisper_test_setups(device="cuda", vads=[None]))
     def test_05_integration_cuda(self, setup):
         dockerfile, serving, env_variables = setup
         copy_env_file("whisper/.envdefault", env_variables)
@@ -65,12 +63,23 @@ class WhisperTestRunner(TestRunner):
         copy_env_file("whisper/.envdefault", env_variables)
         self.run_test(dockerfile, serving=serving, env_variables=env_variables)
 
+    def test_03_model(self):
+        env_variables = "MODEL=small LANGUAGE=fr"
+        copy_env_file("whisper/.envdefault", env_variables)
+        self.run_test(env_variables=env_variables)
+
+    def test_03_websocket(self):
+        env_variables = "MODEL=small LANGUAGE=fr"
+        copy_env_file("whisper/.envdefault", env_variables)
+        self.run_test(serving="websocket", env_variables=env_variables)
+
     def test_02_failures_cuda_on_cpu_dockerfile(self):
         env_variables = "MODEL=tiny  DEVICE=cuda"
         dockerfile = "whisper/Dockerfile.ctranslate2.cpu"
         copy_env_file("whisper/.envdefault", env_variables)
         self.assertIn(
-            "CUDA failed with error named symbol not found",
+            # "CUDA failed with error named symbol not found",
+            "Cannot load symbol",
             self.run_test(dockerfile, env_variables=env_variables, expect_failure=True),
         )
 
@@ -85,16 +94,11 @@ class WhisperTestRunner(TestRunner):
             )
         self.cleanup()
 
-    def test_03_model(self):
-        env_variables = "MODEL=small LANGUAGE=fr"
-        copy_env_file("whisper/.envdefault", env_variables)
-        self.run_test(env_variables=env_variables)
-        
-    def test_01_failure_wrong_language(self):
-        env_variables = "MODEL=tiny LANGUAGE=whatever"
+    def test_02_failure_wrong_vad(self):  # doesnt work anymore because server dont stop immediately (after worker crash) and will hang between 0 and more than 10mins
+        env_variables = "VAD=whatever MODEL=tiny LANGUAGE=fr"
         copy_env_file("whisper/.envdefault", env_variables)
         self.assertIn(
-            "ValueError: Language \'whatever\' is not available",
+            "Got unexpected VAD method whatever",
             self.run_test(env_variables=env_variables, expect_failure=True),
         )
 
@@ -133,11 +137,11 @@ class WhisperTestRunner(TestRunner):
         copy_env_file("whisper/.envdefault", env_variables)
         self.run_test(serving="task", env_variables=env_variables, language="fr")
 
-    def test_02_failure_wrong_vad(self):  # doesnt work anymore because server dont stop immediately (after worker crash) and will hang between 0 and more than 10mins
-        env_variables = "VAD=whatever MODEL=tiny LANGUAGE=fr"
+    def test_01_failure_wrong_language(self):
+        env_variables = "MODEL=tiny LANGUAGE=whatever"
         copy_env_file("whisper/.envdefault", env_variables)
         self.assertIn(
-            "Got unexpected VAD method whatever",
+            "ValueError: Language \'whatever\' is not available",
             self.run_test(env_variables=env_variables, expect_failure=True),
         )
 

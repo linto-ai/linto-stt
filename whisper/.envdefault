@@ -10,7 +10,7 @@ SERVICES_BROKER=redis://172.17.0.1:6379
 BROKER_PASS=
 
 # HTTP PARAMETERS
-ENABLE_STREAMING=true
+ENABLE_STREAMING=false
 
 # WEBSOCKET PARAMETERS
 STREAMING_PORT=80
@@ -46,8 +46,10 @@ PROMPT=
 # VAD_MIN_SILENCE_DURATION=0.1      # Minimum duration of silence to keep
 
 # Streaming parameters
-# STREAMING_MIN_CHUNK_SIZE=26       # Minimum size of the buffer before transcribing
-# STREAMING_BUFFER_TRIMMING_SEC=5   # Maximum targeted size of the buffer after a transcription
+# STREAMING_MIN_CHUNK_SIZE=26           # Minimum size of the buffer before transcribing
+# STREAMING_BUFFER_TRIMMING_SEC=5       # Maximum targeted size of the buffer after a transcription
+# STREAMING_PAUSE_FOR_FINAL=2           # The minimum duration of silence (in seconds) needed to be able to output a final
+# STREAMING_TIMEOUT_FOR_SILENCE=1.5     # Will consider that silence is detected if no audio is received for the duration of the paquet (dtermined from the first message) * this variable
 
 # USE_ACCURATE=true       # Use more expensive parameters that will slow down transcription but for better accuracy
 

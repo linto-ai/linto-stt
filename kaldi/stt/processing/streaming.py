@@ -47,7 +47,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model: Model):
         if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             ret = recognizer.FinalResult()
             ret = apply_recasepunc(punctuation_model, ret)
-            await ws.send(json.dumps(ret))
+            await ws.send(ret)
             await ws.close(reason="End of stream")
             break
 
@@ -102,7 +102,7 @@ def ws_streaming(websocket_server: WSServer, model: Model):
         if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             ret = recognizer.FinalResult()
             ret = apply_recasepunc(punctuation_model, ret)
-            websocket_server.send(json.dumps(re.sub("<unk> ", "", ret)))
+            websocket_server.send(re.sub("<unk> ", "", ret))
             websocket_server.close()
             break
         # Audio chunk

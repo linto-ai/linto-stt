@@ -66,18 +66,18 @@ def remove_non_speech(
             segments = [(0, audio.shape[-1])]
         else:
             return np.array([]), [], lambda t, t2=None: t if t2 is None else [t, t2]
+    segments_s = [
+        (float(s) / sample_rate, float(e) / sample_rate) for s, e in segments
+    ]
     if not use_sample:
-        segments = [
-            (float(s) / sample_rate, float(e) / sample_rate) for s, e in segments
-        ]
-        
+        segments = segments_s
     if return_format == "dict":
         segments = [{"start": s, "end": e} for s, e in segments]
-        return None, segments, lambda t, t2=None: do_convert_timestamps(segments, t, t2)
+        return None, segments, lambda t, t2=None: do_convert_timestamps(segments_s, t, t2)
     
     audio_speech = np.concatenate([audio[..., s:e] for s, e in segments], axis=-1)
     
-    return audio_speech, segments, lambda t, t2=None: do_convert_timestamps(segments, t, t2)
+    return audio_speech, segments, lambda t, t2=None: do_convert_timestamps(segments_s, t, t2)
 
 
 def do_convert_timestamps(segments, t, t2=None):
