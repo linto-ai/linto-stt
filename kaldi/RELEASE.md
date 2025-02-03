@@ -1,3 +1,6 @@
+#  1.1.1
+- Fix EOF when streaming 
+
 #  1.1.0
 - Add possibility to add recase & punctuation in streaming
 - Add an input option language to the request, that is just here for uniformity with other services (Whisper, that is multi-lingual and supports language detection).

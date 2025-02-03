@@ -1,3 +1,10 @@
+# 1.0.6
+- Fix the healthcheck for the websocket mode
+- Fix healthcheck for the http mode (by adding curl to the docker images)
+- Fix partials and finals for streaming
+- Asynchronous transcription for streaming (not blocking packet reception)
+- Remove http+ENABLE_STREAMING for Whisper. It will redirect to websocket mode
+
 # 1.0.5
 - Upgrade faster-whisper and support (large v3) turbo models
 - Support language as an option given in the request (now the LANGUAGE environment variable is just a default for this option).
