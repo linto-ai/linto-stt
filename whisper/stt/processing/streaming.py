@@ -24,6 +24,7 @@ logger = logging.getLogger("__streaming__")
 logger.setLevel(logging.INFO)
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
+RETURN_WORD_TIMESTAMPS = True
 
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
@@ -33,15 +34,24 @@ def processor_output_to_text(o):
         return ""
     return o[2]
 
-def whisper_to_json(o, partial=False):
+def whisper_to_json(o, end_of_stream=False, partial=False, timestamps=True):
     result = dict()
     key = "partial" if partial else "text"
-    if isinstance(o, list):
-        result[key] = ""
-        for i in o:
-            result[key] += processor_output_to_text(i)
+    if timestamps:
+        if end_of_stream:
+            result[key] = []
+            for i in o:
+                if i[0] is not None:
+                    result[key].extend(i)
+        else:
+            result[key] = o
     else:
-        result["partial" if partial else "text"] = processor_output_to_text(o)
+        if end_of_stream:
+            result[key] = ""
+            for i in o:
+                result[key] += processor_output_to_text(i)
+        else:
+            result[key] = processor_output_to_text(o)
     json_res = json.dumps(result)
     return json_res
 
@@ -95,7 +105,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 b = online.finish()
                 final.append(b)
                 logger.debug(f"Last buffered text: {o}")
-                await ws.send(whisper_to_json(final))
+                await ws.send(whisper_to_json(final, end_of_stream=True, timestamps=RETURN_WORD_TIMESTAMPS))
                 await ws.close()
                 logger.info("Closing connection")
                 break
@@ -118,20 +128,20 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 else:
                     if current_task:    # if the task is done, get the result
                         o, p = await current_task
-                        logger.debug(f"Sending final '{o}'")
-                        logger.debug(f"Sending partial '{p}'")
+                        logger.debug(f"Sending final: '{o}'")
+                        logger.debug(f"Sending partial: '{p}'")
                         if o[0] is not None:
-                            await ws.send(whisper_to_json(o))
+                            await ws.send(whisper_to_json(o, timestamps=RETURN_WORD_TIMESTAMPS))
                         else:
-                            await ws.send(whisper_to_json(p, partial=True))
+                            await ws.send(whisper_to_json(p, partial=True, timestamps=RETURN_WORD_TIMESTAMPS))
                     if len(pile)>0:     # if there are messages in the pile, launch a new transcription task
-                        logger.debug(f"Launching new task t={(len(online.audio_buffer)/online.sampling_rate)+online.buffer_time_offset:.2f}s")
+                        logger.debug(f"Launching new task t={(len(online.audio_buffer)/online.sampling_rate)+online.buffer_time_offset:.2f}s (buffer={len(online.audio_buffer)/online.sampling_rate:.2f}s)")
                         current_task = asyncio.get_event_loop().run_in_executor(executor, online.process_iter)
                         pile.pop(0)
             else:
                 logger.debug(f"Chunk too small {online.get_buffer_size()}<{STREAMING_MIN_CHUNK_SIZE} (added {len(audio_chunk)/sample_rate}), skipping")
     except ConnectionClosed as e:
-        logger.info(f"Connection closed {e}")
+        logger.info(f"Connection closed: {e}")
 
 
 class HypothesisBuffer:
@@ -336,11 +346,11 @@ class OnlineASRProcessor:
                     break
                 f.append(i)
             if f:
-                final = self.to_flush(f)
+                final = f if RETURN_WORD_TIMESTAMPS else self.to_flush(f)
                 self.buffered_final = self.buffered_final[len(f):]
         partial = self.buffered_final.copy()
         partial.extend(buffer)
-        return final, self.to_flush(partial)
+        return final, partial if RETURN_WORD_TIMESTAMPS else self.to_flush(partial)
         
         
 
@@ -420,7 +430,7 @@ class OnlineASRProcessor:
         o = self.transcript_buffer.complete()
         
         self.buffered_final.extend(o)
-        f = self.to_flush(self.buffered_final)
+        f = self.buffered_final if RETURN_WORD_TIMESTAMPS else self.to_flush(self.buffered_final)
         
         logger.debug(f"last, noncommited:{f}")
         return f
