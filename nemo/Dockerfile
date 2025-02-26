@@ -18,6 +18,7 @@ COPY nemo/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
 RUN pip install sox
 RUN pip install nemo_toolkit['asr']
+RUN pip install cuda-python>=12.3
 WORKDIR /usr/src/app
 
 COPY celery_app /usr/src/app/celery_app

@@ -7,7 +7,7 @@ import wavio
 SAMPLE_RATE = 16000  # whisper.audio.SAMPLE_RATE
 
 import torch
-
+import nemo.collections.asr as nemo_asr
 import torchaudio
 
 
@@ -30,27 +30,22 @@ def get_language(language = None):
     Get the language from the environment variable LANGUAGE, and format as expected by Whisper.
     """
     if language is None:
-        language = os.environ.get("LANGUAGE", "*")
-    # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
-    language_fields = language.split("-")
-    if len(language_fields) == 2:
-        language = language_fields[0]
-    # "*" means "all languages"
-    if language == "*":
-        language = None
-    # Convert French -> fr
-    if isinstance(language, str) and language not in LANGUAGES:
-        candidate_language = {v: k for k, v in LANGUAGES.items()}.get(language.lower())
-        # Raise an exception for unknown languages
-        if candidate_language not in LANGUAGES:
-            available_languages = [f"{k}({v})" for k, v in LANGUAGES.items()]
-            available_languages.append("*")
-            raise ValueError(
-                f"Language '{language}' is not available. Available languages are: {available_languages}"
-            )
-        language = candidate_language
+        language = os.environ.get("LANGUAGE", None)
+    if language is None:
+        language = "fr" if "fr" in os.environ.get("MODEL", "nvidia/stt_fr_conformer_ctc_large").split("_") else "en"
     return language
 
+def get_model_class(architecture):
+    architecture = architecture.lower()
+    model_class = nemo_asr.models.EncDecCTCModelBPE
+    if architecture=="ctc":
+        model_class = nemo_asr.models.EncDecCTCModel
+    elif architecture=="hybrid_bpe" or architecture=="rnnt_ctc_bpe" or architecture=="hybrid_rnnt_ctc_bpe":
+        model_class = nemo_asr.models.EncDecHybridRNNTCTCBPEModel
+    elif architecture=="enc_dec" or architecture=="canary" or architecture=="multi_task":
+        model_class = nemo_asr.models.EncDecMultiTaskModel
+    return model_class
+        
 
 def conform_audio(audio, sample_rate=16_000):
     if sample_rate != SAMPLE_RATE:
