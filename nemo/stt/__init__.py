@@ -14,6 +14,24 @@ logger = logging.getLogger("__stt__")
 # see https://github.com/guillaumekln/faster-whisper/issues/150
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # GPU in the right order
 
+vad = os.environ.get("VAD","auditok").lower()
+if vad in ["true", "1"]:
+    VAD = "auditok"
+elif vad in ["false", "0"]:
+    VAD = False
+else:
+    VAD = os.environ.get("VAD","auditok")
+
+VAD_DILATATION = float(os.environ.get("VAD_DILATATION", 0.5))
+VAD_MIN_SPEECH_DURATION = float(os.environ.get("VAD_MIN_SPEECH_DURATION", 0.1))
+VAD_MIN_SILENCE_DURATION = float(os.environ.get("VAD_MAX_SILENCE_DURATION", 0.1))
+
+STREAMING_MIN_CHUNK_SIZE=float(os.environ.get("STREAMING_MIN_CHUNK_SIZE", 0.5))
+STREAMING_BUFFER_TRIMMING_SEC=float(os.environ.get("STREAMING_BUFFER_TRIMMING_SEC", 8.0))
+STREAMING_PAUSE_FOR_FINAL=float(os.environ.get("STREAMING_PAUSE_FOR_FINAL", 2.0))
+STREAMING_TIMEOUT_FOR_SILENCE=float(os.environ.get("STREAMING_TIMEOUT_FOR_SILENCE", 1.5))   # will consider that silence is detected if no audio is received for the duration of the paquet (dtermined from the first message) * this variable
+
+
 def set_num_threads(n):
     torch.set_num_threads(n)
 

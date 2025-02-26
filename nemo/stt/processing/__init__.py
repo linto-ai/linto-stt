@@ -2,7 +2,7 @@ import logging
 import os
 
 from lockfile import FileLock
-from stt import logger, set_num_threads, NUM_THREADS
+from stt import logger, set_num_threads, NUM_THREADS, VAD
 
 from .decoding import decode
 from .load_model import load_nemo_model
@@ -68,6 +68,8 @@ architecture = get_model_class(os.environ.get("ARCHITECTURE", "ctc_bpe"))
 # Check language
 language = get_language()
 logger.info(f"Using language {language}")
+
+logger.info(f"VAD={VAD} (Currently not implemented)")
 
 logger.info(
     f"Loading Nemo model {model_type} ({'local' if os.path.exists(model_type) else 'remote'})..."

@@ -8,7 +8,8 @@ import nemo.collections.asr as nemo_asr
 
 import numpy as np
 from stt import (
-    logger
+    logger,
+    VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION, 
 )
 
 from .vad import remove_non_speech
