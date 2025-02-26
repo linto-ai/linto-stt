@@ -85,32 +85,33 @@ def decode_encoder(
     if isinstance(model._model, nemo_asr.models.EncDecHybridRNNTCTCModel):
         hypothesis=hypothesis[0]
     hypothesis.language = language
-    return format_nemo_response(hypothesis, remove_punctuation_from_words=remove_punctuation_from_words)
+    return format_nemo_response(hypothesis, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
 
 def contains_alphanum(text: str) -> bool:
     return re.search(r"[^\W\'\-_]", text)
 
 def format_nemo_response(
-    hypothesis, remove_punctuation_from_words=False
+    hypothesis, remove_punctuation_from_words=False, with_word_timestamps=False
 ):
-    """Format NeMo response."""
-
     words = []
-    if hypothesis.word_confidence:
-        for word, conf in zip(hypothesis.timestep['word'], hypothesis.word_confidence):
-            words.append({'word': word['word'], 'start': round(word['start'], 2), 'end': round(word['end'], 2), 'conf': conf})
-        return {
-            "text": hypothesis.text.strip(),
-            "language": hypothesis.language,
-            "confidence-score": round(np.average([i['conf'] for i in words]), 2) if len(words)>0 else 0.0, # need to change
-            "words": words,
-        }
-    else:
-        for word in hypothesis.timestep['word']:
-            words.append({'word': word['word'], 'start': round(word['start'], 2), 'end': round(word['end'], 2)})
-        return {
-            "text": hypothesis.text.strip(),
-            "language": "fr",
-            "words": words,
-        }
+    if with_word_timestamps:
+        if hypothesis.word_confidence:
+            for word, conf in zip(hypothesis.timestep['word'], hypothesis.word_confidence):
+                text = remove_punctuation_from_words(word['word']) if remove_punctuation_from_words else word['word']
+                words.append({'word': text, 'start': round(word['start'], 2), 'end': round(word['end'], 2), 'conf': conf})
+            return {
+                "text": hypothesis.text.strip(),
+                "language": hypothesis.language,
+                "confidence-score": round(np.average([i['conf'] for i in words]), 2) if len(words)>0 else 0.0, # need to change
+                "words": words,
+            }
+        else:
+            for word in hypothesis.timestep['word']:
+                text = remove_punctuation_from_words(word['word']) if remove_punctuation_from_words else word['word']
+                words.append({'word': text, 'start': round(word['start'], 2), 'end': round(word['end'], 2)})
+    return {
+        "text": hypothesis.text.strip(),
+        "language": hypothesis.language,
+        "words": words,
+    }
     # print(round(np.exp(-np.mean([np.log(i['conf']) for i in words])), 2))
