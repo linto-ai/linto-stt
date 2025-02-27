@@ -41,32 +41,6 @@ def decode(
 
     return res
 
-
-# def decode_canary(
-#     audio,
-#     model: nemo_asr.models.EncDecMultiTaskModel,
-#     with_word_timestamps,
-#     language,
-#     remove_punctuation_from_words,
-#     **kwargs,
-# ):
-#     config = {
-#         "audio_filepath": audio,  # path to the audio file
-#         "duration": None,
-#         "taskname": "asr",  
-#         "source_lang": language, # language of the audio input, set `source_lang`==`target_lang` for ASR, choices=['en','de','es','fr']
-#         "target_lang": language, # language of the text output, choices=['en','de','es','fr']
-#         "pnc": "yes",  # whether to have PnC output, choices=['yes', 'no']
-#         "answer": "na", 
-#     }
-
-#     with open('tmp.json', "w") as f:
-#         json.dump(config, f)
-        
-#     hypothesis = model.transcribe('tmp.json', return_hypotheses=False, timestamps=False)[0]
-#     hypothesis.language = language
-#     return format_nemo_response(hypothesis, remove_punctuation_from_words=remove_punctuation_from_words)
-
 def decode_encoder(
     audio,
     model,
@@ -82,7 +56,7 @@ def decode_encoder(
         kwargs["best_of"] = 1
         
     
-    hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[0]
+    hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[0]      # /!\ Will run out of memory on long audios
     if isinstance(model._model, nemo_asr.models.EncDecHybridRNNTCTCModel):
         hypothesis=hypothesis[0]
     hypothesis.language = language
@@ -115,4 +89,3 @@ def format_nemo_response(
         "language": hypothesis.language,
         "words": words,
     }
-    # print(round(np.exp(-np.mean([np.log(i['conf']) for i in words])), 2))
