@@ -41,24 +41,13 @@ def remove_non_speech(
             if True, avoid returning an empty speech segment (re)
     """
 
-    if USE_CTRANSLATE2 and method == "silero":
-        from faster_whisper.vad import VadOptions
-
-        options = VadOptions(
-            min_speech_duration_ms=min_speech_duration * 1000,
-            min_silence_duration_ms=min_silence_duration * 1000,
-        )
-        from faster_whisper.vad import get_speech_timestamps
-
-        segments = get_speech_timestamps(audio, vad_options=options)
-    else:
-        segments = get_vad_segments(
-            audio,
-            sample_rate=sample_rate,
-            min_speech_duration=min_speech_duration,
-            min_silence_duration=min_silence_duration,
-            method=method,
-        )
+    segments = get_vad_segments(
+        audio,
+        sample_rate=sample_rate,
+        min_speech_duration=min_speech_duration,
+        min_silence_duration=min_silence_duration,
+        method=method,
+    )
     segments = apply_dilatation(segments, dilatation, sample_rate, audio, output_sample=True)
     segments = [(seg["start"], seg["end"]) for seg in segments]
     if len(segments) == 0:
