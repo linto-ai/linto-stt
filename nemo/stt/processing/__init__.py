@@ -19,8 +19,8 @@ __all__ = [
 
 def warmup():
     model.check_loaded()
-    # audio_data = load_audiofile("test/bonjour.wav")
-    transcription = decode("test/bonjour.wav", MODEL, False)
+    audio = load_audiofile("test/bonjour.wav")
+    transcription = decode(audio, MODEL, False)
     logger.info(f"Warmup result: {transcription}")
     
 class LazyLoadedModel:
@@ -69,7 +69,7 @@ architecture = get_model_class(os.environ.get("ARCHITECTURE", "ctc_bpe"))
 language = get_language()
 logger.info(f"Using language {language}")
 
-logger.info(f"VAD={VAD} (Currently not implemented)")
+logger.info(f"VAD={VAD}")
 
 logger.info(
     f"Loading Nemo model {model_type} ({'local' if os.path.exists(model_type) else 'remote'})..."

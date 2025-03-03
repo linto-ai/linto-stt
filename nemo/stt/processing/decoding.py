@@ -25,8 +25,6 @@ def decode(
     with_word_timestamps: bool,
     language: str = None,
     remove_punctuation_from_words=False,
-    no_speech_threshold: float = 0.6,
-    compression_ratio_threshold: float = 2.4,
 ) -> dict:
     language = get_language(language)
     kwargs = copy.copy(locals())
@@ -49,13 +47,11 @@ def decode_encoder(
     remove_punctuation_from_words,
     **kwargs,
 ):
-    kwargs["no_speech_threshold"] = 1  # To avoid empty output
-    if kwargs.get("beam_size") is None:
-        kwargs["beam_size"] = 1
-    if kwargs.get("best_of") is None:
-        kwargs["best_of"] = 1
-        
     
+    if VAD:
+        audio_speech, _, _ = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION, \
+            min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, avoid_empty_speech=True)
+        audio = audio_speech
     hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[0]      # /!\ Will run out of memory on long audios
     if isinstance(model._model, nemo_asr.models.EncDecHybridRNNTCTCModel):
         hypothesis=hypothesis[0]
