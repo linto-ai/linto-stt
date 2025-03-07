@@ -10,7 +10,8 @@ import torch
 import numpy as np
 from stt import (
     logger,
-    VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION, 
+    VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION,
+    LONG_FILE_THRESHOLD, LONG_FILE_CHUNK_LEN, LONG_FILE_CHUNK_CONTEXT_LEN
 )
 
 from .vad import remove_non_speech
@@ -18,11 +19,6 @@ from .text_normalize import normalize_text, remove_emoji, remove_punctuation
 from .utils import SAMPLE_RATE, get_language
 
 default_prompt = os.environ.get("PROMPT", None)
-
-
-LONG_FILE_THRESHOLD = 8*60     # 8 min
-LONG_FILE_CHUNK_LEN = 4*60
-LONG_FILE_CHUNK_CONTEXT_LEN = 10
 
 def decode(
     audio,

@@ -31,6 +31,9 @@ STREAMING_BUFFER_TRIMMING_SEC=float(os.environ.get("STREAMING_BUFFER_TRIMMING_SE
 STREAMING_PAUSE_FOR_FINAL=float(os.environ.get("STREAMING_PAUSE_FOR_FINAL", 2.0))
 STREAMING_TIMEOUT_FOR_SILENCE=float(os.environ.get("STREAMING_TIMEOUT_FOR_SILENCE", 1.5))   # will consider that silence is detected if no audio is received for the duration of the paquet (dtermined from the first message) * this variable
 
+LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", 8*60))  # 8*60=8min
+LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", 6*60))  # 6*60=6min. Size of chunk to divide the long file into
+LONG_FILE_CHUNK_CONTEXT_LEN = int(os.environ.get("LONG_FILE_CHUNK_CONTEXT_LEN", 10))    # Size of the context of the chunk (10 means 10s before and 10 after)
 
 def set_num_threads(n):
     torch.set_num_threads(n)
