@@ -32,7 +32,14 @@ def get_language(language = None):
     if language is None:
         language = os.environ.get("LANGUAGE", None)
     if language is None:
-        language = "fr" if "fr" in os.environ.get("MODEL", "nvidia/stt_fr_conformer_ctc_large").split("_") else "en"
+        model = os.environ.get("MODEL", "nvidia/stt_fr_conformer_ctc_large").split("_")
+        languages = ["fr", "en", "it", "ru", "ar", "es", "de"]
+        for l in languages:
+            if l in model:
+                language = l
+                break
+        if language is None:
+            language = "en"
     return language
 
 def get_model_class(architecture):
