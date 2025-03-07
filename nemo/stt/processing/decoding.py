@@ -48,7 +48,6 @@ def decode_encoder(
     remove_punctuation_from_words,
     **kwargs,
 ):
-    
     if VAD:
         audio_speech, _, _ = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION, \
             min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, avoid_empty_speech=True)
@@ -61,6 +60,8 @@ def decode_encoder(
     else:
         hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[0]      # /!\ Will run out of memory on long audios
         if isinstance(model._model, nemo_asr.models.EncDecHybridRNNTCTCModel):
+            hypothesis=hypothesis[0]
+        elif isinstance(model._model, nemo_asr.models.EncDecRNNTModel):
             hypothesis=hypothesis[0]
         hypothesis.language = language
         return format_nemo_response(hypothesis, from_dict=False, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
@@ -161,6 +162,8 @@ class ChunkBufferDecoder:
     def _get_batch_preds(self, buffers):
         hypothesis = self.asr_model.transcribe(buffers, return_hypotheses=True, timestamps=True, batch_size=2)
         if isinstance(self.asr_model._model, nemo_asr.models.EncDecHybridRNNTCTCModel):
+            hypothesis=hypothesis[0]
+        elif isinstance(self.asr_model._model, nemo_asr.models.EncDecRNNTModel):
             hypothesis=hypothesis[0]
         self.all_preds=hypothesis
     

@@ -49,7 +49,8 @@ An example of .env file is provided in [nemo/.envdefault](https://github.com/lin
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
 | SERVICE_MODE | (Required) STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` \| `websocket` |
-| MODEL | (Required) Path to a Whisper model, type of Whisper model used, or HuggingFace identifier of a Whisper model. | `nvidia/parakeet-ctc-1.1b` \| `nvidia/stt_fr_fastconformer_hybrid_large_pc` \| \<ASR_PATH\> \| ... |
+| MODEL | (Required) Path to a NeMo model or HuggingFace identifier. | `nvidia/parakeet-ctc-1.1b` \| `nvidia/stt_fr_fastconformer_hybrid_large_pc` \| \<ASR_PATH\> \| ... |
+| ARCHITECTURE | (Required) The architecture of the model used. Suported (and tested) architectures are CTC, Hybrid and RNNT models. | `hybrid_bpe` \| `ctc_bpe` \| `rnnt_bpe` \|\<ASR_PATH\> \| ... |
 | DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | NUM_THREADS | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
 | CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |

@@ -45,10 +45,12 @@ def get_language(language = None):
 def get_model_class(architecture):
     architecture = architecture.lower()
     model_class = nemo_asr.models.EncDecCTCModelBPE
-    if architecture=="ctc":
+    if architecture=="ctc" or architecture=="ctc_bpe":
         model_class = nemo_asr.models.EncDecCTCModel
     elif architecture=="hybrid_bpe" or architecture=="rnnt_ctc_bpe" or architecture=="hybrid_rnnt_ctc_bpe":
         model_class = nemo_asr.models.EncDecHybridRNNTCTCBPEModel
+    elif architecture=="rnnt" or architecture=="rnnt_bpe":
+        model_class = nemo_asr.models.EncDecRNNTBPEModel
     elif architecture=="enc_dec" or architecture=="canary" or architecture=="multi_task":
         model_class = nemo_asr.models.EncDecMultiTaskModel
     return model_class
