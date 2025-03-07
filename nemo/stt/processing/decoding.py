@@ -173,16 +173,17 @@ class ChunkBufferDecoder:
         context = ((self.buffer_len - self.chunk_len) / 2)
         result_text = []
         result_timestep = []
-        acceptance_s = 0.05
+        base_acceptance_per_character = 0.015       # in case words are cut in the middle
         for i, chunk_hypothesis in enumerate(self.all_preds):
             for word in chunk_hypothesis.timestep['word']:
-                if i==0 and word['end']-acceptance_s<self.buffer_len-context:
+                acceptance = base_acceptance_per_character * len(word['word'])
+                if i==0 and word['end']-acceptance<self.buffer_len-context:
                     result_text.append(word['word'])
                     result_timestep.append(word)
-                elif i==len(self.all_preds)-1 and word['start']+acceptance_s>context:
+                elif i==len(self.all_preds)-1 and word['start']+acceptance>context:
                     result_text.append(word['word'])
                     result_timestep.append(word)
-                elif word['start']+acceptance_s>context and word['end']-acceptance_s<self.buffer_len-context:
+                elif word['start']+acceptance>context and word['end']-acceptance<self.buffer_len-context:
                     result_text.append(word['word'])
                     result_timestep.append(word)
         result = {"text": " ".join(result_text), "timestep": {"word": result_timestep}}
