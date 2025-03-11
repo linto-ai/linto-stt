@@ -58,15 +58,18 @@ class TestRunner(unittest.TestCase):
         return f" \u2192 Log Message:\n\t{l}\n \u2192 Error Message:\n\t{e}"
 
 
-    def check_http_server_availability(self, server, pid):
+    def check_http_server_availability(self, server, pid, streaming=False):
         total_wait_time = SERVER_STARTING_TIMEOUT  # 10 minutes in seconds
         retry_interval = 1    # Interval between attempts (in seconds)
         elapsed_time = 0
 
         while elapsed_time < total_wait_time:
             try:
-                response = requests.head(server)
-                if response.status_code == 200 or response.status_code == 400:
+                if streaming:
+                    response = requests.get(server)
+                else:
+                    response = requests.head(server)
+                if response.status_code == 200 or response.status_code == 400 or (streaming and response.status_code == 426):
                     self.echo_note(f"Server: {server} is available after {elapsed_time} sec.")
                     return
             except requests.ConnectionError:
@@ -162,7 +165,7 @@ class TestRunner(unittest.TestCase):
             self.echo_command(cmd)
             r = self.transcribe(cmd, regex, test_file, "Error transcription", "HTTP route 'transcribe'")
         elif serving == "websocket":
-            r=self.check_http_server_availability("http://localhost:8080", pid)
+            r=self.check_http_server_availability("http://localhost:8080", pid, streaming=True)
             if r:
                 return self.report_failure(r, expect_failure=expect_failure)
             cmd = f"python3 {TESTDIR}/test_streaming.py --audio_file {test_file} -v --stream_duration 1 --stream_wait 0.0"
