@@ -59,10 +59,6 @@ def decode_encoder(
         return format_nemo_response(hypothesis, from_dict=True, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
     else:
         hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[0]      # /!\ Will run out of memory on long audios
-        if isinstance(model._model, nemo_asr.models.EncDecHybridRNNTCTCModel):
-            hypothesis=hypothesis[0]
-        elif isinstance(model._model, nemo_asr.models.EncDecRNNTModel):
-            hypothesis=hypothesis[0]
         hypothesis.language = language
         return format_nemo_response(hypothesis, from_dict=False, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
 
@@ -76,7 +72,7 @@ def format_nemo_response(
     if from_dict:
         if with_word_timestamps:
             if hypothesis.get('word_confidence', False):
-                for word, conf in zip(hypothesis['timestep']['word'], hypothesis['word_confidence']):
+                for word, conf in zip(hypothesis['timestamp']['word'], hypothesis['word_confidence']):
                     text = remove_punctuation_from_words(word['word']) if remove_punctuation_from_words else word['word']
                     words.append({'word': text, 'start': round(word['start'], 2), 'end': round(word['end'], 2), 'conf': conf})
                 return {
@@ -86,7 +82,7 @@ def format_nemo_response(
                     "words": words,
                 }
             else:
-                for word in hypothesis['timestep']['word']:
+                for word in hypothesis['timestamp']['word']:
                     text = remove_punctuation_from_words(word['word']) if remove_punctuation_from_words else word['word']
                     words.append({'word': text, 'start': round(word['start'], 2), 'end': round(word['end'], 2)})
         return {
@@ -97,7 +93,7 @@ def format_nemo_response(
     else:
         if with_word_timestamps:
             if hypothesis.word_confidence:
-                for word, conf in zip(hypothesis.timestep['word'], hypothesis.word_confidence):
+                for word, conf in zip(hypothesis.timestamp['word'], hypothesis.word_confidence):
                     text = remove_punctuation_from_words(word['word']) if remove_punctuation_from_words else word['word']
                     words.append({'word': text, 'start': round(word['start'], 2), 'end': round(word['end'], 2), 'conf': conf})
                 return {
@@ -107,7 +103,7 @@ def format_nemo_response(
                     "words": words,
                 }
             else:
-                for word in hypothesis.timestep['word']:
+                for word in hypothesis.timestamp['word']:
                     text = remove_punctuation_from_words(word['word']) if remove_punctuation_from_words else word['word']
                     words.append({'word': text, 'start': round(word['start'], 2), 'end': round(word['end'], 2)})
         return {
@@ -161,12 +157,7 @@ class ChunkBufferDecoder:
     
     def _get_batch_preds(self, buffers):
         hypothesis = self.asr_model.transcribe(buffers, return_hypotheses=True, timestamps=True, batch_size=2)
-        if isinstance(self.asr_model._model, nemo_asr.models.EncDecHybridRNNTCTCModel):
-            hypothesis=hypothesis[0]
-        elif isinstance(self.asr_model._model, nemo_asr.models.EncDecRNNTModel):
-            hypothesis=hypothesis[0]
         self.all_preds=hypothesis
-    
     
     def merge_results(self):
         context = ((self.buffer_len - self.chunk_len) / 2)
@@ -174,7 +165,7 @@ class ChunkBufferDecoder:
         result_timestep = []
         base_acceptance_per_character = 0.015       # in case words are cut in the middle
         for i, chunk_hypothesis in enumerate(self.all_preds):
-            for word in chunk_hypothesis.timestep['word']:
+            for word in chunk_hypothesis.timestamp['word']:
                 acceptance = base_acceptance_per_character * len(word['word'])
                 if i==0 and word['end']-acceptance<self.buffer_len-context:
                     result_text.append(word['word'])
@@ -185,7 +176,7 @@ class ChunkBufferDecoder:
                 elif word['start']+acceptance>context and word['end']-acceptance<self.buffer_len-context:
                     result_text.append(word['word'])
                     result_timestep.append(word)
-        result = {"text": " ".join(result_text), "timestep": {"word": result_timestep}}
+        result = {"text": " ".join(result_text), "timestamp": {"word": result_timestep}}
         return result
 
 def stream_long_file(audio, model):

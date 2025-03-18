@@ -207,7 +207,7 @@ class StreamingASRProcessor:
             hypothesis = self.model.transcribe([self.audio_buffer], return_hypotheses=True, timestamps=True, verbose=False)[0]
         if isinstance(hypothesis, list):
             hypothesis = hypothesis[0]
-        formatted_words = self.format_words(hypothesis.timestep['word'], convertion_function if self.vad else None)
+        formatted_words = self.format_words(hypothesis.timestamp['word'], convertion_function if self.vad else None)
         self.transcript_buffer.insert(formatted_words, self.buffer_time_offset)
         o, buffer = self.transcript_buffer.flush()
         self.commited.extend(o)         # contains all text that is commited
@@ -217,7 +217,7 @@ class StreamingASRProcessor:
             buffer.pop(-1)
         if len(self.audio_buffer) / self.sampling_rate > self.buffer_trimming_sec:
             self.chunk_completed_segment(
-                hypothesis.timestep['word'],
+                hypothesis.timestamp['word'],
                 chunk_silence=self.vad,
                 speech_segments=segments if self.vad else False,
             )
