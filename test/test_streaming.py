@@ -21,7 +21,6 @@ async def send_data(websocket, stream, logger, stream_config):
             if stream_config['audio_file'] and not data:
                 logger.debug("Audio file finished")
                 break
-
             if stream_config['vad']:
                 import auditok
                 audio_events = auditok.split(
@@ -57,6 +56,10 @@ def linstt_streaming(*kargs, **kwargs):
     text = asyncio.run(_linstt_streaming(*kargs, **kwargs))
     return text
 
+async def play_sound(sound):
+    import winsound
+    winsound.PlaySound(sound, winsound.SND_ALIAS|winsound.SND_ASYNC)
+
 async def _linstt_streaming(
     audio_file,
     ws_api = "ws://localhost:8080/streaming",
@@ -64,7 +67,8 @@ async def _linstt_streaming(
     language = None,
     apply_vad = False,
     stream_duration = 0.5,
-    stream_wait = 0.5
+    stream_wait = 0.5,
+    play_audio_file=False
 ):
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -72,7 +76,7 @@ async def _linstt_streaming(
     if audio_file is None:
         import pyaudio
         audio = pyaudio.PyAudio()
-        stream = audio.open(format=pyaudio.paInt16, channels=1, rate=stream_config['sample_rate'], input=True, frames_per_buffer=2048)
+        stream = audio.open(format=pyaudio.paInt8, channels=1, rate=stream_config['sample_rate'], input=True, frames_per_buffer=2048)
         logger.debug("Start recording")
         stream_config["audio_file"] = None
     else:
@@ -80,6 +84,7 @@ async def _linstt_streaming(
         stream = open("tmp.wav", "rb")
         logger.debug(f"Start streaming file {audio_file}")
         stream_config["audio_file"] = audio_file
+    play_audio_task = None
     text = ""
     partial = None
     duration = 0
@@ -90,6 +95,8 @@ async def _linstt_streaming(
             config = {"config" : {"sample_rate": stream_config['sample_rate']}}
         await websocket.send(json.dumps(config))
         send_task = asyncio.create_task(send_data(websocket, stream, logger, stream_config))
+        if audio_file and play_audio_file:
+            play_audio_task = asyncio.create_task(play_sound(audio_file))
         last_text_partial = None
         try:
             while True:
@@ -125,6 +132,11 @@ async def _linstt_streaming(
         except Exception as e:
             raise Exception(f"Error in message processing {message} {type(message)}: {e}")
         finally:
+            send_task.cancel()
+            await send_task
+            if play_audio_task:
+                play_audio_task.cancel()
+                await play_audio_task
             await websocket.close()
     if verbose:
         terminal_size = shutil.get_terminal_size()
@@ -162,6 +174,7 @@ if __name__ == "__main__":
     parser.add_argument("--apply_vad", default=False, action="store_true", help="Apply VAD to the audio stream before sending it to the server")
     parser.add_argument("--stream_duration", default=0.5, type=float, help="Duration of the audio stream sent to the server")
     parser.add_argument("--stream_wait", default=0.5, type=float, help="Duration to wait between two audio stream chunks")
+    parser.add_argument("--play_audio_file", default=False, action="store_true", help="")
     args = parser.parse_args()
 
-    res = linstt_streaming(args.audio_file, args.server, verbose=args.verbose, language=args.language, apply_vad=args.apply_vad, stream_duration=args.stream_duration, stream_wait=args.stream_wait)
+    res = linstt_streaming(args.audio_file, args.server, verbose=args.verbose, language=args.language, apply_vad=args.apply_vad, stream_duration=args.stream_duration, stream_wait=args.stream_wait, play_audio_file=args.play_audio_file)
