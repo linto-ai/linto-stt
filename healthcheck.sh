@@ -14,3 +14,9 @@ else
         celery --app=celery_app.celeryapp inspect ping -d ${SERVICE_NAME}_worker@$HOSTNAME || exit 1
     fi
 fi
+
+if [ "$REGISTRATION_MODE" = "HTTP" ]
+then
+    # The heartbeat as no impact on the health
+    ./heartbeat.sh || true
+fi
