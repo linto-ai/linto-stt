@@ -19,3 +19,9 @@ else
         fi
     fi
 fi
+
+if [ "$REGISTRATION_MODE" = "HTTP" ]
+then
+    # The heartbeat as no impact on the health
+    ./heartbeat.sh || true
+fi
