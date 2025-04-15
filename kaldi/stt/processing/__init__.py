@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 # Model locations (should be mounted)
-MODEL_PATH = "/opt/model"
+MODEL_PATH = "/opt/models"
 
 # Load ASR models (acoustic model and decoding graph)
 logger.info("Loading acoustic model and decoding graph ...")
