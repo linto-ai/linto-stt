@@ -131,10 +131,20 @@ class TestRunner(unittest.TestCase):
 
         cmd=f"docker run --rm -p 8080:80 --name test_container --env-file {AUTOMATEDTESTDIR}/.env --gpus all {build_args} linto-stt-test:{tag}"
         self.echo_command(cmd)
-        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if p.poll() is not None:
-            return f"Docker container failed to start.\n{self.process_output(p)}", None
-        return None, p
+        def launch_docker_run(command):
+            p = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            time.sleep(1)
+            if p.poll() is not None:
+                error_log = self.process_output(p)
+                if "Conflict. The container name " in error_log:
+                    self.echo_note(f"Previous conatiner was not stopped yet, retry docker run")
+                    self.cleanup()
+                    launch_docker_run(command)
+                else:
+                    return f"Docker container failed to start.\n{self.process_output(p)}", None
+            return None, p
+        error, p = launch_docker_run(cmd)
+        return error, p
 
     def transcribe(self, command, regex, test_file, error_message, success_message, timeout=None):
         start = time.time()
