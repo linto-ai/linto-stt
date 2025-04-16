@@ -233,7 +233,7 @@ class StreamingASRProcessor:
 
     def make_final(self, buffer):
         final = (None, None, "")
-        if len(self.buffered_final)>2:# len(self.buffered_final)>0: # and self.buffered_final[-1][2][-1] in string.punctuation:
+        if len(self.buffered_final)>2:      # and self.buffered_final[-1][2][-1] in string.punctuation:
             end_word = self.buffered_final[-1][1]
         else:
             end_word = None
@@ -279,7 +279,6 @@ class StreamingASRProcessor:
     def chunk_completed_segment(self, res, chunk_silence=False, speech_segments=None):
         # if self.commited == [] and not chunk_silence:
         #     return
-        self.buffer_trimming_words = None       # deactivated option - allow to set a limit to the buffer size, over this limit it will cut on last commited word instead of segments
         ends = self.get_ends(res)
         if len(ends) > 1 and self.commited:
             t = self.commited[-1][1]
@@ -287,14 +286,9 @@ class StreamingASRProcessor:
             while len(ends) > 2 and e > t:
                 ends.pop(-1)
                 e = ends[-2] + self.buffer_time_offset
-            buffer_length = len(self.audio_buffer) / self.sampling_rate
-            if e <= t and (self.buffer_trimming_words is None or self.buffer_time_offset+buffer_length - e < self.buffer_trimming_words):
+            if e <= t:
                 logger.debug(f"Segment chunked at {e:2.2f}s")# : {ends[1]+ self.buffer_time_offset} ")
                 self.chunk_at(e)
-                return
-            elif self.buffer_trimming_words is not None:
-                logger.debug(f"Words chunked at {t:2.2f}")
-                self.chunk_at(t-0.5)
                 return
         elif chunk_silence:
             lenght = len(self.audio_buffer) / self.sampling_rate

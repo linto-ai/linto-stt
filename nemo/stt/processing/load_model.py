@@ -45,12 +45,16 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
         )
     )
     if isinstance(model, nemo_asr.models.EncDecRNNTModel):
-        pass
-        # if isinstance(model, nemo_asr.models.EncDecHybridRNNTCTCModel):
-        #     model.change_decoding_strategy(decoder_type="ctc")
-        #     model.change_decoding_strategy(CTCDecodingConfig(confidence_cfg=confidence_cfg), decoder_type="ctc")
-        # else:
-        #     model.change_decoding_strategy(RNNTDecodingConfig(fused_batch_size=-1, strategy="greedy_batch", confidence_cfg=confidence_cfg))
+        if isinstance(model, nemo_asr.models.EncDecHybridRNNTCTCModel):
+            strategy = "rnnt"
+            if strategy=="ctc":
+                logger.info("You are using an hybrid model, changing decoding strategy to ctc")
+                model.change_decoding_strategy(CTCDecodingConfig(confidence_cfg=confidence_cfg), decoder_type="ctc")
+                # model.change_decoding_strategy(decoder_type="ctc")
+            else:
+                logger.info("You are using an hybrid model, using rnnt decoder")
+        else:
+            model.change_decoding_strategy(RNNTDecodingConfig(fused_batch_size=-1, strategy="greedy_batch", confidence_cfg=confidence_cfg))
     elif isinstance(model, nemo_asr.models.EncDecMultiTaskModel):
         decode_cfg = model.cfg.decoding
         decode_cfg.beam.beam_size = 1
@@ -58,20 +62,3 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
     else:
         model.change_decoding_strategy(CTCDecodingConfig(confidence_cfg=confidence_cfg))
     return model
-
-
-def check_torch_installed():
-    try:
-        import torch
-    except ImportError:
-        # Install transformers with torch
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "transformers[torch]>=4.23"])
-
-        # # Re-load ctranslate2
-        # import importlib
-        # import ctranslate2
-        # importlib.reload(ctranslate2)
-        # importlib.reload(ctranslate2.converters.transformers)
-
-    # import torch
-
