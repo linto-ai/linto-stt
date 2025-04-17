@@ -74,7 +74,7 @@ COPY http_server /usr/src/app/http_server
 COPY websocket /usr/src/app/websocket
 COPY document /usr/src/app/document
 COPY kaldi/stt /usr/src/app/stt
-COPY kaldi/docker-entrypoint.sh wait-for-it.sh healthcheck.sh heartbeat.sh heartbeat.json ./
+COPY kaldi/docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY kaldi/lin_to_vosk.py /usr/src/app/lin_to_vosk.py
 COPY punctuation ./punctuation
 
