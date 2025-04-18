@@ -7,5 +7,5 @@ gunicorn>=20.1.0
 git+https://github.com/benob/mosestokenizer.git@169bd3a504fe20a3e51b9a7af3f0ca359c2d36c9
 numpy==1.19.5
 regex==2021.8.28
-torch==1.9.0+cpu
+torch==2.6.0
 transformers==4.10.0
