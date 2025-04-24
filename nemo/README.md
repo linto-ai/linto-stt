@@ -50,7 +50,7 @@ An example of .env file is provided in [nemo/.envdefault](https://github.com/lin
 |---|---|---|
 | SERVICE_MODE | (Required) STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` \| `websocket` |
 | MODEL | (Required) Path to a NeMo model or HuggingFace identifier. | `nvidia/parakeet-ctc-1.1b` \| `nvidia/stt_fr_fastconformer_hybrid_large_pc` \| \<ASR_PATH\> \| ... |
-| ARCHITECTURE | (Required) The architecture of the model used. Suported (and tested) architectures are CTC, Hybrid and RNNT models. | `hybrid_bpe` \| `ctc_bpe` \| `rnnt_bpe` \|\<ASR_PATH\> \| ... |
+| ARCHITECTURE | (Required) The architecture of the model used. Suported (and tested) architectures are CTC, Hybrid and RNNT models. | `hybrid_bpe` \| `ctc_bpe` \| `rnnt_bpe` \| ... |
 | DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | NUM_THREADS | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
 | CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
@@ -83,11 +83,19 @@ you may want to download one of NeMo models:
    * [French large fast conformer with punctuations made by NVIDIA](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc)
    * [French large fast conformer made by Bofeng Huang](https://huggingface.co/bofenghuang/stt_fr_fastconformer_hybrid_large)
    * [English large fast conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large)
+   * [English XL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-0.6b)
    * [English XXL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b)
    * Soon models trained by LINAGORA
    * More stt models are available in [NVIDIA](https://huggingface.co/nvidia) huggingface
 
 NeMo models from Hugging Face (transformers), as for instance https://huggingface.co/nvidia/parakeet-ctc-1.1b (you can either download the model or use the Hugging Face identifier `nvidia/parakeet-ctc-1.1b`).
+
+#### ARCHITECTURE
+
+Here is a guide for finding the right architecture to put. On HuggingFace, look at the name and depending on what you find:
+- For CTC models like [English XXL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b) you should put `ctc_bpe`
+- For Hybrid models like [French large fast conformer with punctuations made by NVIDIA](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) you shuld put `hybrid_bpe` 
+- For RNNT (Transducer) models like [English large fast conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) you should put "rnnt_bpe"
 
 #### LANGUAGE
 

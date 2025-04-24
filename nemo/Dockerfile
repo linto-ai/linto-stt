@@ -9,6 +9,7 @@ RUN apt-get update && \
   libfreetype6 \
   swig \
   ffmpeg \
+  gosu \
   libavdevice-dev && \
   rm -rf /var/lib/apt/lists/*
 
