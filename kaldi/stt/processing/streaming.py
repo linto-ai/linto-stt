@@ -47,6 +47,8 @@ async def wssDecode(ws: WebSocketServerProtocol, model: Model):
         if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             ret = recognizer.FinalResult()
             ret = apply_recasepunc(punctuation_model, ret)
+            ret = re.sub("<unk>", "", ret)
+            ret = re.sub(r"(\w) *' *(\w)", r"\1'\2", ret)
             await ws.send(ret)
             await ws.close(reason="End of stream")
             break
@@ -55,10 +57,14 @@ async def wssDecode(ws: WebSocketServerProtocol, model: Model):
         if recognizer.AcceptWaveform(message):
             ret = recognizer.Result()  # Result seems to not work properly
             ret = apply_recasepunc(punctuation_model, ret)
+            ret = re.sub("<unk>", "", ret)
+            ret = re.sub(r"(\w) *' *(\w)", r"\1'\2", ret)
             await ws.send(ret)
 
         else:
             ret = recognizer.PartialResult()
+            ret = re.sub("<unk>", "", ret)
+            ret = re.sub(r"(\w) *' *(\w)", r"\1'\2", ret)
             last_utterance = ret
             await ws.send(ret)
 
@@ -102,7 +108,7 @@ def ws_streaming(websocket_server: WSServer, model: Model):
         if (isinstance(message, str) and re.match(EOF_REGEX, message)):
             ret = recognizer.FinalResult()
             ret = apply_recasepunc(punctuation_model, ret)
-            websocket_server.send(re.sub("<unk> ", "", ret))
+            websocket_server.send(re.sub("<unk>", "", ret))
             websocket_server.close()
             break
         # Audio chunk
@@ -110,8 +116,8 @@ def ws_streaming(websocket_server: WSServer, model: Model):
         if recognizer.AcceptWaveform(message):
             ret = recognizer.Result()
             ret = apply_recasepunc(punctuation_model, ret)
-            websocket_server.send(re.sub("<unk> ", "", ret))
+            websocket_server.send(re.sub("<unk>", "", ret))
 
         else:
             ret = recognizer.PartialResult()
-            websocket_server.send(re.sub("<unk> ", "", ret))
+            websocket_server.send(re.sub("<unk>", "", ret))
