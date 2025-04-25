@@ -193,9 +193,6 @@ def apply_recasepunc(config, line, ignore_disfluencies=False):
         # Avoid hanging on empty lines
         return ""
 
-    # Remove <unk> tokens (Ugly: LinTO/Kaldi model specific here)
-    line = re.sub("<unk> ", "", line)
-
     if config is None:
         return line
 
@@ -268,7 +265,7 @@ def apply_recasepunc(config, line, ignore_disfluencies=False):
         output += '.'
     # Glue apostrophes back to words
     output = re.sub(r"(\w) *' *(\w)", r"\1'\2", output)
-
+    
     if ignore_disfluencies:
         output = collapse_whitespace(output)
         output = reconstitute_text(output, disfluencies)
