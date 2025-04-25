@@ -25,6 +25,7 @@ pipeline {
     environment {
         DOCKER_HUB_REPO_KALDI   = "lintoai/linto-stt-kaldi"
         DOCKER_HUB_REPO_WHISPER = "lintoai/linto-stt-whisper"
+        DOCKER_HUB_REPO_NEMO = "lintoai/linto-stt-nemo"
     }
     
     stages {
@@ -48,8 +49,14 @@ pipeline {
                         script: "awk -v RS='' '/#/ {print; exit}' whisper/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     ).trim()
 
+                    version_nemo = sh(
+                        returnStdout: true, 
+                        script: "awk -v RS='' '/#/ {print; exit}' nemo/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                    ).trim()
+
                     buildDockerfile('kaldi', 'kaldi/Dockerfile', env.DOCKER_HUB_REPO_KALDI, version_kaldi, changedFiles)
                     buildDockerfile('whisper', 'whisper/Dockerfile.ctranslate2', env.DOCKER_HUB_REPO_WHISPER, version_whisper, changedFiles)
+                    buildDockerfile('nemo', 'nemo/Dockerfile', env.DOCKER_HUB_REPO_NEMO, version_nemo, changedFiles)
                 }
             }
         }
@@ -68,6 +75,7 @@ pipeline {
 
                     buildDockerfile('kaldi', 'kaldi/Dockerfile', env.DOCKER_HUB_REPO_KALDI, version, changedFiles)
                     buildDockerfile('whisper', 'whisper/Dockerfile.ctranslate2', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles)
+                    buildDockerfile('nemo', 'nemo/Dockerfile', env.DOCKER_HUB_REPO_NEMO, version, changedFiles)
                 }
             }
         }
