@@ -29,3 +29,15 @@ jobs:
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
         repository: lintoai/linto-stt-whisper
         readme-filepath: ./whisper/README.md
+  dockerHubDescriptionNemo:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Docker Hub Description
+      uses: peter-evans/dockerhub-description@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        repository: lintoai/linto-stt-nemo
+        readme-filepath: ./nemo/README.md
+
