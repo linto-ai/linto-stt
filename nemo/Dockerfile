@@ -10,6 +10,7 @@ RUN apt-get update && \
   swig \
   ffmpeg \
   gosu \
+  netcat-traditional \
   libavdevice-dev && \
   rm -rf /var/lib/apt/lists/*
 
