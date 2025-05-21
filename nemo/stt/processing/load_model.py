@@ -36,7 +36,7 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
         preserve_word_confidence=True,
         aggregation="prod", # How to aggregate frame scores to token scores and token scores to word scores
         exclude_blank=False, # If true, only non-blank emissions contribute to confidence scores
-        tdt_include_duration=False, # If true, calculate duration confidence for the TDT models
+        # tdt_include_duration=False, # If true, calculate duration confidence for the TDT models
         method_cfg=ConfidenceMethodConfig( # Config for per-frame scores calculation (before aggregation)
             name="max_prob", # Or "entropy" (default), which usually works better
             entropy_type="gibbs", # Used only for name == "entropy". Recommended: "tsallis" (default) or "renyi"
@@ -49,8 +49,8 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
             strategy = "rnnt"
             if strategy=="ctc":
                 logger.info("You are using an hybrid model, changing decoding strategy to ctc")
-                model.change_decoding_strategy(CTCDecodingConfig(confidence_cfg=confidence_cfg), decoder_type="ctc")
-                # model.change_decoding_strategy(decoder_type="ctc")
+                # model.change_decoding_strategy(CTCDecodingConfig(confidence_cfg=confidence_cfg), decoder_type="ctc")
+                model.change_decoding_strategy(decoder_type="ctc")
             else:
                 logger.info("You are using an hybrid model, using rnnt decoder")
         else:

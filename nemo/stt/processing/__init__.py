@@ -3,6 +3,7 @@ import os
 
 from lockfile import FileLock
 from stt import logger, set_num_threads, NUM_THREADS, VAD
+from punctuation.recasepunc import load_recasepunc_model
 
 from .decoding import decode
 from .load_model import load_nemo_model
@@ -76,7 +77,10 @@ logger.info(
 )
 try:
     model = LazyLoadedModel(model_type, model_class=architecture, device=device, num_threads=NUM_THREADS)
-    MODEL = (model, None)
+    
+    PUNCTUATION_MODEL = load_recasepunc_model()
+    MODEL = (model, PUNCTUATION_MODEL)
+
     if USE_GPU:
         warmup()
 except Exception as err:

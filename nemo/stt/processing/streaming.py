@@ -5,11 +5,13 @@ import numpy as np
 import logging
 import asyncio
 import re
+import time
 import nemo.collections.asr as nemo_asr
 
 from concurrent.futures import ThreadPoolExecutor
 from .vad import remove_non_speech
 from .utils import get_language
+from punctuation.recasepunc import apply_recasepunc
 from stt import (
    logger,
    VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION,
@@ -32,7 +34,7 @@ def processor_output_to_text(o):
         return ""
     return o[2]
 
-def nemo_to_json(o, partial=False):
+def nemo_to_json(o, partial=False, punctuation_model=None):
     result = dict()
     key = "partial" if partial else "text"
     if isinstance(o, list):
@@ -41,6 +43,8 @@ def nemo_to_json(o, partial=False):
             result[key] += processor_output_to_text(i)
     else:
         result["partial" if partial else "text"] = processor_output_to_text(o)
+    if partial is False:
+        result['text'] = apply_recasepunc(punctuation_model, result['text'])
     json_res = json.dumps(result)
     return json_res
 
@@ -56,7 +60,8 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         except Exception as e:
             logger.error(f"Failed to read stream configuration {e}")
             await ws.close(reason="Failed to load configuration")
-        model, _ = model_and_alignementmodel
+        
+        model, punctuation_model = model_and_alignementmodel
         language = get_language(config.get("language"))
         streaming_processor = StreamingASRProcessor(model, 
             buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, pause_for_final=STREAMING_PAUSE_FOR_FINAL,
@@ -66,6 +71,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         executor = ThreadPoolExecutor()
         current_task = None
         received_chunk_size = None
+        last_responce_time = None
         pile = []
         timeout = None  # it will be computed after the first chunk is received, it is for finding silence in the input stream
         while True:
@@ -112,9 +118,13 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                         logger.debug(f"Sending final '{o}'")
                         logger.debug(f"Sending partial '{p}'")
                         if o[0] is not None:
-                            await ws.send(nemo_to_json(o))
+                            await ws.send(nemo_to_json(o, punctuation_model=punctuation_model))
+                            last_responce_time = None
                         else:
-                            await ws.send(nemo_to_json(p, partial=True))
+                            t = time.time()
+                            if last_responce_time is None or t-last_responce_time>2:
+                                await ws.send(nemo_to_json(p, partial=True))
+                                last_responce_time = t
                     if len(pile)>0:     # if there are messages in the pile, launch a new transcription task
                         logger.debug(f"Launching new task t={(len(streaming_processor.audio_buffer)/streaming_processor.sampling_rate)+streaming_processor.buffer_time_offset:.2f}s")
                         current_task = asyncio.get_event_loop().run_in_executor(executor, streaming_processor.transcribe)

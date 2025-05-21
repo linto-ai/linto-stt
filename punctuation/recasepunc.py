@@ -1,4 +1,15 @@
 # coding=utf-8
+# Copyright 2021 Benoit Favre
+# 
+# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+# 
+# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """recasepunc file."""
 
@@ -144,7 +155,7 @@ def load_recasepunc_model(config=None):
 
     print(f"Loading recasepunc model from {checkpoint_path} on device={config.device}") # TODO: use logger.info
 
-    loaded = torch.load(checkpoint_path, map_location=config.device)
+    loaded = torch.load(checkpoint_path, map_location=config.device, weights_only=False)
     if 'config' in loaded:
         config = Config(**loaded['config'])
 
@@ -441,7 +452,8 @@ def init(config):
         config.tokenizer = tokenizer = AutoTokenizer.from_pretrained(config.flavor, do_lower_case=False)
 
         from transformers.models.xlm.tokenization_xlm import XLMTokenizer
-        assert isinstance(tokenizer, XLMTokenizer)
+        from transformers.models.flaubert.tokenization_flaubert import FlaubertTokenizer
+        assert isinstance(tokenizer, XLMTokenizer) or isinstance(tokenizer, FlaubertTokenizer)
 
         # monkey patch XLM tokenizer
         import types
@@ -470,6 +482,7 @@ def init(config):
     if not torch.cuda.is_available() and config.device == 'cuda':
         print('WARNING: reverting to cpu as cuda is not available', file=sys.stderr)
     config.device = torch.device(config.device if torch.cuda.is_available() else 'cpu')
+
 
 def remove_simple_disfluences(text, language=None):
     if language is None:
