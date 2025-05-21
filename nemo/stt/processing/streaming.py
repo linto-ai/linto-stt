@@ -26,6 +26,8 @@ logger.setLevel(logging.INFO)
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
 
+MAX_PARTIAL_ACTUALIZATION_PER_SECOND = 4
+
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
 
@@ -72,6 +74,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         current_task = None
         received_chunk_size = None
         last_responce_time = None
+        partial_actualization = 1 / MAX_PARTIAL_ACTUALIZATION_PER_SECOND
         pile = []
         timeout = None  # it will be computed after the first chunk is received, it is for finding silence in the input stream
         while True:
@@ -92,7 +95,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 b = streaming_processor.finish()
                 final.append(b)
                 logger.debug(f"Last buffered text: {o}")
-                await ws.send(nemo_to_json(final))
+                await ws.send(nemo_to_json(final, punctuation_model=punctuation_model))
                 await ws.close()
                 logger.info("Closing connection")
                 break
@@ -122,7 +125,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                             last_responce_time = None
                         else:
                             t = time.time()
-                            if last_responce_time is None or t-last_responce_time>2:
+                            if last_responce_time is None or t-last_responce_time>partial_actualization:
                                 await ws.send(nemo_to_json(p, partial=True))
                                 last_responce_time = t
                     if len(pile)>0:     # if there are messages in the pile, launch a new transcription task
