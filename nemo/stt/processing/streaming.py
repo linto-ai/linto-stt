@@ -215,9 +215,17 @@ class StreamingASRProcessor:
                 min_speech_duration=self.vad_min_speech_duration,
                 min_silence_duration=self.vad_min_silence_duration,
             )
-            hypothesis = self.model.transcribe([audio_speech], return_hypotheses=True, timestamps=True, verbose=False)[0]
+            try:
+                hypothesis = self.model.transcribe([audio_speech], return_hypotheses=True, timestamps=True, verbose=False)[0]
+            except ValueError as e:
+                logger.error(f"Encoutered an error while transcribing: {e}")
+                return (None, None, ""), self.to_flush(self.buffered_final.copy())
         else:
-            hypothesis = self.model.transcribe([self.audio_buffer], return_hypotheses=True, timestamps=True, verbose=False)[0]
+            try:
+                hypothesis = self.model.transcribe([self.audio_buffer], return_hypotheses=True, timestamps=True, verbose=False)[0]
+            except ValueError as e:
+                logger.error(f"Encoutered an error while transcribing: {e}")
+                return (None, None, ""), self.to_flush(self.buffered_final.copy())
         if isinstance(hypothesis, list):
             hypothesis = hypothesis[0]
         formatted_words = self.format_words(hypothesis.timestamp['word'], convertion_function if self.vad else None)
