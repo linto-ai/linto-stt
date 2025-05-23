@@ -221,11 +221,11 @@ class StreamingASRProcessor:
                 logger.error(f"Encoutered an error while transcribing: {e}")
                 return (None, None, ""), self.to_flush(self.buffered_final.copy())
         else:
-            try:
+            # try:
                 hypothesis = self.model.transcribe([self.audio_buffer], return_hypotheses=True, timestamps=True, verbose=False)[0]
-            except ValueError as e:
-                logger.error(f"Encoutered an error while transcribing: {e}")
-                return (None, None, ""), self.to_flush(self.buffered_final.copy())
+            # except ValueError as e:
+            #     logger.error(f"Encoutered an error while transcribing: {e}")
+            # return (None, None, ""), self.to_flush(self.buffered_final.copy())
         if isinstance(hypothesis, list):
             hypothesis = hypothesis[0]
         formatted_words = self.format_words(hypothesis.timestamp['word'], convertion_function if self.vad else None)
