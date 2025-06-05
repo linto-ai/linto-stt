@@ -48,7 +48,7 @@ STREAMING_MIN_CHUNK_SIZE=1
 STREAMING_BUFFER_TRIMMING_SEC=10
 STREAMING_PAUSE_FOR_FINAL=2
 STREAMING_MAX_WORDS_IN_BUFFER=4                     # Number of words that can be in the buffer, it is to avoid changing the whole sentence 
-STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=3    # How much time per seconds you want the server to send a message to the client
+STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4    # How much time per seconds you want the server to send a message to the client
 
 ############################################
 # EFFICIENCY PARAMETERS

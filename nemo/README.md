@@ -69,11 +69,11 @@ An example of .env file is provided in [nemo/.envdefault](https://github.com/lin
 | STREAMING_PAUSE_FOR_FINAL | The minimum duration of silence (in seconds) needed to be able to output a final. If not specified, the default is 1.5 | `0.5` \| `2` \| ... |
 | STREAMING_TIMEOUT_FOR_SILENCE | If VAD is applied locally before sending data to the server, this will allow the server to find the silence. The `packet duration` is determined from the first packet. If a packet is not received during `packet duration * STREAMING_TIMEOUT_FOR_SILENCE` it considers that a silence (lasting the packet duration) is present. Value should be between 1 and 2. If not specified, the default is 1.5 | `1.8` \| ... |
 | STREAMING_MAX_WORDS_IN_BUFFER | How much words can stay in the buffer. It means how much words can be changed. If not specified, the default is 4 | `4` \| `2` \| ... |
-| STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND | How much time per seconds you want the server to send a message to the client. If not specified, the default is 3 | `3` \| ... |
+| STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND | How much time per seconds you want the server to send a message to the client. If not specified, the default is 4 | `3` \| ... |
 | SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
 | SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
 | BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
-
+| PUNCTUATION_MODEL | Path to a recasepunc model, for recovering punctuation and upper letter in streaming | /opt/PUNCT |
 
 #### MODEL environment variable
 
@@ -206,6 +206,20 @@ The `STREAMING_PAUSE_FOR_FINAL` value will depend on your type of speech. On pre
 * around 20% WER (Word Error Rate) with offline transcription,
 * around 30% WER with high latency streaming (around 30 seconds latency on a GPU), and
 * around 40% WER with low latency streaming (beween 2 and 3 seconds latency on average on a GPU). -->
+
+If you use a model that outputs lower-case text without punctuations,
+and you want text with upper case letters and punctuation, you can specify a recasepunc model (which must be in version 0.4).
+Some recasepunc models trained on [Common Crawl](http://data.statmt.org/cc-100/) are available on [recasepunc](https://github.com/benob/recasepunc/releases/) for the following the languages:
+* French
+  * [fr.24000](https://github.com/benob/recasepunc/releases/download/0.4/fr.24000)
+* English
+  * [en.22000](https://github.com/benob/recasepunc/releases/download/0.4/en.22000)
+* Italian
+  * [it.23000](https://github.com/benob/recasepunc/releases/download/0.4/it.23000)
+* Chinese
+  * [zh-Hant.17000](https://github.com/benob/recasepunc/releases/download/0.4/zh-Hant.17000)
+
+After downloading a recasepunc model, you can mount it as a volume and specify its location within the Docker container using the `PUNCTUATION_MODEL` environment variable.
 
 ## Usages
 ### HTTP API
