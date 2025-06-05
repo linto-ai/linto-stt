@@ -20,6 +20,7 @@ huggingface_hub
 sox
 nemo_toolkit[asr]==2.3.0
 cuda-python>=12.3
+hf_xet
 
 # transformers==4.10.0
 # hydra-core>1.3,<=1.3.2
