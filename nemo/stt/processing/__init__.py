@@ -7,7 +7,7 @@ from punctuation.recasepunc import load_recasepunc_model
 
 from .decoding import decode
 from .load_model import load_nemo_model
-from .utils import get_device, load_audiofile, load_wave_buffer, get_model_class, get_language
+from .utils import get_device, load_audiofile, load_wave_buffer, get_model_class, get_language, get_decoding_method
 
 __all__ = [
     "logger",
@@ -25,9 +25,10 @@ def warmup():
     logger.info(f"Warmup result: {transcription}")
     
 class LazyLoadedModel:
-    def __init__(self, model_type, model_class, device, num_threads):
+    def __init__(self, model_type, model_class, device, num_threads, decoding_strategy_if_hybrid="ctc"):
         self.model_type = model_type
         self.model_class = model_class
+        self.decoding_strategy_if_hybrid = decoding_strategy_if_hybrid
         self.device = device
         self.num_threads = num_threads
         self._model = None
@@ -37,7 +38,7 @@ class LazyLoadedModel:
         if self._model is None:
             lockfile = os.path.basename(self.model_type)
             with FileLock(lockfile):
-                self._model = load_nemo_model(self.model_type, self.model_class, device=self.device)
+                self._model = load_nemo_model(self.model_type, self.model_class, device=self.device, decoding_strategy_if_hybrid=self.decoding_strategy_if_hybrid)
 
     def check_num_threads(self):
         if not self.has_set_num_threads and self.num_threads:
@@ -65,6 +66,7 @@ logger.info(f"Using device {device}")
 # Load ASR model
 model_type = os.environ.get("MODEL", "nvidia/stt_fr_conformer_ctc_large")
 architecture = get_model_class(os.environ.get("ARCHITECTURE", "ctc_bpe"))
+decoding_strategy_if_hybrid = get_decoding_method(os.environ.get("ARCHITECTURE", "ctc_bpe"))
 
 # Check language
 language = get_language()
@@ -76,7 +78,7 @@ logger.info(
     f"Loading Nemo model {model_type} ({'local' if os.path.exists(model_type) else 'remote'})..."
 )
 try:
-    model = LazyLoadedModel(model_type, model_class=architecture, device=device, num_threads=NUM_THREADS)
+    model = LazyLoadedModel(model_type, model_class=architecture, device=device, num_threads=NUM_THREADS, decoding_strategy_if_hybrid=decoding_strategy_if_hybrid)
     
     PUNCTUATION_MODEL = load_recasepunc_model()
     MODEL = (model, PUNCTUATION_MODEL)

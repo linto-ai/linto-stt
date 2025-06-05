@@ -47,7 +47,7 @@ def get_model_class(architecture):
     model_class = nemo_asr.models.EncDecCTCModelBPE
     if architecture=="ctc" or architecture=="ctc_bpe":
         model_class = nemo_asr.models.EncDecCTCModel
-    elif architecture=="hybrid" or architecture=="hybrid_bpe" or architecture=="rnnt_ctc_bpe" or architecture=="hybrid_rnnt_ctc_bpe":
+    elif architecture.startswith("hybrid"):
         model_class = nemo_asr.models.EncDecHybridRNNTCTCBPEModel
     elif architecture=="rnnt" or architecture=="rnnt_bpe":
         model_class = nemo_asr.models.EncDecRNNTBPEModel
@@ -55,6 +55,12 @@ def get_model_class(architecture):
         model_class = nemo_asr.models.EncDecMultiTaskModel
     return model_class
         
+def get_decoding_method(architecture):
+    architecture = architecture.lower()
+    if "hybrid" in architecture:
+        return "ctc" if "ctc" in architecture else "rnnt"
+    else:
+        return None
 
 def conform_audio(audio, sample_rate=16_000):
     if sample_rate != SAMPLE_RATE:
