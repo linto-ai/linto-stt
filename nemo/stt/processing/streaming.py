@@ -76,7 +76,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         current_task = None
         received_chunk_size = None
         last_responce_time = None
-        partial_actualization = 1 / STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND
+        partial_actualization = 1 / (STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND+1)
         pile = []
         timeout = None  # it will be computed after the first chunk is received, it is for finding silence in the input stream
         while True:
