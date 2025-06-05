@@ -30,8 +30,8 @@ STREAMING_MIN_CHUNK_SIZE=float(os.environ.get("STREAMING_MIN_CHUNK_SIZE", 0.5))
 STREAMING_BUFFER_TRIMMING_SEC=float(os.environ.get("STREAMING_BUFFER_TRIMMING_SEC", 8.0))
 STREAMING_PAUSE_FOR_FINAL=float(os.environ.get("STREAMING_PAUSE_FOR_FINAL", 2.0))
 STREAMING_TIMEOUT_FOR_SILENCE=float(os.environ.get("STREAMING_TIMEOUT_FOR_SILENCE", 1.5))   # will consider that silence is detected if no audio is received for the duration of the paquet (dtermined from the first message) * this variable
-STREAMING_MAX_WORDS_IN_BUFFER=int(os.environ.get("STREAMING_MAX_WORDS_IN_BUFFER", -1))
-STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=float(os.environ.get("STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND", 10))
+STREAMING_MAX_WORDS_IN_BUFFER=int(os.environ.get("STREAMING_MAX_WORDS_IN_BUFFER", 4))
+STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=float(os.environ.get("STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND", 4))
 
 LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", 8*60))  # 8*60=8min
 LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", 6*60))  # 6*60=6min. Size of chunk to divide the long file into

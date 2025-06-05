@@ -47,7 +47,7 @@ def get_model_class(architecture):
     model_class = nemo_asr.models.EncDecCTCModelBPE
     if architecture=="ctc" or architecture=="ctc_bpe":
         model_class = nemo_asr.models.EncDecCTCModel
-    elif architecture=="hybrid_bpe" or architecture=="rnnt_ctc_bpe" or architecture=="hybrid_rnnt_ctc_bpe":
+    elif architecture=="hybrid" or architecture=="hybrid_bpe" or architecture=="rnnt_ctc_bpe" or architecture=="hybrid_rnnt_ctc_bpe":
         model_class = nemo_asr.models.EncDecHybridRNNTCTCBPEModel
     elif architecture=="rnnt" or architecture=="rnnt_bpe":
         model_class = nemo_asr.models.EncDecRNNTBPEModel
