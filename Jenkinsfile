@@ -1,6 +1,6 @@
 def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFiles) {
     boolean has_changed = changedFiles.contains(main_folder) || changedFiles.contains('celery_app') || changedFiles.contains('http_server') || changedFiles.contains('websocket') || changedFiles.contains('document')
-    if (main_folder == "kaldi") {
+    if (main_folder == "kaldi" || main_folder == "nemo") {
         // Kaldi also depends on recasepunc
         has_changed = has_changed || changedFiles.contains('punctuation')
     }
