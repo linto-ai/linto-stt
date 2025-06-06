@@ -5,6 +5,7 @@ import numpy as np
 import logging
 import asyncio
 import re
+import os
 import time
 import nemo.collections.asr as nemo_asr
 
@@ -24,6 +25,8 @@ from websockets.exceptions import ConnectionClosed
 
 logger = logging.getLogger("__streaming__")
 logger.setLevel(logging.INFO)
+if os.environ.get("DEBUG", "0") in ("1", "true"):
+    logger.setLevel(logging.DEBUG)
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
 
@@ -66,7 +69,6 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             await ws.close(reason="Failed to load configuration")
         
         model, punctuation_model = model_and_alignementmodel
-        language = get_language(config.get("language"))
         streaming_processor = StreamingASRProcessor(model, 
             buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, pause_for_final=STREAMING_PAUSE_FOR_FINAL, max_words_in_buffer=STREAMING_MAX_WORDS_IN_BUFFER,
             vad=VAD, dilatation=VAD_DILATATION, min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION
