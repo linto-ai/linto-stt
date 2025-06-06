@@ -173,7 +173,7 @@ You may also want to add specific options:
 | `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
 | `<ASR_PATH>` | Path to the NeMo model on the host machine mounted to /opt/model.nemo | /my/path/to/models/stt_fr.nemo |
 
-### Websocket Server
+### Websocket Server (streaming)
 Websocket server's mode deploy a streaming transcription service only. 
 
 The SERVICE_MODE value in the .env should be set to ```websocket```.
@@ -208,7 +208,7 @@ The `STREAMING_PAUSE_FOR_FINAL` value will depend on your type of speech. On pre
 * around 40% WER with low latency streaming (beween 2 and 3 seconds latency on average on a GPU). -->
 
 If you use a model that outputs lower-case text without punctuations,
-and you want text with upper case letters and punctuation, you can specify a recasepunc model (which must be in version 0.4).
+and you want text with upper case letters and punctuation, you can specify a recasepunc model (which must be in version 0.4 at least).
 Some recasepunc models trained on [Common Crawl](http://data.statmt.org/cc-100/) are available on [recasepunc](https://github.com/benob/recasepunc/releases/) for the following the languages:
 * French
   * [fr.24000](https://github.com/benob/recasepunc/releases/download/0.4/fr.24000)
