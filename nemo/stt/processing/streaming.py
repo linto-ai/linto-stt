@@ -138,6 +138,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                                 logger.debug(f"Sending partial '{p}'")
                                 await ws.send(nemo_to_json(p, partial=True))
                                 last_responce_time = t
+                        current_task = None
                     if len(pile)>0:     # if there are messages in the pile, launch a new transcription task
                         logger.debug(f"Launching new transcription on {(len(streaming_processor.audio_buffer)/streaming_processor.sampling_rate)+streaming_processor.buffer_time_offset:.2f}s")
                         current_task = asyncio.get_event_loop().run_in_executor(executor, streaming_processor.transcribe)
