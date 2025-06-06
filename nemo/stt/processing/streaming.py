@@ -228,17 +228,16 @@ class StreamingASRProcessor:
                 min_speech_duration=self.vad_min_speech_duration,
                 min_silence_duration=self.vad_min_silence_duration,
             )
-            try:
-                hypothesis = self.model.transcribe([audio_speech], return_hypotheses=True, timestamps=True, verbose=False)[0]
-            except ValueError as e:
-                logger.error(f"Encoutered an error while transcribing: {e}")
-                return (None, None, ""), self.to_flush(self.buffered_final.copy())
         else:
-            try:
-                hypothesis = self.model.transcribe([self.audio_buffer], return_hypotheses=True, timestamps=True, verbose=False)[0]
-            except ValueError as e:
-                logger.error(f"Encoutered an error while transcribing: {e}")
-                return (None, None, ""), self.to_flush(self.buffered_final.copy())
+            audio_speech = self.audio_buffer
+
+        try:
+            hypothesis = self.model.transcribe([audio_speech], return_hypotheses=True, timestamps=True, verbose=False)[0]
+        except Exception as e:
+            # Audio might be empty, or the model might not be able to process it
+            logger.error(f"Encoutered an error while transcribing: {e}")
+            return (None, None, ""), self.to_flush(self.buffered_final.copy())
+
         formatted_words = self.format_words(hypothesis.timestamp['word'], convertion_function if self.vad else None)
         self.transcript_buffer.insert(formatted_words, self.buffer_time_offset)
         o, buffer = self.transcript_buffer.flush(self.max_words_in_buffer)

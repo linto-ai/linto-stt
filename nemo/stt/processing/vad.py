@@ -137,6 +137,8 @@ def get_vad_segments(
         method: str or list
             VAD method to use (auditok, silero, silero:v3.1)
     """
+    if len(audio) == 0:
+        return []
     global _silero_vad_model, _silero_get_speech_ts, _has_onnx
     if isinstance(method, list):
         # Explicit timestamps
