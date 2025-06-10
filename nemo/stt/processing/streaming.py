@@ -5,42 +5,54 @@ import numpy as np
 import logging
 import asyncio
 import re
+import os
+import time
 import nemo.collections.asr as nemo_asr
 
 from concurrent.futures import ThreadPoolExecutor
 from .vad import remove_non_speech
 from .utils import get_language
+from punctuation.recasepunc import apply_recasepunc
 from stt import (
    logger,
    VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION,
    STREAMING_BUFFER_TRIMMING_SEC, STREAMING_MIN_CHUNK_SIZE,
    STREAMING_PAUSE_FOR_FINAL, STREAMING_TIMEOUT_FOR_SILENCE,
+   STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND, STREAMING_MAX_WORDS_IN_BUFFER
 )
 from websockets.legacy.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 
 logger = logging.getLogger("__streaming__")
 logger.setLevel(logging.INFO)
+if os.environ.get("DEBUG", "0") in ("1", "true"):
+    logger.setLevel(logging.DEBUG)
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
 
 def bytes_to_array(bytes):
     return np.frombuffer(bytes, dtype=np.int16).astype(np.float32) / 32768
 
-def processor_output_to_text(o):
+def processor_output_to_text(o, punctuation_model):
     if o[0] is None:
         return ""
+    res = o[2]
+    if punctuation_model is not None:
+        res = apply_recasepunc(punctuation_model, res)
     return o[2]
 
-def nemo_to_json(o, partial=False):
+def norm_str(text):
+    return text.lower().translate(str.maketrans("", "", string.punctuation))
+
+def nemo_to_json(o, partial=False, punctuation_model=None):
     result = dict()
     key = "partial" if partial else "text"
     if isinstance(o, list):
         result[key] = ""
         for i in o:
-            result[key] += processor_output_to_text(i)
+            result[key] += processor_output_to_text(i, punctuation_model)
     else:
-        result["partial" if partial else "text"] = processor_output_to_text(o)
+        result["partial" if partial else "text"] = processor_output_to_text(o, punctuation_model)
     json_res = json.dumps(result)
     return json_res
 
@@ -56,26 +68,31 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         except Exception as e:
             logger.error(f"Failed to read stream configuration {e}")
             await ws.close(reason="Failed to load configuration")
-        model, _ = model_and_alignementmodel
-        language = get_language(config.get("language"))
+        
+        model, punctuation_model = model_and_alignementmodel
         streaming_processor = StreamingASRProcessor(model, 
-            buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, pause_for_final=STREAMING_PAUSE_FOR_FINAL,
+            buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, pause_for_final=STREAMING_PAUSE_FOR_FINAL, max_words_in_buffer=STREAMING_MAX_WORDS_IN_BUFFER,
             vad=VAD, dilatation=VAD_DILATATION, min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION
         )
         logger.info("Starting transcription ...")
         executor = ThreadPoolExecutor()
+        partial_actualization = 1 / (STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND+1)
         current_task = None
         received_chunk_size = None
+        last_responce_time = None
         pile = []
         timeout = None  # it will be computed after the first chunk is received, it is for finding silence in the input stream
         while True:
             try:
                 message = await asyncio.wait_for(ws.recv(), timeout=timeout)
+                assert message is not None, "Received None message"
             except asyncio.TimeoutError:
+                logger.debug(f"Timeout after {timeout:.2f}s, checking for silence")
                 message = None
             if message and len(pile)<2:
                 pile.append(message)
             if (isinstance(message, str) and re.match(EOF_REGEX, message)):
+                # End of file: send the last prediction
                 final = []
                 if current_task:    # wait for the last asynchronous prediction to finish
                     o, _ = await current_task
@@ -86,12 +103,14 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 b = streaming_processor.finish()
                 final.append(b)
                 logger.debug(f"Last buffered text: {o}")
-                await ws.send(nemo_to_json(final))
+                await ws.send(nemo_to_json(final, punctuation_model=punctuation_model))
                 await ws.close()
                 logger.info("Closing connection")
                 break
+
             if message is None:
-                silence_chunk = np.zeros(int(sample_rate * received_chunk_size* 1), dtype=np.float32)
+                # No message received because of timeout: VAD is performed on the client side
+                silence_chunk = np.zeros(int(sample_rate * received_chunk_size), dtype=np.float32)
                 off = streaming_processor.buffer_time_offset
                 dur = len(streaming_processor.audio_buffer)/streaming_processor.sampling_rate
                 streaming_processor.insert_audio_chunk(silence_chunk)
@@ -109,14 +128,19 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 else:
                     if current_task:    # if the task is done, get the result
                         o, p = await current_task
-                        logger.debug(f"Sending final '{o}'")
-                        logger.debug(f"Sending partial '{p}'")
                         if o[0] is not None:
-                            await ws.send(nemo_to_json(o))
-                        else:
-                            await ws.send(nemo_to_json(p, partial=True))
+                            logger.debug(f"Sending final '{o}'")
+                            await ws.send(nemo_to_json(o, punctuation_model=punctuation_model))
+                            last_responce_time = None
+                        elif p[0] is not None:
+                            t = time.time()
+                            if last_responce_time is None or t-last_responce_time>partial_actualization or len(pile)==0:
+                                logger.debug(f"Sending partial '{p}'")
+                                await ws.send(nemo_to_json(p, partial=True))
+                                last_responce_time = t
+                        current_task = None
                     if len(pile)>0:     # if there are messages in the pile, launch a new transcription task
-                        logger.debug(f"Launching new task t={(len(streaming_processor.audio_buffer)/streaming_processor.sampling_rate)+streaming_processor.buffer_time_offset:.2f}s")
+                        logger.debug(f"Launching new transcription on {(len(streaming_processor.audio_buffer)/streaming_processor.sampling_rate)+streaming_processor.buffer_time_offset:.2f}s")
                         current_task = asyncio.get_event_loop().run_in_executor(executor, streaming_processor.transcribe)
                         pile.pop(0)
             else:
@@ -140,6 +164,7 @@ class StreamingASRProcessor:
         min_speech_duration=0.1,
         min_silence_duration=0.1,
         dilatation=0.5,
+        max_words_in_buffer=10,
     ):
         self.model: nemo_asr.models.EncDecCTCModel = model
         self.logfile = logfile
@@ -154,6 +179,7 @@ class StreamingASRProcessor:
         self.vad_min_speech_duration = min_speech_duration
         self.vad_min_silence_duration = min_silence_duration
         self.sampling_rate = sample_rate
+        self.max_words_in_buffer=max_words_in_buffer
     
     def init(self):
         """run this when starting or restarting processing"""
@@ -202,14 +228,19 @@ class StreamingASRProcessor:
                 min_speech_duration=self.vad_min_speech_duration,
                 min_silence_duration=self.vad_min_silence_duration,
             )
-            hypothesis = self.model.transcribe([audio_speech], return_hypotheses=True, timestamps=True, verbose=False)[0]
         else:
-            hypothesis = self.model.transcribe([self.audio_buffer], return_hypotheses=True, timestamps=True, verbose=False)[0]
-        if isinstance(hypothesis, list):
-            hypothesis = hypothesis[0]
+            audio_speech = self.audio_buffer
+
+        try:
+            hypothesis = self.model.transcribe([audio_speech], return_hypotheses=True, timestamps=True, verbose=False)[0]
+        except Exception as e:
+            # Audio might be empty, or the model might not be able to process it
+            logger.error(f"Encoutered an error while transcribing: {e}")
+            return (None, None, ""), self.to_flush(self.buffered_final.copy())
+
         formatted_words = self.format_words(hypothesis.timestamp['word'], convertion_function if self.vad else None)
         self.transcript_buffer.insert(formatted_words, self.buffer_time_offset)
-        o, buffer = self.transcript_buffer.flush()
+        o, buffer = self.transcript_buffer.flush(self.max_words_in_buffer)
         self.commited.extend(o)         # contains all text that is commited
         self.buffered_final.extend(o)   # contains text for final
         if (buffer and (self.buffer_time_offset + len(self.audio_buffer) / self.sampling_rate) - buffer[-1][1]< 0.05):
@@ -359,7 +390,7 @@ class HypothesisBuffer:
                                 logger.debug(f"\t{self.new.pop(0)}")
                             break
 
-    def flush(self):
+    def flush(self, max_partial_words=10):
         # returns commited chunk = the longest common prefix of 2 last inserts.
         commit = []
         while self.new:
@@ -368,7 +399,7 @@ class HypothesisBuffer:
             if len(self.buffer) == 0:
                 break
 
-            if nt.lower().translate(str.maketrans("", "", string.punctuation)) == self.buffer[0][2].lower().translate(str.maketrans("", "", string.punctuation)):
+            if norm_str(nt) == norm_str(self.buffer[0][2]) or (len(self.buffer)>max_partial_words and max_partial_words>-1):
                 commit.append((na, nb, nt))
                 self.last_commited_word = nt
                 self.last_commited_time = nb

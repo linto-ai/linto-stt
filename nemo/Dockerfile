@@ -15,12 +15,15 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
-RUN pip install Cython packaging
+RUN pip install Cython
 COPY nemo/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
-RUN pip install sox
-RUN pip install nemo_toolkit['asr']
-RUN pip install cuda-python>=12.3
+
+RUN pip install --upgrade pip
+COPY punctuation/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+RUN rm requirements.txt
+
 WORKDIR /usr/src/app
 
 COPY celery_app /usr/src/app/celery_app
@@ -28,11 +31,12 @@ COPY http_server /usr/src/app/http_server
 COPY websocket /usr/src/app/websocket
 COPY document /usr/src/app/document
 COPY nemo/stt /usr/src/app/stt
+COPY punctuation ./punctuation
 COPY nemo/docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY test/bonjour.wav /usr/src/app/test/bonjour.wav
 
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/stt"
 
-HEALTHCHECK CMD ./healthcheck.sh
+# HEALTHCHECK CMD ./healthcheck.sh
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

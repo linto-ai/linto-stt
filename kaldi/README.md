@@ -25,19 +25,6 @@ We provide home-cured models (v2) on [dl.linto.ai](https://doc.linto.ai/docs/dev
 Or you can also use Vosk models available [here](https://alphacephei.com/vosk/models).
 
 
-If you want text with upper case letters and punctuation, you can specify a recasepunc model.
-Some recasepunc models trained on [Common Crawl](http://data.statmt.org/cc-100/) are available on [recasepunc](https://github.com/benob/recasepunc) for the following the languages:
-* French
-  * [fr-txt.large.19000](https://github.com/benob/recasepunc/releases/download/0.3/fr-txt.large.19000)
-  <!-- * [fr.22000](https://github.com/benob/recasepunc/releases/download/0.3/fr.22000) -->
-* English
-  * [en.23000](https://github.com/benob/recasepunc/releases/download/0.3/en.23000)
-* Italian
-  * [it.22000](https://github.com/CoffeePerry/recasepunc/releases/download/v0.1.0/it.22000)
-* Chinese
-  * [zh.24000](https://github.com/benob/recasepunc/releases/download/0.3/zh.24000)
-
-
 ### Docker
 The transcription service requires docker up and running.
 
@@ -78,7 +65,7 @@ An example of .env file is provided in [kaldi/.envdefault](https://github.com/li
 | BROKER_PASS | Using the task mode, broker password | my-password |
 | STREAMING_PORT | Using the websocket mode, the listening port for ingoing WS connexions.  | 80 |
 | CONCURRENCY | Maximum number of parallel requests | >1 |
-| PUNCTUATION_MODEL | Path to a recasepunc model, for recovering punctuation and upper letter in streaming | opt/PUNCT |
+| PUNCTUATION_MODEL | Path to a recasepunc model, for recovering punctuation and upper letter in streaming | /opt/PUNCT |
 
 
 ### Serving mode 
@@ -148,12 +135,30 @@ linto-stt-kaldi:latest
 | SHARED_AUDIO_FOLDER | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
 
 
-### Websocket Server
+### Websocket Server (streaming)
 Websocket server's mode deploy a streaming transcription service only.
 
 The SERVICE_MODE value in the .env should be set to ```websocket```.
 
-Usage is the same as the [http streaming API](#streaming)
+The exchanges are structured as followed:
+1. Client send a json {"config": {"sample_rate":16000, "language":"en"}}. Language is optional, if not specified it will use the language from the env.
+2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
+3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
+4. Back to 2-
+5. Server send a final result and close the connexion.
+
+If you want text with upper case letters and punctuation, you can specify a recasepunc model (which must be in version 0.4 at least).
+Some recasepunc models trained on [Common Crawl](http://data.statmt.org/cc-100/) are available on [recasepunc](https://github.com/benob/recasepunc/releases/) for the following the languages:
+* French
+  * [fr.24000](https://github.com/benob/recasepunc/releases/download/0.4/fr.24000)
+* English
+  * [en.22000](https://github.com/benob/recasepunc/releases/download/0.4/en.22000)
+* Italian
+  * [it.23000](https://github.com/benob/recasepunc/releases/download/0.4/it.23000)
+* Chinese
+  * [zh-Hant.17000](https://github.com/benob/recasepunc/releases/download/0.4/zh-Hant.17000)
+
+After downloading a recasepunc model, you can mount it as a volume and specify its location within the Docker container using the `PUNCTUATION_MODEL` environment variable.
 
 ## Usages
 ### HTTP API

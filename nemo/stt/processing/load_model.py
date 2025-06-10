@@ -18,7 +18,7 @@ import logging
 logging.basicConfig(level = logging.INFO)
 logging.getLogger("nemo_logger").setLevel(logging.ERROR)
 
-def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybridRNNTCTCModel, device="cpu", download_root=None):
+def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybridRNNTCTCModel, device="cpu", download_root=None, decoding_strategy_if_hybrid="ctc"):
     start = time.time()
     logger.info(f"Loading Nemo model {model_type_or_file}...")
     default_cache_root = os.path.join(os.path.expanduser("~"), ".cache")
@@ -29,28 +29,26 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
     else:
         model = model_class.from_pretrained(model_type_or_file, map_location=device)
     logger.info(f"Nemo model loaded. (t={time.time() - start:.2f}s)")
-    confidence_cfg = ConfidenceConfig(
-        preserve_frame_confidence=True, # Internally set to true if preserve_token_confidence == True
+    confidence_cfg = ConfidenceConfig(      # is it necessary? Took from a nemo tutorial for inference on big files
+        preserve_frame_confidence=True,     # Internally set to true if preserve_token_confidence == True
         # or preserve_word_confidence == True
-        preserve_token_confidence=True, # Internally set to true if preserve_word_confidence == True
+        preserve_token_confidence=True,     # Internally set to true if preserve_word_confidence == True
         preserve_word_confidence=True,
-        aggregation="prod", # How to aggregate frame scores to token scores and token scores to word scores
-        exclude_blank=False, # If true, only non-blank emissions contribute to confidence scores
-        tdt_include_duration=False, # If true, calculate duration confidence for the TDT models
-        method_cfg=ConfidenceMethodConfig( # Config for per-frame scores calculation (before aggregation)
-            name="max_prob", # Or "entropy" (default), which usually works better
-            entropy_type="gibbs", # Used only for name == "entropy". Recommended: "tsallis" (default) or "renyi"
-            alpha=0.5, # Low values (<1) increase sensitivity, high values decrease sensitivity
-            entropy_norm="lin" # How to normalize (map to [0,1]) entropy. Default: "exp"
+        aggregation="prod",         # How to aggregate frame scores to token scores and token scores to word scores
+        exclude_blank=False,        # If true, only non-blank emissions contribute to confidence scores
+        # tdt_include_duration=False,       # If true, calculate duration confidence for the TDT models
+        method_cfg=ConfidenceMethodConfig(  # Config for per-frame scores calculation (before aggregation)
+            name="max_prob",        # Or "entropy" (default), which usually works better
+            entropy_type="gibbs",   # Used only for name == "entropy". Recommended: "tsallis" (default) or "renyi"
+            alpha=0.5,              # Low values (<1) increase sensitivity, high values decrease sensitivity
+            entropy_norm="lin"      # How to normalize (map to [0,1]) entropy. Default: "exp"
         )
     )
     if isinstance(model, nemo_asr.models.EncDecRNNTModel):
         if isinstance(model, nemo_asr.models.EncDecHybridRNNTCTCModel):
-            strategy = "rnnt"
-            if strategy=="ctc":
+            if decoding_strategy_if_hybrid=="ctc":
                 logger.info("You are using an hybrid model, changing decoding strategy to ctc")
-                model.change_decoding_strategy(CTCDecodingConfig(confidence_cfg=confidence_cfg), decoder_type="ctc")
-                # model.change_decoding_strategy(decoder_type="ctc")
+                model.change_decoding_strategy(decoder_type="ctc")
             else:
                 logger.info("You are using an hybrid model, using rnnt decoder")
         else:

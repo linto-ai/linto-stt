@@ -22,6 +22,8 @@ __all__ = [
 # Model locations (should be mounted)
 MODEL_PATH = "/opt/model"
 
+PUNCTUATION_MODEL = load_recasepunc_model()
+
 # Load ASR models (acoustic model and decoding graph)
 logger.info("Loading acoustic model and decoding graph ...")
 start = time()
@@ -42,8 +44,6 @@ os.environ["OMP_NUM_THREADS"] = str(
 )  # This must be done BEFORE importing packages (sklearn, etc.)
 # For Torch, we will set it afterward, because setting that before loading the model can hang the process (see https://github.com/pytorch/pytorch/issues/58962)
 torch.set_num_threads(1)
-
-PUNCTUATION_MODEL = load_recasepunc_model()
 
 MODEL = (ASR_MODEL, PUNCTUATION_MODEL)
 

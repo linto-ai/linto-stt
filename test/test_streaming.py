@@ -25,9 +25,7 @@ async def send_data(websocket, stream, logger, stream_config):
                 import auditok
                 audio_events = auditok.split(
                     data,
-                    min_dur=0.2,
-                    max_silence=0.3,
-                    energy_threshold=65,
+                    energy_threshold=50,
                     sampling_rate=16000,
                     sample_width=2,
                     channels=1
@@ -38,6 +36,7 @@ async def send_data(websocket, stream, logger, stream_config):
                     if stream_config['stream_wait']>0:
                         await asyncio.sleep(stream_config['stream_wait'])
                     continue
+                # data = b''.join([event.data for event in audio_events])
             await websocket.send(data)
             logger.debug(f"Sent audio chunk: {duration - stream_config['stream_duration']:.1f}s --> {duration:.1f}s")
             if stream_config['stream_wait']>0:

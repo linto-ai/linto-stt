@@ -1,3 +1,4 @@
+packaging==24.0
 numpy==1.26.4
 typing_extensions
 celery[redis,auth,msgpack]>=4.4.7
@@ -15,39 +16,8 @@ wavio>=0.0.4
 websockets
 auditok<0.3.0
 torchaudio
-huggingface_hub<0.24
-
-# hydra-core>1.3,<=1.3.2
-# cloudpickle
-# fiddle
-# hydra-core>1.3,<=1.3.2
-# lightning>2.2.1,<=2.4.0
-# omegaconf<=2.3
-# peft
-# torchmetrics>=0.11.0
-# # transformers>=4.48.0,<=4.48.3
-# transformers
-# lhotse
-# wandb
-# webdataset>=0.2.86
-# braceexpand
-# editdistance
-# einops
-# g2p_en
-# jiwer
-# kaldi-python-io
-# kaldiio
-# lhotse>=1.26.0
-# librosa>=0.10.1
-# marshmallow
-# optuna
-# packaging
-# pyannote.core
-# pyannote.metrics
-# pydub
-# pyloudnorm
-# resampy
-# ruamel.yaml
-# scipy>=0.14
-# soundfile
-# sentencepiece
+huggingface_hub
+sox
+nemo_toolkit[asr]==2.3.0
+cuda-python>=12.3
+hf_xet # to speedup downloads from HuggingFace

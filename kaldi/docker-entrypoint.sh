@@ -38,6 +38,21 @@ function setup_user() {
     # Adjust ownership of the application directories
     echo "Adjusting ownership of application directories"
     chown -R "$USER_NAME:$GROUP_NAME" /usr/src/app
+
+    # Get the user's home directory from the system
+    USER_HOME=$(getent passwd "$USER_NAME" | cut -d: -f6)
+
+    # Ensure the home directory exists
+    if [ ! -d "$USER_HOME" ]; then
+        echo "Ensure home directory exists: $USER_HOME"
+        mkdir -p "$USER_HOME"
+        chown "$USER_NAME:$GROUP_NAME" "$USER_HOME"
+    fi
+
+    # Grant full permissions to the user on their home directory
+    # Needed for downloading the models
+    echo "Granting full permissions to $USER_NAME on $USER_HOME"
+    chmod -R u+rwx "$USER_HOME"
 }
 
 # Check model
