@@ -36,7 +36,7 @@ async def send_data(websocket, stream, logger, stream_config):
                     if stream_config['stream_wait']>0:
                         await asyncio.sleep(stream_config['stream_wait'])
                     continue
-                data = b''.join([event.data for event in audio_events])
+                # data = b''.join([event.data for event in audio_events])
             await websocket.send(data)
             logger.debug(f"Sent audio chunk: {duration - stream_config['stream_duration']:.1f}s --> {duration:.1f}s")
             if stream_config['stream_wait']>0:
