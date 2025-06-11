@@ -1,5 +1,5 @@
 FROM python:3.8
-LABEL maintainer="contact@linto.ai, jlouradour@linagora.com, abert@linagora.com"
+LABEL maintainer="contact@linto.ai"
 
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl netcat-traditional gosu
 
