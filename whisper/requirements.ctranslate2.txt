@@ -1,6 +1,6 @@
 celery[redis,auth,msgpack]==5.5.1
 flask==3.0.3
-flask-cors==5.0.0
+flask-cors==6.0.0
 flask-sock==0.7.0
 flask-swagger-ui==3.36.0
 gevent==24.2.1
