@@ -32,7 +32,7 @@ If not downloaded already, the model will be downloaded when calling the first t
 The STT only entry point in task mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
 On addition, as to prevent large audio from transiting through the message broker, STT-Worker use a shared storage folder (SHARED_FOLDER).
 
-## Deploy LinTO-STT-Whisper
+## Deploy LinTO-STT-NeMo
 
 ### 1- First step is to build or pull the image
 
@@ -49,7 +49,7 @@ An example of .env file is provided in [nemo/.envdefault](https://github.com/lin
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
 | SERVICE_MODE | (Required) STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` \| `websocket` |
-| MODEL | (Required) Path to a NeMo model or HuggingFace identifier. | `nvidia/parakeet-ctc-1.1b` \| `nvidia/stt_fr_fastconformer_hybrid_large_pc` \| \<ASR_PATH\> \| ... |
+| MODEL | (Required) Path to a NeMo model or HuggingFace identifier. | `nvidia/parakeet-ctc-1.1b` \| `linagora/linto_stt_fr_fastconformer` \| \<ASR_PATH\> \| ... |
 | ARCHITECTURE | (Required) The architecture of the model used. Suported (and tested) architectures are CTC, Hybrid and RNNT models. | `hybrid_bpe` \| `ctc_bpe` \| `rnnt_bpe` \| ... |
 | DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | NUM_THREADS | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
@@ -82,22 +82,22 @@ The model will be (downloaded if required and) loaded in memory when calling the
 
 If you want to preload the model (and later specify a path `<ASR_PATH>` as `MODEL`),
 you may want to download one of NeMo models:
-   * [French large fast conformer with punctuations made by NVIDIA](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc)
-   * [French large fast conformer made by Bofeng Huang](https://huggingface.co/bofenghuang/stt_fr_fastconformer_hybrid_large)
-   * [English large fast conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large)
-   * [English XL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-0.6b)
-   * [English XXL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b)
-   * Soon models trained by LINAGORA
+   * [French large Fast Conformer by LINAGORA](https://huggingface.co/linagora/linto_stt_fr_fastconformer): Most robust French model
+   * [French large Fast Conformer by NVIDIA](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc): Includes uppercase letters and punctuation, but is less precise than the LINAGORA model
+   * [French large Fast Conformer by Bofeng Huang](https://huggingface.co/bofenghuang/stt_fr_fastconformer_hybrid_large): Performs well on reading and prepared speech
+   * [English large Fast Conformer by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large)
+   * [English XL Fast Conformer by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-0.6b)
+   * [English XXL Fast Conformer by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b)
    * More stt models are available in [NVIDIA](https://huggingface.co/nvidia) huggingface
 
-NeMo models from Hugging Face (transformers), as for instance https://huggingface.co/nvidia/parakeet-ctc-1.1b (you can either download the model or use the Hugging Face identifier `nvidia/parakeet-ctc-1.1b`).
+NeMo models from Hugging Face, as for instance https://huggingface.co/nvidia/parakeet-ctc-1.1b (you can either download the model or use the Hugging Face identifier `nvidia/parakeet-ctc-1.1b`).
 
 #### ARCHITECTURE
 
 Here is a guide for finding the right architecture to put. On HuggingFace, look at the name (and/or the page) and depending on what you find:
-- For CTC models like [English XXL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b) you should put `ctc_bpe`
-- For Hybrid models like [French large fast conformer with punctuations made by NVIDIA](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) you shuld put `hybrid_bpe`. These models can do both `ctc` and `rnnt` decoding methods, so you can choose which one you want to use by adding `ctc` to get `hybrid_bpe_ctc` for example. `ctc` is less accurate but it runs faster `rnnt`.
-- For RNNT (Transducer) models like [English large fast conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) you should put `rnnt_bpe`
+- For CTC models like [English XXL Fast Conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b) you should put `ctc_bpe`
+- For Hybrid models like [French large Fast Conformer by LINAGORA](https://huggingface.co/linagora/linto_stt_fr_fastconformer) you shuld put `hybrid_bpe`. These models can do both `ctc` and `rnnt` decoding methods, so you can choose which one you want to use by adding `ctc` to get `hybrid_bpe_ctc` for example. `ctc` is less accurate but it runs faster `rnnt`.
+- For RNNT (Transducer) models like [English large Fast Conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) you should put `rnnt_bpe`
 
 #### LANGUAGE
 
