@@ -57,8 +57,7 @@ function setup_user() {
     # Grant full permissions to /opt for user $USER_NAME
     # Needed for downloading the models
     echo "Granting full permissions to $USER_NAME on /opt"
-    chmod g+rwx /opt
-    usermod -aG $(stat -c %G /opt) "$USER_NAME"
+    chown -R "$USER_NAME:$GROUP_NAME" /opt
 }
 
 # Check model
