@@ -6,6 +6,8 @@ LinTO-STT-NeMo can either be used as a standalone transcription service or deplo
 
 It can be used to do offline or real-time transcriptions.
 
+You can try the LinTO-STT NeMo API, powered by the [LinTO French Fast Conformer model](https://huggingface.co/linagora/linto_stt_fr_fastconformer), directly in your browser via LinTO Studio.
+
 ## Pre-requisites
 
 ### Requirements
