@@ -34,6 +34,8 @@ ARCHITECTURE=hybrid_bpe
 # MODEL=nvidia/parakeet-rnnt-0.6b
 # ARCHITECTURE=rnnt_bpe
 
+# PUNCTUATION_MODEL=/opt/models/lm/fr.24000
+
 # 480s=8min. A file longer than that will be split into smaller parts. This value depends on your VRAM/RAM amount
 LONG_FILE_THRESHOLD=480
 # 240s=4min. Size of the parts into which the audio is splitted. This value depends on your VRAM/RAM amount
