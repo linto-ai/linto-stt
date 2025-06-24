@@ -1,6 +1,6 @@
 # FROM nvcr.io/nvidia/pytorch:24.02-py3
 FROM python:3.10
-LABEL maintainer="contact@linto.ai, jlouradour@linagora.com, abert@linagora.com"
+LABEL maintainer="contact@linto.ai"
 
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
