@@ -49,4 +49,4 @@ DEVICE=cpu
 NUM_THREADS=4
 
 # Number of workers minus one (all except from the main one)
-CONCURRENCY=2
+CONCURRENCY=1

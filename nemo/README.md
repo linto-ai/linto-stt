@@ -66,7 +66,7 @@ If you have a GPU, you can add `--gpus all` to the command.
 
 Once the service is running, you can test it using:
 ```sh
-python test/test_streaming.py -v
+python test/test_streaming.py -v --audio_file test/bonjour.wav
 ```
 
 
