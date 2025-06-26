@@ -25,9 +25,9 @@ ARCHITECTURE=rnnt_bpe
 
 # These models can't handle files that are too long, so it must be split if too long
 # 480s=8min. A file longer than that will be split into smaller parts. This value depends on your VRAM/RAM amount
-LONG_FILE_THRESHOLD=480
+LONG_FILE_THRESHOLD=360
 # 360s=6min. Size of the parts into which the audio is splitted. This value depends on your VRAM/RAM amount
-LONG_FILE_CHUNK_LEN=360
+LONG_FILE_CHUNK_LEN=240
 # 10s of context at the begining and end of each chunk
 LONG_FILE_CHUNK_CONTEXT_LEN=10
 
