@@ -129,7 +129,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                     if current_task:    # if the task is done, get the result
                         o, p = await current_task
                         if o[0] is not None:
-                            logger.debug(f"Sending final '{o}'")
+                            logger.info(f"Sending final '{o}'")
                             await ws.send(nemo_to_json(o, punctuation_model=punctuation_model))
                             last_responce_time = None
                         elif p[0] is not None:

@@ -28,19 +28,19 @@ docker pull lintoai/linto-stt-nemo
 ```
 or build it
 ```sh
-docker build . -f nemo/Dockerfile -t linto-stt:nemo
+docker build . -f nemo/Dockerfile -t linto-stt-nemo
 ```
 
 ### Run offline transcription service
 
 Run the service in english using in:
 ```sh
-docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline --gpus all linto-stt:nemo
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline --gpus all lintoai/linto-stt-nemo
 ```
 
 or in french using:
 ```sh
-docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe --gpus all linto-stt:nemo
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe --gpus all lintoai/linto-stt-nemo
 ```
 
 Once the serive is running, you can test it using:
@@ -52,17 +52,17 @@ bash test/test_deployment.sh test/bonjour.wav
 
 Run the service using:
 ```sh
-docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming --gpus all linto-stt:nemo
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming --gpus all lintoai/linto-stt-nemo
 ```
 
 or in french using:
 ```sh
-docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming -e MODEL=linagora/linto_stt_fr_fastconformer --gpus all linto-stt:nemo
+docker run --rm -it -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming -e MODEL=linagora/linto_stt_fr_fastconformer --gpus all lintoai/linto-stt-nemo
 ```
 
-Once the serive is running, you can test it using:
+Once the service is running, you can test it using:
 ```sh
-python test/test_streaming.py
+python test/test_streaming.py -v
 ```
 
 
