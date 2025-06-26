@@ -8,6 +8,93 @@ It can be used to do offline or real-time transcriptions.
 
 You can try the LinTO-STT NeMo API, powered by the [LinTO French Fast Conformer model](https://huggingface.co/linagora/linto_stt_fr_fastconformer), directly in your browser via LinTO Studio.
 
+
+## Quick Start
+
+### Prerequisites
+
+- Install [docker](https://www.docker.com/products/docker-desktop/) and ensure it is up and running.
+
+- For GPU capabilities, it is also needed to install
+[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
+- At least 15GB of disk space is required to build the docker image and the models.
+
+### Build
+
+Pull the image :
+```sh
+docker pull lintoai/linto-stt-nemo
+```
+or build it
+```sh
+docker build . -f nemo/Dockerfile -t linto-stt:nemo
+```
+
+### Run offline transcription service
+
+Run the service in english using in:
+```sh
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline --gpus all linto-stt:nemo
+```
+
+or in french using:
+```sh
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe --gpus all linto-stt:nemo
+```
+
+Once the serive is running, you can test it using:
+```sh
+bash test/test_deployment.sh test/bonjour.wav
+```
+
+### Run streaming transcription service
+
+Run the service using:
+```sh
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming --gpus all linto-stt:nemo
+```
+
+or in french using:
+```sh
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming -e MODEL=linagora/linto_stt_fr_fastconformer --gpus all linto-stt:nemo
+```
+
+Once the serive is running, you can test it using:
+```sh
+python test/test_streaming.py
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# OLD
+
 ## Pre-requisites
 
 ### Requirements
@@ -24,6 +111,7 @@ To run the transcription models you'll need:
   and models can occupy several GB of disk space depending on the model size (it can be up to 5GB).
 * Up to 8GB of RAM depending on the model used.
 * One CPU per worker. Inference time scales on CPU performances.
+
 
 ### Model(s)
 
@@ -84,12 +172,10 @@ The model will be (downloaded if required and) loaded in memory when calling the
 
 If you want to preload the model (and later specify a path `<ASR_PATH>` as `MODEL`),
 you may want to download one of NeMo models:
-   * [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer): Most robust French model
-   * [French Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc): Includes uppercase letters and punctuation, but is less precise than the LINAGORA model
-   * [French Large Fast Conformer (by Bofeng Huang)](https://huggingface.co/bofenghuang/stt_fr_fastconformer_hybrid_large): Performs well on reading and prepared speech
-   * [English Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large)
-   * [English XL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-ctc-0.6b)
-   * [English XXL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-ctc-1.1b)
+   * [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer): Most robust French model. Use `ARCHITECTURE=hybrid_bpe`.
+   * [French Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc): Includes uppercase letters and punctuation, but is less precise than the LINAGORA model. Use `ARCHITECTURE=hybrid_bpe`
+   * [English Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large). Use `ARCHITECTURE=rnnt_bpe`
+   * [English XXL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-ctc-1.1b). Use `ARCHITECTURE=ctc_bpe`
    * More stt models are available in [NVIDIA](https://huggingface.co/nvidia) huggingface
 
 NeMo models from Hugging Face, as for instance https://huggingface.co/nvidia/parakeet-ctc-1.1b (you can either download the model or use the Hugging Face identifier `nvidia/parakeet-ctc-1.1b`).
@@ -97,9 +183,9 @@ NeMo models from Hugging Face, as for instance https://huggingface.co/nvidia/par
 #### ARCHITECTURE
 
 Here is a guide for finding the right architecture to put. On HuggingFace, look at the name (and/or the page) and depending on what you find:
-- For CTC models like [English XXL Fast Conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b) you should put `ctc_bpe`
-- For Hybrid models like [French Large Fast Conformer by LINAGORA](https://huggingface.co/linagora/linto_stt_fr_fastconformer) you shuld put `hybrid_bpe`. These models can do both `ctc` and `rnnt` decoding methods, so you can choose which one you want to use by adding `ctc` to get `hybrid_bpe_ctc` for example. `ctc` is less accurate but it runs faster `rnnt`.
-- For RNNT (Transducer) models like [English Large Fast Conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) you should put `rnnt_bpe`
+- Use `ctc_bpe` for CTC models like [English XXL Fast Conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b)
+- Use `hybrid_bpe` for Hybrid models like [French Large Fast Conformer by LINAGORA](https://huggingface.co/linagora/linto_stt_fr_fastconformer). These models can do both `ctc` and `rnnt` decoding methods, so you can choose which one you want to use by adding `ctc` to get `hybrid_bpe_ctc` for example. `ctc` is less accurate but it runs faster `rnnt`.
+- Use `rnnt_bpe` for RNNT (Transducer) models like [English Large Fast Conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large)
 
 #### LANGUAGE
 
@@ -137,7 +223,7 @@ You may also want to add specific options:
 * To enable GPU capabilities, add ```--gpus all```.
   Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
 * To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
-  use ```-v <CACHE_PATH>:/root/.cache```
+  use ```-v <CACHE_PATH>:/var/www/.cache```
   If you use `MODEL=/opt/model.nemo` environment variable, you may want to mount the model file (or folder) with option ```-v <ASR_PATH>:/opt/model.nemo```.
 
 **Parameters:**
@@ -194,7 +280,7 @@ The exchanges are structured as followed:
  We recommend to use a VAD on the server side (silero for example).
 
 How to choose the 2 streaming parameters `STREAMING_MIN_CHUNK_SIZE` and `STREAMING_BUFFER_TRIMMING_SEC`?
-- If you want a low latency (2 to a 5 seconds on a NVIDIA 4090 Laptop), choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5 seconds (to avoid making useless predictions).
+- If you want a low latency, choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5 seconds (to avoid making useless predictions).
 For `STREAMING_BUFFER_TRIMMING_SEC`, around 10 seconds is a good compromise between keeping latency low and having a good transcription accuracy.
 Depending on the hardware and the model, this value should go from 6 to 15 seconds.
 - If you can efford to have a high latency (30 seconds) and want to minimize GPU activity, choose a big value for `STREAMING_MIN_CHUNK_SIZE`, such as 26s (which will give latency around 30 seconds).
