@@ -35,13 +35,15 @@ docker build . -f nemo/Dockerfile -t linto-stt-nemo
 
 Run the service in english using in:
 ```sh
-docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline --gpus all lintoai/linto-stt-nemo
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline lintoai/linto-stt-nemo
 ```
 
 or in french using:
 ```sh
-docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe --gpus all lintoai/linto-stt-nemo
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_offline -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe lintoai/linto-stt-nemo
 ```
+
+If you have a GPU, you can add `--gpus all` to the command.
 
 Once the serive is running, you can test it using:
 ```sh
@@ -52,13 +54,15 @@ bash test/test_deployment.sh test/bonjour.wav
 
 Run the service using:
 ```sh
-docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming --gpus all lintoai/linto-stt-nemo
+docker run -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming lintoai/linto-stt-nemo
 ```
 
 or in french using:
 ```sh
-docker run --rm -it -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming -e MODEL=linagora/linto_stt_fr_fastconformer --gpus all lintoai/linto-stt-nemo
+docker run --rm -it -p 8080:80 --name linto-stt-nemo --env-file nemo/.envdefault_streaming -e MODEL=linagora/linto_stt_fr_fastconformer lintoai/linto-stt-nemo
 ```
+
+If you have a GPU, you can add `--gpus all` to the command.
 
 Once the service is running, you can test it using:
 ```sh
