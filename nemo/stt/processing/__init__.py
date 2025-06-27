@@ -83,7 +83,7 @@ try:
     PUNCTUATION_MODEL = load_recasepunc_model()
     MODEL = (model, PUNCTUATION_MODEL)
 
-    if USE_GPU:
+    if USE_GPU or os.environ.get("SERVICE_MODE", "http")=="websocket":
         warmup()
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err
