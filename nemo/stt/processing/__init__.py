@@ -83,6 +83,8 @@ try:
     PUNCTUATION_MODEL = load_recasepunc_model()
     MODEL = (model, PUNCTUATION_MODEL)
 
+    # if warmup when http+cpu : server freeze
+    # if no warmup when websocket+cpu : model loaded at first connexion
     if USE_GPU or os.environ.get("SERVICE_MODE", "http")=="websocket":
         warmup()
 except Exception as err:
