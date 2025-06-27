@@ -3,6 +3,7 @@ import os
 import time
 import regex as re
 import json
+import math
 from typing import Tuple, Union
 import nemo.collections.asr as nemo_asr
 import torch
@@ -113,41 +114,31 @@ def format_nemo_response(
         }
     
 
-class AudioChunkIterator():
-    def __init__(self, samples, frame_len, sample_rate):
-        self._samples = samples
-        self._chunk_len = frame_len*sample_rate
-        self._start = 0
-        self.output=True
-   
-    def __iter__(self):
-        return self
-    
-    def __next__(self):
-        if not self.output:
-            raise StopIteration
-        last = int(self._start + self._chunk_len)
-        if last <= len(self._samples):
-            chunk = self._samples[self._start: last]
-            self._start = last
-        else:
-            chunk = np.zeros([int(self._chunk_len)], dtype='float32')
-            samp_len = len(self._samples) - self._start
-            chunk[0:samp_len] = self._samples[self._start:len(self._samples)]
-            self.output = False
-   
-        return chunk
+def get_chunks(samples, frame_duration, sample_rate, context_duration=0):
+    _samples = samples
+    _chunk_len = frame_duration*sample_rate
+    _start = 0
+    _context_len = context_duration*sample_rate
+    chunks_list = []
+    number_of_chunks = math.ceil(len(_samples) / _chunk_len)
+    for i in range(number_of_chunks):
+        last = int(_start + _chunk_len)
+        start_with_context = max(0, int(_start - _context_len))
+        end_with_context = min(len(_samples), int(last + _context_len))
+        chunk = _samples[start_with_context: end_with_context]
+        _start = last
+        chunks_list.append(np.array(chunk))
+    return chunks_list
 
 class ChunkBufferDecoder:
 
-    def __init__(self, asr_model, chunk_len_in_secs=1, buffer_len_in_secs=3):
+    def __init__(self, asr_model, chunk_len_in_secs=1, context_len_in_secs=3):
         self.asr_model = asr_model
         self.asr_model.eval()
         self.buffers = []
         self.all_preds = []
         self.chunk_len = chunk_len_in_secs
-        self.buffer_len = buffer_len_in_secs
-        assert(chunk_len_in_secs<=buffer_len_in_secs)
+        self.context_len = context_len_in_secs
         
     @torch.no_grad()    
     def transcribe_buffers(self, buffers):
@@ -160,38 +151,29 @@ class ChunkBufferDecoder:
         self.all_preds=hypothesis
     
     def merge_results(self):
-        context = ((self.buffer_len - self.chunk_len) / 2)
         result_text = []
         result_timestep = []
         base_acceptance_per_character = 0.015       # in case words are cut in the middle
         for i, chunk_hypothesis in enumerate(self.all_preds):
             for word in chunk_hypothesis.timestamp['word']:
                 acceptance = base_acceptance_per_character * len(word['word'])
-                if i==0 and word['end']-acceptance<self.buffer_len-context:
+                merged_word = dict(word=word['word'], start=word['start']+i*self.chunk_len-self.context_len, end=word['end']+i*self.chunk_len-self.context_len)
+                if i==0 and word['end']-acceptance<self.chunk_len+self.context_len:
                     result_text.append(word['word'])
-                    result_timestep.append(word)
-                elif i==len(self.all_preds)-1 and word['start']+acceptance>context:
+                    merged_word = dict(word=word['word'], start=word['start']+i*self.chunk_len, end=word['end']+i*self.chunk_len)
+                    result_timestep.append(merged_word)
+                elif i==len(self.all_preds)-1 and word['start']+acceptance>self.context_len:
                     result_text.append(word['word'])
-                    result_timestep.append(word)
-                elif word['start']+acceptance>context and word['end']-acceptance<self.buffer_len-context:
+                    result_timestep.append(merged_word)
+                elif word['start']+acceptance>self.context_len and word['end']-acceptance<self.chunk_len+self.context_len:
                     result_text.append(word['word'])
-                    result_timestep.append(word)
+                    result_timestep.append(merged_word)
+                    
         result = {"text": " ".join(result_text), "timestamp": {"word": result_timestep}}
         return result
 
 def stream_long_file(audio, model):
-    buffer_len_in_secs = LONG_FILE_CHUNK_LEN + 2 * LONG_FILE_CHUNK_CONTEXT_LEN
-
-    buffer_len = int(SAMPLE_RATE*buffer_len_in_secs)
-    sampbuffer = np.zeros([buffer_len], dtype=np.float32)
-
-    chunk_reader = AudioChunkIterator(audio, LONG_FILE_CHUNK_LEN, SAMPLE_RATE)
-    chunk_len = SAMPLE_RATE*LONG_FILE_CHUNK_LEN
-    buffer_list = []
-    for chunk in chunk_reader:
-        sampbuffer[:-chunk_len] = sampbuffer[chunk_len:]    # move right part of audio to the begining of buffer
-        sampbuffer[-chunk_len:] = chunk
-        buffer_list.append(np.array(sampbuffer))
-    asr_decoder = ChunkBufferDecoder(model, chunk_len_in_secs=LONG_FILE_CHUNK_LEN, buffer_len_in_secs=buffer_len_in_secs)
+    buffer_list = get_chunks(audio, LONG_FILE_CHUNK_LEN, SAMPLE_RATE, LONG_FILE_CHUNK_CONTEXT_LEN)
+    asr_decoder = ChunkBufferDecoder(model, chunk_len_in_secs=LONG_FILE_CHUNK_LEN, context_len_in_secs=LONG_FILE_CHUNK_CONTEXT_LEN)
     result = asr_decoder.transcribe_buffers(buffer_list)
     return result

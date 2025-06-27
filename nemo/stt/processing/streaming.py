@@ -119,7 +119,10 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 audio_chunk = bytes_to_array(message)
                 if received_chunk_size is None:
                     received_chunk_size = len(audio_chunk)/sample_rate
-                    timeout = received_chunk_size * STREAMING_TIMEOUT_FOR_SILENCE
+                    if STREAMING_TIMEOUT_FOR_SILENCE:
+                        timeout = received_chunk_size * STREAMING_TIMEOUT_FOR_SILENCE
+                    else:
+                        timeout = None
                 streaming_processor.insert_audio_chunk(audio_chunk)
                 logger.debug(f"Received chunk of {len(audio_chunk)/sample_rate:.2f}s")
             if streaming_processor.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
@@ -129,7 +132,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                     if current_task:    # if the task is done, get the result
                         o, p = await current_task
                         if o[0] is not None:
-                            logger.debug(f"Sending final '{o}'")
+                            logger.info(f"Sending final '{o}'")
                             await ws.send(nemo_to_json(o, punctuation_model=punctuation_model))
                             last_responce_time = None
                         elif p[0] is not None:

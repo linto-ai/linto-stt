@@ -1,4 +1,4 @@
-.env*
+.env
 tmp*
 test.log
 __pycache__
