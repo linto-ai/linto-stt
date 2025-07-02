@@ -64,9 +64,9 @@ device, USE_GPU = get_device()
 logger.info(f"Using device {device}")
 
 # Load ASR model
-model_type = os.environ.get("MODEL", "nvidia/stt_fr_conformer_ctc_large")
-architecture = get_model_class(os.environ.get("ARCHITECTURE", "ctc_bpe"))
-decoding_strategy_if_hybrid = get_decoding_method(os.environ.get("ARCHITECTURE", "ctc_bpe"))
+model_type = os.environ.get("MODEL", "nvidia/parakeet-rnnt-0.6b")
+architecture = get_model_class(os.environ.get("ARCHITECTURE", "rnnt_bpe"))
+decoding_strategy_if_hybrid = get_decoding_method(os.environ.get("ARCHITECTURE", "rnnt_bpe"))
 
 # Check language
 language = get_language()
