@@ -35,9 +35,9 @@ if STREAMING_TIMEOUT_FOR_SILENCE:
 STREAMING_MAX_WORDS_IN_BUFFER=int(os.environ.get("STREAMING_MAX_WORDS_IN_BUFFER", 5))
 STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=float(os.environ.get("STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND", 4))
 
-LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", 8*60))  # 8*60=8min
-LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", 6*60))  # 6*60=6min. Size of chunk to divide the long file into
-LONG_FILE_CHUNK_CONTEXT_LEN = int(os.environ.get("LONG_FILE_CHUNK_CONTEXT_LEN", 10))    # Size of the context of the chunk (10 means 10s before and 10 after)
+LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", 9*60))  # 9*60=9mins
+LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", 6*60))  # 6*60=6mins. Size of chunk to divide the long file into
+LONG_FILE_CHUNK_CONTEXT_LEN = int(os.environ.get("LONG_FILE_CHUNK_CONTEXT_LEN", 5))    # Size of the context of the chunk (10 means 10s before and 10 after)
 
 def set_num_threads(n):
     torch.set_num_threads(n)

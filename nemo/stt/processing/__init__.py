@@ -64,7 +64,7 @@ device, USE_GPU = get_device()
 logger.info(f"Using device {device}")
 
 # Load ASR model
-model_type = os.environ.get("MODEL", "nvidia/parakeet-rnnt-0.6b")
+model_type = os.environ.get("MODEL", "nvidia/parakeet-tdt-0.6b-v2")
 architecture = get_model_class(os.environ.get("ARCHITECTURE", "rnnt_bpe"))
 decoding_strategy_if_hybrid = get_decoding_method(os.environ.get("ARCHITECTURE", "rnnt_bpe"))
 

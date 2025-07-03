@@ -76,7 +76,10 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         )
         logger.info("Starting transcription ...")
         executor = ThreadPoolExecutor()
-        partial_actualization = 1 / (STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND+1)
+        if STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND>0:
+            partial_actualization = 1 / (STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND+1)
+        else:
+            partial_actualization = None
         current_task = None
         received_chunk_size = None
         last_responce_time = None
@@ -137,7 +140,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                             last_responce_time = None
                         elif p[0] is not None:
                             t = time.time()
-                            if last_responce_time is None or t-last_responce_time>partial_actualization or len(pile)==0:
+                            if last_responce_time is None or partial_actualization is None or t-last_responce_time>partial_actualization or len(pile)==0:
                                 logger.debug(f"Sending partial '{p}'")
                                 await ws.send(nemo_to_json(p, partial=True))
                                 last_responce_time = t

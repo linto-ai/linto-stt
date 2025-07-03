@@ -38,7 +38,7 @@ An API for transcribing audio files, accessible via standard HTTP requests. The 
 
 Run the API to transcribe in english using in:
 ```sh
-docker run -p 8080:80 --name linto-stt-nemo -e SERVICE_MODE=http -e MODEL=nvidia/parakeet-rnnt-0.6b -e ARCHITECTURE=rnnt_bpe lintoai/linto-stt-nemo
+docker run -p 8080:80 --name linto-stt-nemo -e SERVICE_MODE=http -e MODEL=nvidia/parakeet-tdt-0.6b-v2 -e ARCHITECTURE=rnnt_bpe lintoai/linto-stt-nemo
 ```
 
 or transcribe in french using:
@@ -116,10 +116,10 @@ Will launch a Websocket server as the host user on port 8080, using the GPU and 
 | [MODEL](#model-environment-variable) | (Required) Path to a NeMo model or HuggingFace identifier. | `nvidia/parakeet-ctc-1.1b` \| `linagora/linto_stt_fr_fastconformer` \| \<ASR_PATH\> \| ... |
 | ARCHITECTURE | (Required) The architecture of the model used. Suported (and tested) architectures are CTC, Hybrid and RNNT models. | `hybrid_bpe` \| `ctc_bpe` \| `rnnt_bpe` \| ... |
 | DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
-| [NUM_THREADS](#num_threads-environment-variable) | Number of threads (maximum) to speed up the transcription, when running on CPU. | `1` \| `4` \| ... |
+| [NUM_THREADS](#num_threads-environment-variable) | Number of threads (maximum) to speed up the transcription, when running on CPU. Default is `torch.get_num_threads()` | `1` \| `4` \| ... |
 | CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
-| USER_ID | User ID to run the service as. Default is `33` | blabla |
-| GROUP_ID | Group ID to run the service as. Default is `33` | blabla |
+| USER_ID | User ID to run the service as. Default is `33` | `1000` |
+| GROUP_ID | Group ID to run the service as. Default is `33` | `1000` |
 | VAD | Voice Activity Detection method. VAD is used to detect the presence of human speech in an audio stream. Use "false" to disable. Default is `auditok`. | `true` \| `false` \| `1` \| `0` \| `auditok` \| `silero`
 | VAD_DILATATION | How much (in sec) to enlarge each speech segment detected by the VAD. Default is `0.5` | `0.1` \| `0.5` \| ...
 | VAD_MIN_SPEECH_DURATION | Minimum duration (in sec) of a speech segment. Default is `0.1` | `0.1` \| `0.5` \| ...
@@ -130,14 +130,14 @@ Will launch a Websocket server as the host user on port 8080, using the GPU and 
 The model will be (downloaded from huggingface in the if required and) loaded in memory when the server starts.
 If you want to preload the model,
 you may want to download one of NeMo models:
-| Model name | Huggingface ID | Language | Uppercase letters and punctuation | Architecture | [WER (lower is better)](https://en.wikipedia.org/wiki/Word_error_rate) on Common Voice| [RTFx (higher is better)](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (on a RTX 4090 laptop) | RTFX (on CPU) | VRAM/RAM (GB) |
+| Model name | Huggingface ID | Language | Uppercase letters and punctuation | Architecture | [WER (lower is better)](https://en.wikipedia.org/wiki/Word_error_rate) on Common Voice| [RTFx (higher is better)](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (on a RTX 4090 laptop) | RTFX on CPU (on 16 threads) | VRAM/RAM (GB) |
 |---|---|---|---|---|---|---|---|---|
-| [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `MODEL=linagora/linto_stt_fr_fastconformer` | fr | X | `ARCHITECTURE=hybrid_bpe_rnnt` | 8.96 | 128 | 51 | 0.76 |
-| [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `MODEL=linagora/linto_stt_fr_fastconformer` | fr | X | `ARCHITECTURE=hybrid_bpe_ctc` | 10.53 | 985 | 66 | 0.76|
-| [French Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) | `MODEL=nvidia/stt_fr_fastconformer_hybrid_large_pc` | fr | V | `ARCHITECTURE=hybrid_bpe_rnnt` | 10.04| 128 | 51 |0.76|
-| [English Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) | `MODEL=nvidia/stt_en_fastconformer_transducer_large` | en | X | `ARCHITECTURE=rnnt_bpe` | 7.5 | ?? | ?? | 0.76 |
-| [English XL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | `MODEL=nvidia/parakeet-tdt-0.6b-v2` | en | V | `ARCHITECTURE=rnnt_bpe` | ?? | ?? | ?? | 2.7 |
-| [English XXL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-ctc-1.1b) | `MODEL=nvidia/parakeet-ctc-1.1b` | en | X | `ARCHITECTURE=ctc_bpe` | 6.53 | ?? | ?? | 4.4 |
+| [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `MODEL=linagora/linto_stt_fr_fastconformer` | fr | X | `ARCHITECTURE=hybrid_bpe_rnnt` | 8.96 | 318 | 48 | 0.8 |
+| [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `MODEL=linagora/linto_stt_fr_fastconformer` | fr | X | `ARCHITECTURE=hybrid_bpe_ctc` | 10.53 | 734 | 60 | 0.8|
+| [French Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) | `MODEL=nvidia/stt_fr_fastconformer_hybrid_large_pc` | fr | V | `ARCHITECTURE=hybrid_bpe_rnnt` | 10.04| 318 | 48 |0.8|
+| [English Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) | `MODEL=nvidia/stt_en_fastconformer_transducer_large` | en | X | `ARCHITECTURE=rnnt_bpe` | 7.5 | 367 | 48 | 0.8 |
+| [English XL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | `MODEL=nvidia/parakeet-tdt-0.6b-v2` | en | V | `ARCHITECTURE=rnnt_bpe` | todo | 252 | 16 | 2.7 |
+| [English XXL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-ctc-1.1b) | `MODEL=nvidia/parakeet-ctc-1.1b` | en | X | `ARCHITECTURE=ctc_bpe` | 6.53 | 180 | 12 | 4.4 |
 
 More stt models are available in [NVIDIA](https://huggingface.co/nvidia) huggingface.
 
@@ -145,7 +145,12 @@ Hybrid models like [LinTO French Large Fast Conformer (by LINAGORA)](https://hug
 
 #### NUM_THREADS environment variable
 
-The number of threads per [worker](#concurrency-environment-variable) can be set with the `NUM_THREADS` environment variable.
+The number of threads per [worker](#concurrency-environment-variable) can be set with the `NUM_THREADS` environment variable. The default value is the number of threads available on the host machine. Having a higher `NUM_THREADS` will speed up the transcription. The transcription time is not linear with the number of threads.
+For example, transcribing 4mins30s with model `MODEL=linagora/linto_stt_fr_fastconformer` took:
+- 38 seconds with `NUM_THREADS=2`
+- 25.4 seconds with `NUM_THREADS=4`
+- 18.1 seconds with `NUM_THREADS=8`
+- 16 seconds with `NUM_THREADS=16`
 
 ## HTTP serving mode - File transcription
 
@@ -158,17 +163,25 @@ The SERVICE_MODE value in the .env should be set to ```http```.
 See [Common parameters](#parameters) for other parameters.
 | PARAMETER | DESCRIPTION | EXAMPLE |
 |---|---|---|
-| CONCURRENCY | Maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc. | `2` |
-| LONG_FILE_THRESHOLD | For offline decoding, a file longer than that will be split into smaller parts (long form transcription). This value depends on your VRAM/RAM amount. Default is 480s (8mins) | `480` \| `240`
-| LONG_FILE_CHUNK_LEN | For long form transcription, size of the parts into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
-| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the begining and end of each chunk. Default is 10s (10s before and after the chunk) | `10` \| `5`
+| [CONCURRENCY](#concurrency-environment-variable) | Maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc. | `2` |
+| [LONG_FILE_THRESHOLD](#long_file-environment-variables) | A file longer than that will be split into smaller chunks to avoid Out of Memory issues. This value depends on your VRAM/RAM amount. Default is 480s (8mins) | `480` \| `240`
+| LONG_FILE_CHUNK_LEN | For long form transcription, size of the chunks into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
+| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the begining and end of each chunk. Default is 10s (10s before and after the chunk) | \| `5` \| `3`
 
 #### CONCURRENCY environment variable
 
 As said in the table above, it is the maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc.
 How to choose the number of workers ?
-- On CPU : `NUM_THREADS*CONCURRENCY<=Number of threads of the host computer`. For example, with `NUM_THREADS=4` and the host computer has 8 threads, then you can have up to 2 workers, so CONCURRENCY=1.
+- On CPU : `NUM_THREADS*CONCURRENCY<=Number of threads of the host machine`. For example, with `NUM_THREADS=4` and the host machine has 8 threads, then you can have up to 2 workers, so CONCURRENCY=1.
 - ON GPU : 1 worker per GPU, so 2 GPUs means CONCURRENCY=1.
+
+### LONG_FILE environment variables
+
+The goal of these variables is to avoid Out of Memory issues when transcribing long files. The idea is to split the file into smaller chunks and transcribe them separately. The audio is processed in parallel, transcribing two chunks at a time before merging them into the final transcription. It is faster to transcribe 2 smaller chunks than 1 big one, that's why `LONG_FILE_CHUNK_LEN` exists. `LONG_FILE_CHUNK_LEN` should be smaller than `LONG_FILE_THRESHOLD`. The context is added at the begining and end of each chunk to avoid losing words at the begining and end of the chunk. The values of these variables are in seconds.
+Their value should be the highest possible. For example, with a GPU with 16GB of VRAM and `MODEL=linagora/linto_stt_fr_fastconformer`, you can set:
+- `LONG_FILE_THRESHOLD=540` (9mins)
+- `LONG_FILE_CHUNK_LEN=360` (6mins)
+- `LONG_FILE_CHUNK_CONTEXT_LEN=5` (5s before and after each chunk)
 
 
 ### Usages
@@ -226,9 +239,9 @@ See [Common parameters](#parameters) for other parameters.
 Shared parameters with [HTTP service mode](#file-transcription-parameters):
 | PARAMETER | DESCRIPTION | EXAMPLE |
 |---|---|---|
-| CONCURRENCY | Maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc. | `2` |
-| LONG_FILE_THRESHOLD | For offline decoding, a file longer than that will be split into smaller parts (long form transcription). This value depends on your VRAM/RAM amount. Default is 480s (8mins) | `480` \| `240`
-| LONG_FILE_CHUNK_LEN | For long form transcription, size of the parts into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
+| [CONCURRENCY](#concurrency-environment-variable) | Maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc. | `2` |
+| [LONG_FILE_THRESHOLD](#long_file-environment-variables) | A file longer than that will be split into smaller chunks to avoid Out of Memory issues. This value depends on your VRAM/RAM amount . Default is 480s (8mins) | `480` \| `240`
+| LONG_FILE_CHUNK_LEN | For long form transcription, size of the chunks into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
 | LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the begining and end of each chunk. Default is 10s (10s before and after the chunk) | `10` \| `5`
 
 ### Usage
@@ -289,11 +302,15 @@ See [Common parameters](#parameters) for other parameters.
 | STREAMING_PORT | The listening port for ingoing WS connexions. Default is 80 | `80` |
 | STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing.  Used to lower the hardware usage (low value=high usage, high value=low usage). Default is 0.5 | `0.5` \| `26` \| ... |
 | STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made (bigger value=higher hardware usage). Default is 8 | `8` \| `10` \| ... |
-| STREAMING_PAUSE_FOR_FINAL | The minimum duration of silence (in seconds) needed to be able to output a final. Default is 1.5 | `0.5` \| `2` \| ... |
+| [STREAMING_PAUSE_FOR_FINAL](#streaming_pause_for_final-environment-variable) | The minimum duration of silence (in seconds) needed to be able to output a final. Default is 1.5 | `0.5` \| `2` \| ... |
 | STREAMING_TIMEOUT_FOR_SILENCE | If a VAD is applied externally, this parameter will allow the server to find the silence (silences are used to output `final`). The `packet duration` is determined from the first packet. If a packet is not received during `packet duration * STREAMING_TIMEOUT_FOR_SILENCE` it considers that a silence (lasting the packet duration) is present. If specified, value should be between 1 and 2 (2 times the duration of a packet). Default is deactivated | `1.8` \| ... |
 | STREAMING_MAX_WORDS_IN_BUFFER | How much words can stay in the buffer. It means how much words can be changed. Default is 4 | `4` \| `2` \| ... |
-| STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND | How much time per seconds you want the server to send a message to the client. Default is 4 | `3` \| ... |
-| PUNCTUATION_MODEL | Path to a recasepunc model, for recovering punctuation and upper letter in streaming. Use it if your model doesn't output punctuation and upper case letters.  | /opt/PUNCT |
+| STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND | The maximum of messages that can be sent by the server to the client in one second. Default is 4, put 0 to deactivate it | `3` \| ... |
+| [PUNCTUATION_MODEL](#punctuation_model-environment-variable) | Path to a recasepunc model, for recovering punctuation and upper letter in streaming. Use it if your model doesn't output punctuation and upper case letters.  | /opt/PUNCT |
+
+#### STREAMING_PAUSE_FOR_FINAL environment variable
+
+The `STREAMING_PAUSE_FOR_FINAL` value will depend on your type of speech. On prepared speech for example, you can probably lower it whereas on real discussions you can leave it as default or increase it. Without punctuations, 2 seconds is a good value. With punctuations, you can lower it to 1 second because a final will be outputted only when a punctuation is detected.
 
 #### PUNCTUATION_MODEL environment variable
 
@@ -309,11 +326,13 @@ After downloading a recasepunc model, you can mount it as a volume and specify i
 -v <PATH>/models/lm/fr.24000:/opt/models/lm/fr.24000
 ```
 
-The `STREAMING_PAUSE_FOR_FINAL` value will depend on your type of speech. On prepared speech for example, you can probably lower it whereas on real discussions you can leave it as default or increase it. 
-
 ### Example with lowest latency
 
+todo example config with latency expected, used resources, etc.
+
 ### Example with high latency
+
+todo
 
 ## License
 This project is developped under the AGPLv3 License (see LICENSE).

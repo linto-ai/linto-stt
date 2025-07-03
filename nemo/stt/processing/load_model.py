@@ -28,6 +28,7 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
         model = model_class.restore_from(model_type_or_file, map_location=device)
     else:
         model = model_class.from_pretrained(model_type_or_file, map_location=device)
+        # model = nemo_asr.models.ASRModel.from_pretrained(model_type_or_file, map_location=device)     # todo: make architecture optional if use remote by using this line
     logger.info(f"Nemo model loaded. (t={time.time() - start:.2f}s)")
     confidence_cfg = ConfidenceConfig(      # is it necessary? Took from a nemo tutorial for inference on big files
         preserve_frame_confidence=True,     # Internally set to true if preserve_token_confidence == True
