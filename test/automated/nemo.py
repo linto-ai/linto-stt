@@ -27,7 +27,7 @@ def generate_nemo_test_setups(
 
 
 @ddt
-class WhisperTestRunner(TestRunner):
+class NemoTestRunner(TestRunner):
 
     @idata(generate_nemo_test_setups(device="cpu", vads=["false"]))
     def test_04_integration_cpu(self, setup):

@@ -28,22 +28,8 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
         model = model_class.restore_from(model_type_or_file, map_location=device)
     else:
         model = model_class.from_pretrained(model_type_or_file, map_location=device)
+        # model = nemo_asr.models.ASRModel.from_pretrained(model_type_or_file, map_location=device)     # todo: make architecture optional if use remote by using this line
     logger.info(f"Nemo model loaded. (t={time.time() - start:.2f}s)")
-    confidence_cfg = ConfidenceConfig(      # is it necessary? Took from a nemo tutorial for inference on big files
-        preserve_frame_confidence=True,     # Internally set to true if preserve_token_confidence == True
-        # or preserve_word_confidence == True
-        preserve_token_confidence=True,     # Internally set to true if preserve_word_confidence == True
-        preserve_word_confidence=True,
-        aggregation="prod",         # How to aggregate frame scores to token scores and token scores to word scores
-        exclude_blank=False,        # If true, only non-blank emissions contribute to confidence scores
-        # tdt_include_duration=False,       # If true, calculate duration confidence for the TDT models
-        method_cfg=ConfidenceMethodConfig(  # Config for per-frame scores calculation (before aggregation)
-            name="max_prob",        # Or "entropy" (default), which usually works better
-            entropy_type="gibbs",   # Used only for name == "entropy". Recommended: "tsallis" (default) or "renyi"
-            alpha=0.5,              # Low values (<1) increase sensitivity, high values decrease sensitivity
-            entropy_norm="lin"      # How to normalize (map to [0,1]) entropy. Default: "exp"
-        )
-    )
     if isinstance(model, nemo_asr.models.EncDecRNNTModel):
         if isinstance(model, nemo_asr.models.EncDecHybridRNNTCTCModel):
             if decoding_strategy_if_hybrid=="ctc":
@@ -51,12 +37,8 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
                 model.change_decoding_strategy(decoder_type="ctc")
             else:
                 logger.info("You are using an hybrid model, using rnnt decoder")
-        else:
-            model.change_decoding_strategy(RNNTDecodingConfig(fused_batch_size=-1, strategy="greedy_batch", confidence_cfg=confidence_cfg))
     elif isinstance(model, nemo_asr.models.EncDecMultiTaskModel):
         decode_cfg = model.cfg.decoding
         decode_cfg.beam.beam_size = 1
         model.change_decoding_strategy(decode_cfg)
-    else:
-        model.change_decoding_strategy(CTCDecodingConfig(confidence_cfg=confidence_cfg))
     return model
