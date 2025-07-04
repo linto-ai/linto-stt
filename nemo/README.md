@@ -12,12 +12,12 @@ You can try the LinTO-STT NeMo API, powered by the [LinTO French Fast Conformer 
 
 ### Prerequisites
 
-- Install [docker](https://www.docker.com/products/docker-desktop/) and ensure it is up and running.
+- Install [Docker](https://www.Docker.com/products/Docker-desktop/) and ensure it is up and running.
 
 - For GPU capabilities, it is also needed to install
 [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
 
-- At least 15GB of disk space is required to build the docker image.
+- At least 15GB of disk space is required to build the Docker image.
 
 - At least 500Mb of disk space for the smaller models, can be up to 5BGB for the bigger ones.
 
@@ -36,12 +36,12 @@ docker build . -f nemo/Dockerfile -t linto-stt-nemo
 
 An API for transcribing audio files, accessible via standard HTTP requests. The default values of the API can be found in [```.envdefault```](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault) and can be used as a template for your own configuration file.
 
-Run the API to transcribe in english using in:
+Run the API to transcribe in English using in:
 ```sh
 docker run -p 8080:80 --name linto-stt-nemo -e SERVICE_MODE=http -e MODEL=nvidia/parakeet-tdt-0.6b-v2 -e ARCHITECTURE=rnnt_bpe lintoai/linto-stt-nemo
 ```
 
-or transcribe in french using:
+or transcribe in French using:
 ```sh
 docker run -p 8080:80 --name linto-stt-nemo -e SERVICE_MODE=http -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe lintoai/linto-stt-nemo
 ```
@@ -57,16 +57,16 @@ curl -X POST "http://localhost:8080/transcribe" -H "accept: application/json" -H
 
 The real-time transcription (streaming) API is accessible via a WebSocket connection ([see](#websocket---streaming)). The default values of the API can be found in [```.envdefault```](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault) and can be used as a template for your own configuration file.
 
-Run the API to transcribe in english in real-time using:
+Run the API to transcribe in English in real-time using:
 ```sh
 docker run -p 8080:80 --name linto-stt-nemo -e SERVICE_MODE=websocket -e MODEL=nvidia/stt_en_fastconformer_hybrid_medium_streaming_80ms_pc -e ARCHITECTURE=hybrid_bpe lintoai/linto-stt-nemo
 ```
 
-or transcribe in french using:
+or transcribe in French using:
 ```sh
 docker run --rm -it -p 8080:80 --name linto-stt-nemo -e SERVICE_MODE=websocket -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe lintoai/linto-stt-nemo
 ```
-This french model does not include punctuation. See [PUNCTUATION_MODEL environment variable](#punctuation_model-environment-variable) if you want to add punctuation.
+This French model does not include punctuation. See [PUNCTUATION_MODEL environment variable](#punctuation_model-environment-variable) if you want to add punctuation.
 
 If you have a GPU, you can add `-e DEVICE=cuda --gpus all` to the command. 
 
@@ -136,7 +136,7 @@ you may want to download one of NeMo models:
 | [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `MODEL=linagora/linto_stt_fr_fastconformer` | fr | X | `ARCHITECTURE=hybrid_bpe_ctc` | 10.53 | 734 | 60 | 0.8|
 | [French Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) | `MODEL=nvidia/stt_fr_fastconformer_hybrid_large_pc` | fr | V | `ARCHITECTURE=hybrid_bpe_rnnt` | 10.04| 318 | 48 |0.8|
 | [English Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) | `MODEL=nvidia/stt_en_fastconformer_transducer_large` | en | X | `ARCHITECTURE=rnnt_bpe` | 7.5 | 367 | 48 | 0.8 |
-| [English XL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | `MODEL=nvidia/parakeet-tdt-0.6b-v2` | en | V | `ARCHITECTURE=rnnt_bpe` | Should be the best in english | 252 | 16 | 2.7 |
+| [English XL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | `MODEL=nvidia/parakeet-tdt-0.6b-v2` | en | V | `ARCHITECTURE=rnnt_bpe` | Should be the best in English | 252 | 16 | 2.7 |
 | [English XXL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-ctc-1.1b) | `MODEL=nvidia/parakeet-ctc-1.1b` | en | X | `ARCHITECTURE=ctc_bpe` | 6.53 | 180 | 12 | 4.4 |
 
 More stt models are available in [NVIDIA](https://huggingface.co/nvidia) huggingface.
@@ -154,7 +154,7 @@ For example, transcribing 4mins30s with model `MODEL=linagora/linto_stt_fr_fastc
 
 ## HTTP serving mode - File transcription
 
-The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route. You can send wav files to the server. The default values of the API can be found in [```.envdefault```](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault) and can be used as a template for your own configuration file.
+The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route. You can send WAV files to the server. The default values of the API can be found in [```.envdefault```](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault) and can be used as a template for your own configuration file.
 
 The SERVICE_MODE value in the .env should be set to ```http```.
 
@@ -166,18 +166,18 @@ See [Common parameters](#parameters) for other parameters.
 | [CONCURRENCY](#concurrency-environment-variable) | Maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc. | `2` |
 | [LONG_FILE_THRESHOLD](#long_file-environment-variables) | A file longer than that will be split into smaller chunks to avoid Out of Memory issues. This value depends on your VRAM/RAM amount. Default is 480s (8mins) | `480` \| `240`
 | LONG_FILE_CHUNK_LEN | For long form transcription, size of the chunks into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
-| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the begining and end of each chunk. Default is 10s (10s before and after the chunk) | \| `5` \| `3`
+| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the beginning and end of each chunk. Default is 10s (10s before and after the chunk) | \| `5` \| `3`
 
 #### CONCURRENCY environment variable
 
 As said in the table above, it is the maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc.
 How to choose the number of workers ?
 - On CPU : `NUM_THREADS*CONCURRENCY<=Number of threads of the host machine`. For example, with `NUM_THREADS=4` and the host machine has 8 threads, then you can have up to 2 workers, so CONCURRENCY=1.
-- ON GPU : CONCURRENCY=0 because there are no parallel requests on GPU. If you want to transcribe multiple files at the same time, you can run 1 conatiner per GPU using `SERVICE_MODE=task` and use [LinTO Transcription Service](https://github.com/linto-ai/linto-transcription-service) to handle the requests.
+- ON GPU : CONCURRENCY=0 because there are no parallel requests on GPU. If you want to transcribe multiple files at the same time, you can run 1 container per GPU using `SERVICE_MODE=task` and use [LinTO Transcription Service](https://github.com/linto-ai/linto-transcription-service) to handle the requests.
 
 ### LONG_FILE environment variables
 
-The goal of these variables is to avoid Out of Memory issues when transcribing long files. The idea is to split the file into smaller chunks and transcribe them separately. The audio is processed in parallel, transcribing two chunks at a time before merging them into the final transcription. It is faster to transcribe 2 smaller chunks than 1 big one, that's why `LONG_FILE_CHUNK_LEN` exists. `LONG_FILE_CHUNK_LEN` should be smaller than `LONG_FILE_THRESHOLD`. The context is added at the begining and end of each chunk to avoid losing words at the begining and end of the chunk. The values of these variables are in seconds.
+The goal of these variables is to avoid Out of Memory issues when transcribing long files. The idea is to split the file into smaller chunks and transcribe them separately. The audio is processed in parallel, transcribing two chunks at a time before merging them into the final transcription. It is faster to transcribe 2 smaller chunks than 1 big one, that's why `LONG_FILE_CHUNK_LEN` exists. `LONG_FILE_CHUNK_LEN` should be smaller than `LONG_FILE_THRESHOLD`. The context is added at the beginning and end of each chunk to avoid losing words at the beginning and end of the chunk. The values of these variables are in seconds.
 Their value should be the highest possible. For example, with a GPU with 16GB of VRAM and `MODEL=linagora/linto_stt_fr_fastconformer`, you can set:
 - `LONG_FILE_THRESHOLD=540` (9mins)
 - `LONG_FILE_CHUNK_LEN=360` (6mins)
@@ -200,7 +200,7 @@ Transcription API
 * File: An Wave file 16b 16Khz
 * Language (optional): Override environment variable `LANGUAGE`
 
-Return the transcripted text using "text/plain" or a json object when using "application/json" structure as followed:
+Return the transcribed text using "text/plain" or a json object when using "application/json" structure as followed:
 ```json
 {
     "text" : "This is the transcription as text",
@@ -242,7 +242,7 @@ Shared parameters with [HTTP service mode](#file-transcription-parameters):
 | [CONCURRENCY](#concurrency-environment-variable) | Maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc. | `2` |
 | [LONG_FILE_THRESHOLD](#long_file-environment-variables) | A file longer than that will be split into smaller chunks to avoid Out of Memory issues. This value depends on your VRAM/RAM amount . Default is 480s (8mins) | `480` \| `240`
 | LONG_FILE_CHUNK_LEN | For long form transcription, size of the chunks into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
-| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the begining and end of each chunk. Default is 10s (10s before and after the chunk) | `10` \| `5`
+| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the beginning and end of each chunk. Default is 10s (10s before and after the chunk) | `10` \| `5`
 
 ### Usage
 
@@ -292,14 +292,14 @@ The exchanges are structured as followed:
 2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
 3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
 4. Back to 2-
-5. Server send a final result and close the connexion.
+5. Server send a final result and close the connection.
 
 ### Streaming parameters
 
 See [Common parameters](#parameters) for other parameters.
 | PARAMETER | DESCRIPTION | EXAMPLE |
 |---|---|---|
-| STREAMING_PORT | The listening port for ingoing WS connexions. Default is 80 | `80` |
+| STREAMING_PORT | The listening port for ingoing WS connections. Default is 80 | `80` |
 | STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing.  Used to lower the hardware usage (low value=high usage, high value=low usage). Default is 0.5 | `0.5` \| `26` \| ... |
 | STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made (bigger value=higher hardware usage). Default is 8 | `8` \| `10` \| ... |
 | [STREAMING_PAUSE_FOR_FINAL](#streaming_pause_for_final-environment-variable) | The minimum duration of silence (in seconds) needed to be able to output a final. Default is 1.5 | `0.5` \| `2` \| ... |
@@ -331,7 +331,7 @@ After downloading a recasepunc model, you can mount it as a volume and specify i
 todo example config with latency expected, used resources, etc.
 
 #### English
-Here is a config for low latency streaming in english that you can use as a starting point:
+Here is a config for low latency streaming in English that you can use as a starting point:
 ```
 SERVICE_MODE=websocket
 STREAMING_PORT=80
@@ -382,7 +382,7 @@ Same config with `DEVICE=cpu` and `NUM_THREADS=16`:
 
 ### Example with high latency
 
-Here is a config for high latency streaming (for better accuracy) in english that you can use as a starting point:
+Here is a config for high latency streaming (for better accuracy) in English that you can use as a starting point:
 
 ```
 SERVICE_MODE=websocket
@@ -405,9 +405,9 @@ With this config:
 - VRAM: around 4.5GB
 
 ## License
-This project is developped under the AGPLv3 License (see LICENSE).
+This project is developed under the AGPLv3 License (see LICENSE).
 
-## Acknowlegment.
+## Acknowledgment.
 
 * [NeMo](https://github.com/NVIDIA/NeMo)
 * [SpeechBrain](https://github.com/speechbrain/speechbrain)
