@@ -136,7 +136,7 @@ you may want to download one of NeMo models:
 | [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `MODEL=linagora/linto_stt_fr_fastconformer` | fr | X | `ARCHITECTURE=hybrid_bpe_ctc` | 10.53 | 734 | 60 | 0.8|
 | [French Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) | `MODEL=nvidia/stt_fr_fastconformer_hybrid_large_pc` | fr | V | `ARCHITECTURE=hybrid_bpe_rnnt` | 10.04| 318 | 48 |0.8|
 | [English Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) | `MODEL=nvidia/stt_en_fastconformer_transducer_large` | en | X | `ARCHITECTURE=rnnt_bpe` | 7.5 | 367 | 48 | 0.8 |
-| [English XL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | `MODEL=nvidia/parakeet-tdt-0.6b-v2` | en | V | `ARCHITECTURE=rnnt_bpe` | todo | 252 | 16 | 2.7 |
+| [English XL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | `MODEL=nvidia/parakeet-tdt-0.6b-v2` | en | V | `ARCHITECTURE=rnnt_bpe` | Should be the best in english | 252 | 16 | 2.7 |
 | [English XXL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-ctc-1.1b) | `MODEL=nvidia/parakeet-ctc-1.1b` | en | X | `ARCHITECTURE=ctc_bpe` | 6.53 | 180 | 12 | 4.4 |
 
 More stt models are available in [NVIDIA](https://huggingface.co/nvidia) huggingface.
@@ -173,7 +173,7 @@ See [Common parameters](#parameters) for other parameters.
 As said in the table above, it is the maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc.
 How to choose the number of workers ?
 - On CPU : `NUM_THREADS*CONCURRENCY<=Number of threads of the host machine`. For example, with `NUM_THREADS=4` and the host machine has 8 threads, then you can have up to 2 workers, so CONCURRENCY=1.
-- ON GPU : 1 worker per GPU, so 2 GPUs means CONCURRENCY=1.
+- ON GPU : CONCURRENCY=0 because there are no parallel requests on GPU. If you want to transcribe multiple files at the same time, you can run 1 conatiner per GPU using `SERVICE_MODE=task` and use [LinTO Transcription Service](https://github.com/linto-ai/linto-transcription-service) to handle the requests.
 
 ### LONG_FILE environment variables
 
@@ -310,7 +310,7 @@ See [Common parameters](#parameters) for other parameters.
 
 #### STREAMING_PAUSE_FOR_FINAL environment variable
 
-The `STREAMING_PAUSE_FOR_FINAL` value will depend on your type of speech. On prepared speech for example, you can probably lower it whereas on real discussions you can leave it as default or increase it. Without punctuations, 2 seconds is a good value. With punctuations, you can lower it to 1 second because a final will be outputted only when a punctuation is detected.
+The `STREAMING_PAUSE_FOR_FINAL` value will depend on your type of speech. On prepared speech for example, you can probably lower it whereas on real discussions you can leave it as default or increase it. Without punctuations, 1.5 seconds is a good value. With punctuations, you can lower it to 1 second because a final will be outputted only when a punctuation is detected.
 
 #### PUNCTUATION_MODEL environment variable
 
@@ -330,9 +330,79 @@ After downloading a recasepunc model, you can mount it as a volume and specify i
 
 todo example config with latency expected, used resources, etc.
 
+#### English
+Here is a config for low latency streaming in english that you can use as a starting point:
+```
+SERVICE_MODE=websocket
+STREAMING_PORT=80
+DEVICE=cuda
+
+MODEL=nvidia/stt_en_fastconformer_hybrid_medium_streaming_80ms_pc
+ARCHITECTURE=hybrid_bpe_ctc
+STREAMING_MIN_CHUNK_SIZE=0.5
+STREAMING_BUFFER_TRIMMING_SEC=5
+STREAMING_PAUSE_FOR_FINAL=1.0
+STREAMING_TIMEOUT_FOR_SILENCE=
+STREAMING_MAX_WORDS_IN_BUFFER=6
+STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4
+```
+
+With this config:
+- Include punctuation: yes
+- Latency: around 1s (depends on your hardware)
+- VRAM: around 2GB
+
+Same config with `DEVICE=cpu` and `NUM_THREADS=16`:
+- Latency: around 2s (depends on your hardware)
+
+#### French
+
+```
+SERVICE_MODE=websocket
+STREAMING_PORT=80
+DEVICE=cuda
+
+MODEL=linagora/linto_stt_fr_fastconformer
+ARCHITECTURE=hybrid_bpe_ctc
+STREAMING_MIN_CHUNK_SIZE=0.5
+STREAMING_BUFFER_TRIMMING_SEC=8
+STREAMING_PAUSE_FOR_FINAL=1.0
+STREAMING_TIMEOUT_FOR_SILENCE=
+STREAMING_MAX_WORDS_IN_BUFFER=5
+STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4
+```
+
+With this config:
+- Include punctuation: no ([see](#punctuation_model-environment-variable) and the [example](#docker-options))
+- Latency: around 1.4s (depends on your hardware)
+- VRAM: around 2.5GB
+
+Same config with `DEVICE=cpu` and `NUM_THREADS=16`:
+- Latency: around 2.4s (depends on your hardware)
+
 ### Example with high latency
 
-todo
+Here is a config for high latency streaming (for better accuracy) in english that you can use as a starting point:
+
+```
+SERVICE_MODE=websocket
+STREAMING_PORT=80
+DEVICE=cuda
+
+MODEL=nvidia/parakeet-tdt-0.6b-v2
+ARCHITECTURE=rnnt_bpe
+STREAMING_MIN_CHUNK_SIZE=1
+STREAMING_BUFFER_TRIMMING_SEC=15
+STREAMING_PAUSE_FOR_FINAL=1.0
+STREAMING_TIMEOUT_FOR_SILENCE=
+STREAMING_MAX_WORDS_IN_BUFFER=10
+STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=3
+```
+
+With this config:
+- Include punctuation: yes
+- Latency: around 2.5s (depends on your hardware)
+- VRAM: around 4.5GB
 
 ## License
 This project is developped under the AGPLv3 License (see LICENSE).
