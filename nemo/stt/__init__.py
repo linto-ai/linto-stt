@@ -28,7 +28,7 @@ VAD_MIN_SILENCE_DURATION = float(os.environ.get("VAD_MAX_SILENCE_DURATION", 0.1)
 
 STREAMING_MIN_CHUNK_SIZE=float(os.environ.get("STREAMING_MIN_CHUNK_SIZE", 0.5))
 STREAMING_BUFFER_TRIMMING_SEC=float(os.environ.get("STREAMING_BUFFER_TRIMMING_SEC", 10.0))
-STREAMING_PAUSE_FOR_FINAL=float(os.environ.get("STREAMING_PAUSE_FOR_FINAL", 2.0))
+STREAMING_PAUSE_FOR_FINAL=float(os.environ.get("STREAMING_PAUSE_FOR_FINAL", 1.2))
 STREAMING_TIMEOUT_FOR_SILENCE=os.environ.get("STREAMING_TIMEOUT_FOR_SILENCE", None)  # will consider that silence is detected if no audio is received for the duration of the paquet (dtermined from the first message) * this variable
 if STREAMING_TIMEOUT_FOR_SILENCE:
     STREAMING_TIMEOUT_FOR_SILENCE = float(STREAMING_TIMEOUT_FOR_SILENCE)
