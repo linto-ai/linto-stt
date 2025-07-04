@@ -1,25 +1,25 @@
 # LinTO-STT-NeMo
 
-LinTO-STT-NeMo is an API for Automatic Speech Recognition (ASR) based on [NeMo toolkit](https://github.com/NVIDIA/NeMo).
+LinTO-STT-NeMo is an Automatic Speech Recognition (ASR) API built on the [NeMo toolkit](https://github.com/NVIDIA/NeMo).
 
-LinTO-STT-NeMo can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector. 
+You can use LinTO-STT-NeMo as a standalone transcription service or integrate it into a microservices infrastructure via a message broker connector. 
 
-It can be used to do offline or real-time transcriptions.
+It supports both offline and real-time transcription modes.
 
-You can try the LinTO-STT NeMo API, powered by the [LinTO French Fast Conformer model](https://huggingface.co/linagora/linto_stt_fr_fastconformer), directly in your browser via LinTO Studio.
+Try the LinTO-STT NeMo API—powered by the [LinTO French Fast Conformer model](https://huggingface.co/linagora/linto_stt_fr_fastconformer), directly in your browser via LinTO Studio.
 
 ## Quick Start
 
 ### Prerequisites
 
-- Install [Docker](https://www.Docker.com/products/Docker-desktop/) and ensure it is up and running.
+- Install [Docker](https://www.Docker.com/products/Docker-desktop/) and ensure it is running properly.
 
-- For GPU capabilities, it is also needed to install
+- To enable GPU capabilities, you must also install
 [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
 
-- At least 15GB of disk space is required to build the Docker image.
+- Ensure at least 15GB of disk space is available to build the Docker image.
 
-- At least 500Mb of disk space for the smaller models, can be up to 5BGB for the bigger ones.
+- Smaller models require at least 500MB of disk space, while larger ones may need up to 5GB.
 
 ### Pull or build
 
@@ -34,7 +34,7 @@ docker build . -f nemo/Dockerfile -t linto-stt-nemo
 
 ### Run file transcription API
 
-An API for transcribing audio files, accessible via standard HTTP requests. The default values of the API can be found in [```.envdefault```](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault) and can be used as a template for your own configuration file.
+This API allows you to transcribe audio files through standard HTTP requests. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
 
 Run the API to transcribe in English using in:
 ```sh
@@ -46,7 +46,7 @@ or transcribe in French using:
 docker run -p 8080:80 --name linto-stt-nemo -e SERVICE_MODE=http -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe lintoai/linto-stt-nemo
 ```
 
-If you have a GPU, you can add `--gpus all` to the command.
+If a GPU is available, add `--gpus all` to the command before the image name.
 
 Once the API is running, you can test it using:
 ```sh
@@ -55,7 +55,7 @@ curl -X POST "http://localhost:8080/transcribe" -H "accept: application/json" -H
 
 ### Run streaming transcription API
 
-The real-time transcription (streaming) API is accessible via a WebSocket connection ([see](#websocket---streaming)). The default values of the API can be found in [```.envdefault```](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault) and can be used as a template for your own configuration file.
+The real-time transcription (streaming) API is accessible via a WebSocket connection ([see](#websocket---streaming)). Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
 
 Run the API to transcribe in English in real-time using:
 ```sh
@@ -66,7 +66,7 @@ or transcribe in French using:
 ```sh
 docker run --rm -it -p 8080:80 --name linto-stt-nemo -e SERVICE_MODE=websocket -e MODEL=linagora/linto_stt_fr_fastconformer -e ARCHITECTURE=hybrid_bpe lintoai/linto-stt-nemo
 ```
-This French model does not include punctuation. See [PUNCTUATION_MODEL environment variable](#punctuation_model-environment-variable) if you want to add punctuation.
+Note: this French model does not include punctuation. See [PUNCTUATION_MODEL environment variable](#punctuation_model-environment-variable) if you want to add punctuation.
 
 If you have a GPU, you can add `-e DEVICE=cuda --gpus all` to the command. 
 
@@ -127,8 +127,8 @@ Will launch a Websocket server as the host user on port 8080, using the GPU and 
 
 #### MODEL environment variable
 
-The model will be (downloaded from huggingface in the if required and) loaded in memory when the server starts.
-If you want to preload the model,
+The model will be downloaded from Hugging Face (if not already present) and loaded into memory when the server starts.
+To preload the model,
 you may want to download one of NeMo models:
 | Model name | Huggingface ID | Language | Uppercase letters and punctuation | Architecture | [WER (lower is better)](https://en.wikipedia.org/wiki/Word_error_rate) on Common Voice| [RTFx (higher is better)](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (on a RTX 4090 laptop) | RTFX on CPU (on 16 threads) | VRAM/RAM (GB) |
 |---|---|---|---|---|---|---|---|---|
@@ -145,7 +145,7 @@ Hybrid models like [LinTO French Large Fast Conformer (by LINAGORA)](https://hug
 
 #### NUM_THREADS environment variable
 
-The number of threads per [worker](#concurrency-environment-variable) can be set with the `NUM_THREADS` environment variable. The default value is the number of threads available on the host machine. Having a higher `NUM_THREADS` will speed up the transcription. The transcription time is not linear with the number of threads.
+Set the number of threads per [worker](#concurrency-environment-variable) using the `NUM_THREADS` environment variable. with the `NUM_THREADS` environment variable. The default value is the number of threads available on the host machine. Having a higher `NUM_THREADS` will speed up the transcription. Note that transcription speed does not scale linearly with the number of threads.
 For example, transcribing 4mins30s with model `MODEL=linagora/linto_stt_fr_fastconformer` took:
 - 38 seconds with `NUM_THREADS=2`
 - 25.4 seconds with `NUM_THREADS=4`
@@ -154,7 +154,7 @@ For example, transcribing 4mins30s with model `MODEL=linagora/linto_stt_fr_fastc
 
 ## HTTP serving mode - File transcription
 
-The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route. You can send WAV files to the server. The default values of the API can be found in [```.envdefault```](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault) and can be used as a template for your own configuration file.
+The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route. You can send WAV files to the server. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
 
 The SERVICE_MODE value in the .env should be set to ```http```.
 
@@ -224,8 +224,8 @@ The /docs route offers a OpenAPI/swagger interface.
 ## CELERY TASK - File transcription
 
 ### (micro-service) Service broker and shared folder
-The STT only entry point in task mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
-On addition, as to prevent large audio from transiting through the message broker, STT-Worker use a shared storage folder (SHARED_FOLDER).
+In task mode, STT operations are triggered via tasks sent through a message broker. Supported message brokers include RabbitMQ, Redis, and Amazon SQS.
+Additionally, to prevent large audio files from passing through the message broker, a shared storage folder (SHARED_FOLDER) is used. through the message broker, STT-Worker use a shared storage folder (SHARED_FOLDER).
 
 The celery tasks can be managed using [LinTO Transcription service](https://github.com/linto-ai/linto-transcription-service).
 
@@ -280,14 +280,14 @@ On a successfull transcription the returned object is a json object structured a
 
 ## Websocket - Streaming
 
-Websocket server's mode deploy a streaming transcription service only. The default values of the API can be found in [```.envdefault```](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault) and can be used as a template for your own configuration file.
+In WebSocket mode, only the streaming transcription service is deployed. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
 
 
 The SERVICE_MODE value in the .env should be set to ```websocket```. 
 
 ### Usage
 
-The exchanges are structured as followed:
+The data exchange process follows these steps:
 1. Client send a json {"config": {"sample_rate":16000}}.
 2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
 3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
@@ -405,9 +405,9 @@ With this config:
 - VRAM: around 4.5GB
 
 ## License
-This project is developed under the AGPLv3 License (see LICENSE).
+This project is licensed under AGPLv3 (see LICENSE).
 
-## Acknowledgment.
+## Acknowledgments
 
 * [NeMo](https://github.com/NVIDIA/NeMo)
 * [SpeechBrain](https://github.com/speechbrain/speechbrain)
