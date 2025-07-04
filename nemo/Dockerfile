@@ -17,12 +17,11 @@ RUN apt-get update && \
 # Install python dependencies
 RUN pip install Cython
 COPY nemo/requirements.txt ./
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
 
-RUN pip install --upgrade pip
 COPY punctuation/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-RUN rm requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
 
 WORKDIR /usr/src/app
 

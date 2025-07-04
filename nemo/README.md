@@ -15,7 +15,7 @@ Try the LinTO-STT NeMo API—powered by the [LinTO French Fast Conformer model](
 - Install [Docker](https://www.Docker.com/products/Docker-desktop/) and ensure it is running properly.
 
 - To enable GPU capabilities, you must also install
-[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). You need at least cuda 12.6.
 
 - Ensure at least 15GB of disk space is available to build the Docker image.
 
