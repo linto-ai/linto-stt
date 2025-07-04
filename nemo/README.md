@@ -127,7 +127,7 @@ Will launch a Websocket server as the host user on port 8080, using the GPU and 
 
 #### MODEL environment variable
 
-The model will be downloaded from Hugging Face (if not already present) and loaded into memory when the server starts.
+The model will be downloaded (if not already present) from Hugging Face to `/var/www/.cache` with rights `drwxr-xr-x` (owned by `www-data`, see [`USER_ID` and `GROUP_ID`](#docker-options)) and loaded into memory when the server starts.
 To preload the model,
 you may want to download one of NeMo models:
 | Model name | Huggingface ID | Language | Uppercase letters and punctuation | Architecture | [WER (lower is better)](https://en.wikipedia.org/wiki/Word_error_rate) on Common Voice| [RTFx (higher is better)](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (on a RTX 4090 laptop) | RTFX on CPU (on 16 threads) | VRAM/RAM (GB) |
