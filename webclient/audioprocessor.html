@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>LinTO STT Demo</title>
+</head>
+<body>
+<h2>LinTO STT Streaming Demo</h2>
+<button id="start">Start</button>
+<button id="stop" disabled>Stop</button>
+<pre id="output"></pre>
+<script>
+let ws;
+let audioCtx;
+let processor;
+let source;
+
+const startBtn = document.getElementById('start');
+const stopBtn = document.getElementById('stop');
+const out = document.getElementById('output');
+
+startBtn.onclick = async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const serverUrl = urlParams.get('server');
+  const wsUrl = serverUrl ? serverUrl : (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/streaming';
+  ws = new WebSocket(wsUrl);
+  ws.onopen = () => {
+    ws.send(JSON.stringify({config:{sample_rate:16000}}));
+  };
+  let final_transcript = '';
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.text) {
+      final_transcript += msg.text + '\n';
+      out.textContent = final_transcript;
+    } else if (msg.partial) {
+      out.textContent = final_transcript + msg.partial;
+    }
+  };
+  const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+  source = audioCtx.createMediaStreamSource(stream);
+  processor = audioCtx.createScriptProcessor(4096,1,1);
+  source.connect(processor);
+  processor.connect(audioCtx.destination);
+  processor.onaudioprocess = e => {
+      const input = e.inputBuffer.getChannelData(0);
+      let buf = new Int16Array(input.length);
+      for(let i=0;i<input.length;i++){
+         let s = Math.max(-1, Math.min(1, input[i]));
+         buf[i] = s<0 ? s*0x8000 : s*0x7FFF;
+      }
+      if(ws.readyState===WebSocket.OPEN){
+         ws.send(buf.buffer);
+      }
+  };
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+};
+
+stopBtn.onclick = () => {
+  if(processor) processor.disconnect();
+  if(source) source.disconnect();
+  if(ws) ws.send('{"eof":1}');
+  stopBtn.disabled = true;
+  startBtn.disabled = false;
+};
+</script>
+</body>
+</html>

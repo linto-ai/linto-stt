@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>LinTO STT Demo</title>
+</head>
+<body>
+<h2>LinTO STT Streaming Demo</h2>
+<button id="start">Start</button>
+<button id="stop" disabled>Stop</button>
+<pre id="output"></pre>
+<script>
+let ws;
+let audioCtx;
+let source;
+let workletNode;
+
+const startBtn = document.getElementById('start');
+const stopBtn = document.getElementById('stop');
+const out = document.getElementById('output');
+
+startBtn.onclick = async () => {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const serverUrl = urlParams.get('server');
+    const wsUrl = serverUrl ? serverUrl : (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8765' + '/streaming';
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+      console.log("WebSocket connection opened.");
+      ws.send(JSON.stringify({config:{sample_rate:16000}}));
+    };
+
+    let final_transcript = '';
+    ws.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if (msg.text) {
+        final_transcript += msg.text + '\n';
+        out.textContent = final_transcript;
+      } else if (msg.partial) {
+        out.textContent = final_transcript + msg.partial;
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket Error:", error);
+    };
+
+    ws.onclose = (event) => {
+      console.log("WebSocket connection closed:", event);
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+    
+    await audioCtx.audioWorklet.addModule('audio-processor.js');
+    
+    source = audioCtx.createMediaStreamSource(stream);
+    workletNode = new AudioWorkletNode(audioCtx, 'audio-processor');
+    
+    workletNode.port.onmessage = (event) => {
+      if(ws.readyState === WebSocket.OPEN){
+         ws.send(event.data);
+      }
+    };
+    
+    source.connect(workletNode);
+    workletNode.connect(audioCtx.destination);
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+  } catch (error) {
+    console.error("Error starting audio processing:", error);
+  }
+};
+
+stopBtn.onclick = () => {
+  if (workletNode) workletNode.disconnect();
+  if (source) source.disconnect();
+  if (ws) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send('{"eof":1}');
+    }
+    ws.close();
+  }
+  stopBtn.disabled = true;
+  startBtn.disabled = false;
+};
+</script>
+</body>
+</html>
