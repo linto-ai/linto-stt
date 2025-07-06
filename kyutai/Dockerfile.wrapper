@@ -1,0 +1,50 @@
+# syntax=docker/dockerfile:1
+FROM python:3.10-slim
+LABEL maintainer="contact@linto.ai"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 1. OS-level packages
+# ──────────────────────────────────────────────────────────────────────────────
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg gosu && \
+    rm -rf /var/lib/apt/lists/*
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 2. Python dependencies
+#    Copy requirements first → better layer-cache utilisation
+# ──────────────────────────────────────────────────────────────────────────────
+COPY kyutai/requirements.wrapper.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 3. Application code
+# ──────────────────────────────────────────────────────────────────────────────
+WORKDIR /usr/src/app
+
+COPY celery_app/   celery_app/
+COPY http_server/  http_server/
+COPY websocket/    websocket/
+COPY document/     document/
+COPY kyutai/stt/   stt/
+
+# Helper & entrypoint scripts
+COPY kyutai/docker-entrypoint.sh \
+     wait-for-it.sh \
+     healthcheck.sh \
+     ./
+
+RUN chmod +x docker-entrypoint.sh wait-for-it.sh healthcheck.sh
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 4. Runtime environment
+#    hadolint flag DL3059 suppressed – we INTENTIONALLY reference $PYTHONPATH
+# ──────────────────────────────────────────────────────────────────────────────
+# hadolint ignore=DL3059
+ENV PYTHONPATH="/usr/src/app:${PYTHONPATH}"
+
+# Default WebSocket port (override at run-time if needed)
+EXPOSE 8081
+
+# ──────────────────────────────────────────────────────────────────────────────
+ENTRYPOINT ["./docker-entrypoint.sh"]
