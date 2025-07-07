@@ -57,7 +57,7 @@ lintoai/linto-stt-nemo
 
 If a GPU is available, add `--gpus all` to the command before the image name.
 
-Once the API is running, you can test it using:
+Once the API is running, you can test it using (from the root of the repository):
 ```sh
 curl -X POST "http://localhost:8080/transcribe" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "file=@test/bonjour.wav;type=audio/wav"
 ```
@@ -88,7 +88,7 @@ Note: this French model does not include punctuation. See [PUNCTUATION_MODEL env
 If you have a GPU, you can add `-e DEVICE=cuda --gpus all` to the command. 
 
 
-Once the API is running, you can test it using:
+Once the API is running, you can test (from the root of the repository) it using:
 ```sh
 python test/test_streaming.py -v --audio_file test/bonjour.wav
 ```
