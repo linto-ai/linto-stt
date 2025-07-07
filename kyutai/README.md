@@ -24,7 +24,9 @@ rustup default stable
 ## Run 
 
 After `git submodule update --init --recursive` inside kyutai/delayed-streams-modeling
+```bash
 moshi-server worker --config configs/config-stt-en_fr-hf.toml
+```
 
 investigate - official doc : moshi-backend --features cuda --config $(moshi-backend default-config) standalone
 
