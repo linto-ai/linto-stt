@@ -116,7 +116,7 @@ SERVICE_MODE=http
   Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
 - To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
   use ```-v <CACHE_PATH>:/var/www/.cache```.
-- If you use `MODEL=/opt/model.nemo` environment variable, you want to mount the model file (or folder) with option ```-v <PATH_TO_FOLDER_CONTAINING_MODEL>:/opt/model.nemo```.
+- If you use `MODEL=/opt/model.nemo` environment variable, you want to mount the model file (or folder) with option ```-v <PATH_TO_MODEL_FILE>:/opt/model.nemo```.
 - To avoid file permission issues with mounted volumes you can set `USER_ID` and `GROUP_ID` environment variables (default to `33`, `www-data` user). If specified, the cache folder will be in `/home/appuser/.cache` instead of `/var/www/.cache`.
 
 For example:
