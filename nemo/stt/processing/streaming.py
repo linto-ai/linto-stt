@@ -76,7 +76,10 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
         )
         logger.info("Starting transcription ...")
         executor = ThreadPoolExecutor()
-        partial_actualization = 1 / (STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND+1)
+        if STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND>0:
+            partial_actualization = 1 / (STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND+1)
+        else:
+            partial_actualization = None
         current_task = None
         received_chunk_size = None
         last_responce_time = None
@@ -119,7 +122,10 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                 audio_chunk = bytes_to_array(message)
                 if received_chunk_size is None:
                     received_chunk_size = len(audio_chunk)/sample_rate
-                    timeout = received_chunk_size * STREAMING_TIMEOUT_FOR_SILENCE
+                    if STREAMING_TIMEOUT_FOR_SILENCE:
+                        timeout = received_chunk_size * STREAMING_TIMEOUT_FOR_SILENCE
+                    else:
+                        timeout = None
                 streaming_processor.insert_audio_chunk(audio_chunk)
                 logger.debug(f"Received chunk of {len(audio_chunk)/sample_rate:.2f}s")
             if streaming_processor.get_buffer_size() >= STREAMING_MIN_CHUNK_SIZE:
@@ -129,12 +135,12 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
                     if current_task:    # if the task is done, get the result
                         o, p = await current_task
                         if o[0] is not None:
-                            logger.debug(f"Sending final '{o}'")
+                            logger.info(f"Sending final '{o}'")
                             await ws.send(nemo_to_json(o, punctuation_model=punctuation_model))
                             last_responce_time = None
                         elif p[0] is not None:
                             t = time.time()
-                            if last_responce_time is None or t-last_responce_time>partial_actualization or len(pile)==0:
+                            if last_responce_time is None or partial_actualization is None or t-last_responce_time>partial_actualization or len(pile)==0:
                                 logger.debug(f"Sending partial '{p}'")
                                 await ws.send(nemo_to_json(p, partial=True))
                                 last_responce_time = t

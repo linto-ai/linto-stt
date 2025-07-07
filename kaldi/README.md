@@ -6,6 +6,8 @@ LinTO-STT-Kaldi can either be used as a standalone transcription service or depl
 
 It can be used to do offline or real-time transcriptions.
 
+You can try LinTO-STT directly in your browser via [LinTO Studio](https://studio.linto.app/).
+
 ## Pre-requisites
 
 ### Hardware

@@ -64,9 +64,9 @@ device, USE_GPU = get_device()
 logger.info(f"Using device {device}")
 
 # Load ASR model
-model_type = os.environ.get("MODEL", "nvidia/stt_fr_conformer_ctc_large")
-architecture = get_model_class(os.environ.get("ARCHITECTURE", "ctc_bpe"))
-decoding_strategy_if_hybrid = get_decoding_method(os.environ.get("ARCHITECTURE", "ctc_bpe"))
+model_type = os.environ.get("MODEL", "nvidia/parakeet-tdt-0.6b-v2")
+architecture = get_model_class(os.environ.get("ARCHITECTURE", "rnnt_bpe"))
+decoding_strategy_if_hybrid = get_decoding_method(os.environ.get("ARCHITECTURE", "rnnt_bpe"))
 
 # Check language
 language = get_language()
@@ -83,7 +83,9 @@ try:
     PUNCTUATION_MODEL = load_recasepunc_model()
     MODEL = (model, PUNCTUATION_MODEL)
 
-    if USE_GPU:
+    # if warmup when http+cpu : server freeze
+    # if no warmup when websocket+cpu : model loaded at first connexion
+    if USE_GPU or os.environ.get("SERVICE_MODE", "http")=="websocket":
         warmup()
 except Exception as err:
     raise Exception("Failed to load transcription model: {}".format(str(err))) from err

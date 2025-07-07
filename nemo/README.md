@@ -1,228 +1,252 @@
 # LinTO-STT-NeMo
 
-LinTO-STT-NeMo is an API for Automatic Speech Recognition (ASR) based on [NeMo toolkit](https://github.com/NVIDIA/NeMo).
+LinTO-STT-NeMo is an Automatic Speech Recognition (ASR) API built on the [NeMo toolkit](https://github.com/NVIDIA/NeMo).
 
-LinTO-STT-NeMo can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector. 
+You can use LinTO-STT-NeMo as a standalone transcription service or integrate it into a microservices infrastructure via a message broker connector. 
 
-It can be used to do offline or real-time transcriptions.
+It supports both offline and real-time transcription modes.
 
-## Pre-requisites
+Try the LinTO-STT NeMo API—powered by the [LinTO French Fast Conformer model](https://huggingface.co/linagora/linto_stt_fr_fastconformer), directly in your browser via LinTO Studio.
 
-### Requirements
+## Quick Start
 
-The transcription service requires [docker](https://www.docker.com/products/docker-desktop/) up and running.
+### Prerequisites
 
-For GPU capabilities, it is also needed to install
-[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+- Install [Docker](https://www.Docker.com/products/Docker-desktop/) and ensure it is running properly.
 
-### Hardware
+- To enable GPU capabilities, you must also install
+[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). You need at least cuda 12.6.
 
-To run the transcription models you'll need:
-* At least 15GB of disk space to build the docker image
-  and models can occupy several GB of disk space depending on the model size (it can be up to 5GB).
-* Up to 8GB of RAM depending on the model used.
-* One CPU per worker. Inference time scales on CPU performances.
+- Ensure at least 15GB of disk space is available to build the Docker image.
 
-### Model(s)
+- Smaller models require at least 500MB of disk space, while larger ones may need up to 5GB.
 
-LinTO-STT-NeMo works with a NeMo compatible ASR model to perform Automatic Speech Recognition.
-If not downloaded already, the model will be downloaded when calling the first transcription, and can occupy several GB of disk space.
+### Pull or build
 
-### (micro-service) Service broker and shared folder
-The STT only entry point in task mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
-On addition, as to prevent large audio from transiting through the message broker, STT-Worker use a shared storage folder (SHARED_FOLDER).
-
-## Deploy LinTO-STT-Whisper
-
-### 1- First step is to build or pull the image
-
-```bash
-git clone https://github.com/linto-ai/linto-stt.git
-cd linto-stt
-docker build . -f nemo/Dockerfile -t linto-stt-nemo:latest
+Pull the image :
+```sh
+docker pull lintoai/linto-stt-nemo
+```
+or build it
+```sh
+docker build . -f nemo/Dockerfile -t linto-stt-nemo
 ```
 
-### 2- Fill the .env file
+### Run file transcription API
 
-An example of .env file is provided in [nemo/.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault).
+This API allows you to transcribe audio files through standard HTTP requests. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
 
-| PARAMETER | DESCRIPTION | EXEMPLE |
-|---|---|---|
-| SERVICE_MODE | (Required) STT serving mode see [Serving mode](#serving-mode) | `http` \| `task` \| `websocket` |
-| MODEL | (Required) Path to a NeMo model or HuggingFace identifier. | `nvidia/parakeet-ctc-1.1b` \| `nvidia/stt_fr_fastconformer_hybrid_large_pc` \| \<ASR_PATH\> \| ... |
-| ARCHITECTURE | (Required) The architecture of the model used. Suported (and tested) architectures are CTC, Hybrid and RNNT models. | `hybrid_bpe` \| `ctc_bpe` \| `rnnt_bpe` \| ... |
-| DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
-| NUM_THREADS | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
-| CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
-| CONCURRENCY | Maximum number of parallel requests (number of workers minus one) | `2` |
-| LONG_FILE_THRESHOLD | For offline decoding, a file longer than that will be split into smaller parts (long form transcription). This value depends on your VRAM/RAM amount. Default is 480s (8mins) | `480` \| `240`
-| LONG_FILE_CHUNK_LEN | For long form transcription, size of the parts into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
-| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the begining and end of each chunk. Default is 10s (10s before and after the chunk) | `10` \| `5`
-| VAD | Voice Activity Detection method. Use "false" to disable. If not specified, the default is auditok VAD. | `true` \| `false` \| `1` \| `0` \| `auditok` \| `silero`
-| VAD_DILATATION | How much (in sec) to enlarge each speech segment detected by the VAD. If not specified, the default is auditok 0.5 | `0.1` \| `0.5` \| ...
-| VAD_MIN_SPEECH_DURATION | Minimum duration (in sec) of a speech segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
-| VAD_MIN_SILENCE_DURATION | Minimum duration (in sec) of a silence segment. If not specified, the default is 0.1 | `0.1` \| `0.5` \| ...
-| ENABLE_STREAMING | (For the http mode) Legacy, it redirects to websocket mode if enabled | `true` \| `false` |
-| STREAMING_PORT | (For the websocket mode) the listening port for ingoing WS connexions. If not specified, the default is 80 | `80` |
-| STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing. If not specified, the default is 0.5 | `0.5` \| `26` \| ... |
-| STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made. If not specified, the default is 8 | `8` \| `10` \| ... |
-| STREAMING_PAUSE_FOR_FINAL | The minimum duration of silence (in seconds) needed to be able to output a final. If not specified, the default is 1.5 | `0.5` \| `2` \| ... |
-| STREAMING_TIMEOUT_FOR_SILENCE | If VAD is applied locally before sending data to the server, this will allow the server to find the silence. The `packet duration` is determined from the first packet. If a packet is not received during `packet duration * STREAMING_TIMEOUT_FOR_SILENCE` it considers that a silence (lasting the packet duration) is present. Value should be between 1 and 2. If not specified, the default is 1.5 | `1.8` \| ... |
-| STREAMING_MAX_WORDS_IN_BUFFER | How much words can stay in the buffer. It means how much words can be changed. If not specified, the default is 4 | `4` \| `2` \| ... |
-| STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND | How much time per seconds you want the server to send a message to the client. If not specified, the default is 4 | `3` \| ... |
-| SERVICE_NAME | (For the task mode only) queue's name for task processing | `my-stt` |
-| SERVICE_BROKER | (For the task mode only) URL of the message broker | `redis://my-broker:6379` |
-| BROKER_PASS | (For the task mode only) broker password | `my-password` \| (empty) |
-| PUNCTUATION_MODEL | Path to a recasepunc model, for recovering punctuation and upper letter in streaming | /opt/PUNCT |
+Run the API to transcribe in English using in:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-it \
+-e SERVICE_MODE=http \
+-e MODEL=nvidia/parakeet-tdt-0.6b-v2 \
+-e ARCHITECTURE=rnnt_bpe \
+lintoai/linto-stt-nemo
+```
 
-#### MODEL environment variable
+or transcribe in French using:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=http \
+-e MODEL=linagora/linto_stt_fr_fastconformer \
+-e ARCHITECTURE=hybrid_bpe \
+lintoai/linto-stt-nemo
+```
 
-**Warning:**
-The model will be (downloaded if required and) loaded in memory when calling the first transcription.
+If a GPU is available, add `--gpus all` to the command before the image name.
 
-If you want to preload the model (and later specify a path `<ASR_PATH>` as `MODEL`),
-you may want to download one of NeMo models:
-   * [French large fast conformer with punctuations made by NVIDIA](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc)
-   * [French large fast conformer made by Bofeng Huang](https://huggingface.co/bofenghuang/stt_fr_fastconformer_hybrid_large)
-   * [English large fast conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large)
-   * [English XL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-0.6b)
-   * [English XXL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b)
-   * Soon models trained by LINAGORA
-   * More stt models are available in [NVIDIA](https://huggingface.co/nvidia) huggingface
+Once the API is running, you can test it using (from the root of the repository):
+```sh
+curl -X POST "http://localhost:8080/transcribe" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "file=@test/bonjour.wav;type=audio/wav"
+```
 
-NeMo models from Hugging Face (transformers), as for instance https://huggingface.co/nvidia/parakeet-ctc-1.1b (you can either download the model or use the Hugging Face identifier `nvidia/parakeet-ctc-1.1b`).
+### Run streaming transcription API
 
-#### ARCHITECTURE
+The real-time transcription (streaming) API is accessible via a WebSocket connection ([see](#websocket---streaming)). Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
 
-Here is a guide for finding the right architecture to put. On HuggingFace, look at the name (and/or the page) and depending on what you find:
-- For CTC models like [English XXL fast conformer made by NVIDIA](https://huggingface.co/nvidia/parakeet-ctc-1.1b) you should put `ctc_bpe`
-- For Hybrid models like [French large fast conformer with punctuations made by NVIDIA](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) you shuld put `hybrid_bpe`. These models can do both `ctc` and `rnnt` decoding methods, so you can choose which one you want to use by adding `ctc` to get `hybrid_bpe_ctc` for example. `ctc` is less accurate but it runs faster `rnnt`.
-- For RNNT (Transducer) models like [English large fast conformer made by NVIDIA](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) you should put `rnnt_bpe`
+Run the API to transcribe in English in real-time using:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=websocket \
+-e MODEL=nvidia/stt_en_fastconformer_hybrid_medium_streaming_80ms_pc \
+-e ARCHITECTURE=hybrid_bpe \
+lintoai/linto-stt-nemo
+```
 
-#### LANGUAGE
+or transcribe in French using:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=websocket \
+-e MODEL=linagora/linto_stt_fr_fastconformer \
+-e ARCHITECTURE=hybrid_bpe \
+lintoai/linto-stt-nemo
+```
+Note: this French model does not include punctuation. See [PUNCTUATION_MODEL environment variable](#punctuation_model-environment-variable) if you want to add punctuation.
 
-Tested models are not multi-lingual, so, the `LANGUAGE` is environment variable is just as information and does not have any impacts. By default, it will try to retrieve the language from the model name.
-Note that the `language` can also be passed as a parameter in the request: in this case, it will override the `LANGUAGE` environment variable. 
+If you have a GPU, you can add `-e DEVICE=cuda --gpus all` to the command. 
 
-#### SERVING_MODE
+
+Once the API is running, you can test (from the root of the repository) it using:
+```sh
+python test/test_streaming.py -v --audio_file test/bonjour.wav
+```
+
+# Scenarios
+
+### SERVICE_MODE
 ![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
 
-STT can be used in three ways:
-* Through an [HTTP API](#http-server) using the **http**'s mode.
-* Through a [message broker](#celery-task) using the **task**'s mode.
-* Through a [websocket server](#websocket-server) using the **websocket**'s mode.
+STT service can be used in three ways:
+* Through an [HTTP API](#http---offline) using the **http**'s mode.
+* Through a [message broker](#celery-task---offline) using the **task**'s mode.
+* Through a [websocket server](#websocket---streaming) using the **websocket**'s mode.
 
-Mode is specified using the .env value or environment variable ```SERVING_MODE```.
+Mode is specified using the .env value or environment variable ```SERVICE_MODE```.
 ```bash
 SERVICE_MODE=http
 ```
 
-### HTTP Server
-The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route.
+## Common setup for all services
+
+### Docker options
+
+- To enable GPU capabilities, add ```--gpus all```.
+  Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
+- To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
+  use ```-v <CACHE_PATH>:/var/www/.cache```.
+- If you use `MODEL=/opt/model.nemo` environment variable, you want to mount the model file (or folder) with option ```-v <PATH_TO_MODEL_FILE>:/opt/model.nemo```.
+- To avoid file permission issues with mounted volumes you can set `USER_ID` and `GROUP_ID` environment variables (default to `33`, `www-data` user). If specified, the cache folder will be in `/home/appuser/.cache` instead of `/var/www/.cache`.
+
+For example:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=websocket \
+-e MODEL=linto_stt_fr_fastconformer \
+-e ARCHITECTURE=hybrid_bpe \
+-e DEVICE=cuda \
+-e PUNCTUATION_MODEL=/opt/models/fr.24000 \
+-e USER_ID=$(id -u) \
+-e GROUP_ID=$(id -g) \
+--gpus all \
+-v ~/.cache:/home/appuser/.cache \
+-v ~/models:/opt/models \
+lintoai/linto-stt-nemo
+```
+
+Will launch a Websocket server as the host user on port 8080, using the GPU and the French model `linagora/linto_stt_fr_fastconformer`, mount the folder `~/.cache` to `/home/appuser/.cache` (because `USER_ID` and `GROUP_ID` are set) and mount `~/models` to `/opt/models`. So you must have the punctuation model `fr.24000` in `~/models`. See [PUNCTUATION_MODEL environment variable](#punctuation_model-environment-variable) for more details about punctuation models.
+
+### Parameters
+
+| PARAMETER | DESCRIPTION | EXAMPLE |
+|---|---|---|
+| [MODEL](#model-environment-variable) | (Required) Path to a NeMo model or HuggingFace identifier. | `nvidia/parakeet-ctc-1.1b` \| `linagora/linto_stt_fr_fastconformer` \| ... |
+| ARCHITECTURE | (Required) The architecture of the model used. Suported (and tested) architectures are CTC, Hybrid and RNNT models. | `hybrid_bpe` \| `ctc_bpe` \| `rnnt_bpe` \| ... |
+| DEVICE | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
+| [NUM_THREADS](#num_threads-environment-variable) | Number of threads (maximum) to speed up the transcription, when running on CPU. Default is `torch.get_num_threads()` | `1` \| `4` \| ... |
+| CUDA_VISIBLE_DEVICES | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
+| USER_ID | User ID to run the service as. Default is `33` | `1000` |
+| GROUP_ID | Group ID to run the service as. Default is `33` | `1000` |
+| VAD | Voice Activity Detection method. VAD is used to detect the presence of human speech in an audio stream. Use "false" to disable. Default is `auditok`. | `true` \| `false` \| `1` \| `0` \| `auditok` \| `silero`
+| VAD_DILATATION | How much (in sec) to enlarge each speech segment detected by the VAD. Default is `0.5` | `0.1` \| `0.5` \| ...
+| VAD_MIN_SPEECH_DURATION | Minimum duration (in sec) of a speech segment. Default is `0.1` | `0.1` \| `0.5` \| ...
+| VAD_MIN_SILENCE_DURATION | Minimum duration (in sec) of a silence segment. Default is `0.1` | `0.1` \| `0.5` \| ...
+
+#### MODEL environment variable
+
+The model will be downloaded (if not already present) from Hugging Face to `/var/www/.cache` with rights `drwxr-xr-x` (owned by `www-data`, see [`USER_ID` and `GROUP_ID`](#docker-options)) and loaded into memory when the server starts.
+To preload the model,
+you may want to download one of NeMo models:
+| Model name | Huggingface ID | Language | Uppercase letters and punctuation | Architecture | [WER (lower is better)](https://en.wikipedia.org/wiki/Word_error_rate) on Common Voice| [RTFx (higher is better)](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (on a RTX 4090 laptop) | RTFX on CPU (on 16 threads) | VRAM/RAM (GB) |
+|---|---|---|---|---|---|---|---|---|
+| [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `MODEL=linagora/linto_stt_fr_fastconformer` | fr | X | `ARCHITECTURE=hybrid_bpe_rnnt` | 8.96 | 318 | 48 | 0.8 |
+| [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `MODEL=linagora/linto_stt_fr_fastconformer` | fr | X | `ARCHITECTURE=hybrid_bpe_ctc` | 10.53 | 734 | 60 | 0.8|
+| [French Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) | `MODEL=nvidia/stt_fr_fastconformer_hybrid_large_pc` | fr | V | `ARCHITECTURE=hybrid_bpe_rnnt` | 10.04| 318 | 48 |0.8|
+| [English Large Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) | `MODEL=nvidia/stt_en_fastconformer_transducer_large` | en | X | `ARCHITECTURE=rnnt_bpe` | 7.5 | 367 | 48 | 0.8 |
+| [English XL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | `MODEL=nvidia/parakeet-tdt-0.6b-v2` | en | V | `ARCHITECTURE=rnnt_bpe` | Should be the best in English | 252 | 16 | 2.7 |
+| [English XXL Fast Conformer (by NVIDIA)](https://huggingface.co/nvidia/parakeet-ctc-1.1b) | `MODEL=nvidia/parakeet-ctc-1.1b` | en | X | `ARCHITECTURE=ctc_bpe` | 6.53 | 180 | 12 | 4.4 |
+
+More stt models are available in [NVIDIA](https://huggingface.co/nvidia) huggingface.
+
+Hybrid models like [LinTO French Large Fast Conformer (by LINAGORA)](https://huggingface.co/linagora/linto_stt_fr_fastconformer) can do both `ctc` and `rnnt` decoding methods, so you can choose which one you want to use by adding `ctc` to get `hybrid_bpe_ctc` for example. `ctc` is less accurate but it runs faster `rnnt` (see table above).
+
+#### NUM_THREADS environment variable
+
+Set the number of threads per [worker](#concurrency-environment-variable) using the `NUM_THREADS` environment variable. with the `NUM_THREADS` environment variable. The default value is the number of threads available on the host machine. Having a higher `NUM_THREADS` will speed up the transcription. Note that transcription speed does not scale linearly with the number of threads.
+For example, transcribing 4mins30s with model `MODEL=linagora/linto_stt_fr_fastconformer` took:
+- 38 seconds with `NUM_THREADS=2`
+- 25.4 seconds with `NUM_THREADS=4`
+- 18.1 seconds with `NUM_THREADS=8`
+- 16 seconds with `NUM_THREADS=16`
+
+## HTTP serving mode - File transcription
+
+The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route. You can send WAV files to the server. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
 
 The SERVICE_MODE value in the .env should be set to ```http```.
 
-```bash
-docker run --rm \
--p HOST_SERVING_PORT:80 \
---env-file .env \
-linto-stt-nemo:latest
+Run the API to transcribe in English using in:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=http \
+-e MODEL=nvidia/parakeet-tdt-0.6b-v2 \
+-e ARCHITECTURE=rnnt_bpe \
+-e NUM_THREADS=8 \
+-e CONCURRENCY=1 \
+-e USER_ID=$(id -u) \
+-e GROUP_ID=$(id -g) \
+-v ~/.cache:/home/appuser/.cache \
+lintoai/linto-stt-nemo
 ```
 
-This will run a container providing an [HTTP API](#http-api) binded on the host HOST_SERVING_PORT port.
-
-You may also want to add specific options:
-* To enable GPU capabilities, add ```--gpus all```.
-  Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
-* To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
-  use ```-v <CACHE_PATH>:/root/.cache```
-  If you use `MODEL=/opt/model.nemo` environment variable, you may want to mount the model file (or folder) with option ```-v <ASR_PATH>:/opt/model.nemo```.
-
-**Parameters:**
-| Variables | Description | Example |
-|:-|:-|:-|
-| `HOST_SERVING_PORT` | Host serving port | 8080 |
-| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
-| `<ASR_PATH>` | Path to the NeMo model on the host machine mounted to /opt/model.nemo | /my/path/to/models/stt_fr.nemo |
-
-### Celery task
-The TASK serving mode connect a celery worker to a message broker.
-
-The SERVICE_MODE value in the .env should be set to ```task```.
-
-You need a message broker up and running at MY_SERVICE_BROKER.
-
-```bash
-docker run --rm \
--v SHARED_AUDIO_FOLDER:/opt/audio \
---env-file .env \
-linto-stt-nemo:latest
+or transcribe in French (see [example config](#long_file-environment-variables))using:
+```sh
+docker run -p 8080:80 --name linto-stt-nemo \
+-e SERVICE_MODE=http \
+-e MODEL=linagora/linto_stt_fr_fastconformer \
+-e ARCHITECTURE=hybrid_bpe \
+-e device=cuda \
+-e CONCURRENCY=0 \
+-e LONG_FILE_THRESHOLD=540 \
+-e LONG_FILE_CHUNK_LEN=360 \
+-e LONG_FILE_CHUNK_CONTEXT_LEN=5 \
+-e USER_ID=$(id -u) \
+-e GROUP_ID=$(id -g) \
+--gpus all \
+-v ~/.cache:/home/appuser/.cache \
+lintoai/linto-stt-nemo
 ```
 
-You may also want to add specific options:
-* To enable GPU capabilities, add ```--gpus all```.
-  Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
-* To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
-  use ```-v <CACHE_PATH>:/root/.cache```
-  If you use `MODEL=/opt/model.nemo` environment variable, you may want to mount the model file (or folder) with option ```-v <ASR_PATH>:/opt/model.nemo```.
+### File transcription Parameters
 
-**Parameters:**
-| Variables | Description | Example |
-|:-|:-|:-|
-| `<SHARED_AUDIO_FOLDER>` | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
-| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
-| `<ASR_PATH>` | Path to the NeMo model on the host machine mounted to /opt/model.nemo | /my/path/to/models/stt_fr.nemo |
+See [Common parameters](#parameters) for other parameters.
+| PARAMETER | DESCRIPTION | EXAMPLE |
+|---|---|---|
+| [CONCURRENCY](#concurrency-environment-variable) | Maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc. | `2` |
+| [LONG_FILE_THRESHOLD](#long_file-environment-variables) | A file longer than that will be split into smaller chunks to avoid Out of Memory issues. This value depends on your VRAM/RAM amount. Default is 480s (8mins) | `480` \| `240`
+| LONG_FILE_CHUNK_LEN | For long form transcription, size of the chunks into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
+| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the beginning and end of each chunk. Default is 10s (10s before and after the chunk) | \| `5` \| `3`
 
-### Websocket Server (streaming)
-Websocket server's mode deploy a streaming transcription service only. 
+#### CONCURRENCY environment variable
 
-The SERVICE_MODE value in the .env should be set to ```websocket```.
+As said in the table above, it is the maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc.
+How to choose the number of workers ?
+- On CPU : `NUM_THREADS*CONCURRENCY<=Number of threads of the host machine`. For example, with `NUM_THREADS=4` and the host machine has 8 threads, then you can have up to 2 workers, so CONCURRENCY=1.
+- ON GPU : CONCURRENCY=0 because there are no parallel requests on GPU. If you want to transcribe multiple files at the same time, you can run 1 container per GPU using `SERVICE_MODE=task` and use [LinTO Transcription Service](https://github.com/linto-ai/linto-transcription-service) to handle the requests.
 
-<!-- Usage is the same as the [http streaming API](#streaming). -->
+### LONG_FILE environment variables
 
-<!-- The /streaming route is accessible if the ENABLE_STREAMING environment variable is set to true. -->
+The goal of these variables is to avoid Out of Memory issues when transcribing long files. The idea is to split the file into smaller chunks and transcribe them separately. The audio is processed in parallel, transcribing two chunks at a time before merging them into the final transcription. It is faster to transcribe 2 smaller chunks than 1 big one, that's why `LONG_FILE_CHUNK_LEN` exists. `LONG_FILE_CHUNK_LEN` should be smaller than `LONG_FILE_THRESHOLD`. The context is added at the beginning and end of each chunk to avoid losing words at the beginning and end of the chunk. The values of these variables are in seconds.
+Their value should be the highest possible. 
 
-The exchanges are structured as followed:
-1. Client send a json {"config": {"sample_rate":16000, "language":"en"}}. Language is optional, if not specified it will use the language from the env.
-2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
-3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
-4. Back to 2-
-5. Server send a final result and close the connexion.
+For example, with a GPU with 16GB of VRAM and `MODEL=linagora/linto_stt_fr_fastconformer`, you can set:
+- `LONG_FILE_THRESHOLD=540` (9mins)
+- `LONG_FILE_CHUNK_LEN=360` (6mins)
+- `LONG_FILE_CHUNK_CONTEXT_LEN=5` (5s before and after each chunk)
 
- We recommend to use a VAD on the server side (silero for example).
 
-How to choose the 2 streaming parameters `STREAMING_MIN_CHUNK_SIZE` and `STREAMING_BUFFER_TRIMMING_SEC`?
-- If you want a low latency (2 to a 5 seconds on a NVIDIA 4090 Laptop), choose a small value for "STREAMING_MIN_CHUNK_SIZE" like 0.5 seconds (to avoid making useless predictions).
-For `STREAMING_BUFFER_TRIMMING_SEC`, around 10 seconds is a good compromise between keeping latency low and having a good transcription accuracy.
-Depending on the hardware and the model, this value should go from 6 to 15 seconds.
-- If you can efford to have a high latency (30 seconds) and want to minimize GPU activity, choose a big value for `STREAMING_MIN_CHUNK_SIZE`, such as 26s (which will give latency around 30 seconds).
-For `STREAMING_BUFFER_TRIMMING_SEC`, you will need to have a value lower than `STREAMING_MIN_CHUNK_SIZE`.
-Good results can be obtained by using a value between 6 and 12 seconds.
-The lower the value, the lower the GPU usage will be (because audio buffer will be smaller), but you will probably degrade transcription accuracy (more error on words because the model will miss some context).
-
-The `STREAMING_PAUSE_FOR_FINAL` value will depend on your type of speech. On prepared speech for example, you can probably lower it whereas on real discussions you can leave it as default or increase it. 
-
-<!-- Concerning transcription accuracies, some tests on transcription in French gave the following results:
-* around 20% WER (Word Error Rate) with offline transcription,
-* around 30% WER with high latency streaming (around 30 seconds latency on a GPU), and
-* around 40% WER with low latency streaming (beween 2 and 3 seconds latency on average on a GPU). -->
-
-If you use a model that outputs lower-case text without punctuations,
-and you want text with upper case letters and punctuation, you can specify a recasepunc model (which must be in version 0.4 at least).
-Some recasepunc models trained on [Common Crawl](http://data.statmt.org/cc-100/) are available on [recasepunc](https://github.com/benob/recasepunc/releases/) for the following the languages:
-* French
-  * [fr.24000](https://github.com/benob/recasepunc/releases/download/0.4/fr.24000)
-* English
-  * [en.22000](https://github.com/benob/recasepunc/releases/download/0.4/en.22000)
-* Italian
-  * [it.23000](https://github.com/benob/recasepunc/releases/download/0.4/it.23000)
-* Chinese
-  * [zh-Hant.17000](https://github.com/benob/recasepunc/releases/download/0.4/zh-Hant.17000)
-
-After downloading a recasepunc model, you can mount it as a volume and specify its location within the Docker container using the `PUNCTUATION_MODEL` environment variable.
-
-## Usages
-### HTTP API
+### Usages
 #### /healthcheck
 Returns the state of the API
 
@@ -238,7 +262,7 @@ Transcription API
 * File: An Wave file 16b 16Khz
 * Language (optional): Override environment variable `LANGUAGE`
 
-Return the transcripted text using "text/plain" or a json object when using "application/json" structure as followed:
+Return the transcribed text using "text/plain" or a json object when using "application/json" structure as followed:
 ```json
 {
     "text" : "This is the transcription as text",
@@ -256,12 +280,53 @@ Return the transcripted text using "text/plain" or a json object when using "app
 }
 ```
 
-<!-- #### /streaming -->
-
 #### /docs
 The /docs route offers a OpenAPI/swagger interface.
 
-### Through the message broker
+## CELERY TASK - File transcription
+
+Run it in English using in:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=task \
+-e SERVICE_NAME=stt \
+-e SERVICES_BROKER=redis://172.17.0.1:6379 \
+-e MODEL=nvidia/parakeet-tdt-0.6b-v2 \
+-e ARCHITECTURE=rnnt_bpe \
+-e USER_ID=$(id -u) \
+-e GROUP_ID=$(id -g) \
+-v ~/.cache:/home/appuser/.cache \
+-v ~/data/audio:/opt/audio \
+lintoai/linto-stt-nemo
+```
+
+
+### (micro-service) Service broker and shared folder
+In task mode, STT operations are triggered via tasks sent through a message broker. Supported message brokers include RabbitMQ, Redis, and Amazon SQS.
+Additionally, to prevent large audio files from passing through the message broker, a shared storage folder must be mounted to ``/opt/audio``. This folder is mounted in the container and accessible by both the STT service and the message broker. For example, ``-v ~/data/audio:/opt/audio``.
+
+The celery tasks can be managed using [LinTO Transcription service](https://github.com/linto-ai/linto-transcription-service).
+
+See [Common parameters](#parameters) for other parameters.
+| PARAMETER | DESCRIPTION | EXAMPLE |
+|---|---|---|
+| SERVICE_NAME | Queue's name for task processing | `my-stt` |
+| SERVICE_BROKER | URL of the message broker | `redis://my-broker:6379` |
+| BROKER_PASS | Broker password | `my-password` \| (empty) |
+
+Shared parameters with [HTTP service mode](#file-transcription-parameters):
+| PARAMETER | DESCRIPTION | EXAMPLE |
+|---|---|---|
+| [CONCURRENCY](#concurrency-environment-variable) | Maximum number of parallel requests plus one. For example CONCURRENCY=0 means 1 worker, CONCURRENCY=1 means 2 workers, etc. | `2` |
+| [LONG_FILE_THRESHOLD](#long_file-environment-variables) | A file longer than that will be split into smaller chunks to avoid Out of Memory issues. This value depends on your VRAM/RAM amount . Default is 480s (8mins) | `480` \| `240`
+| LONG_FILE_CHUNK_LEN | For long form transcription, size of the chunks into which the audio is splitted. This value depends on your VRAM/RAM amount. Default is 240s (4mins) | `240` \| `120`
+| LONG_FILE_CHUNK_CONTEXT_LEN | For long form transcription, size of the context added at the beginning and end of each chunk. Default is 10s (10s before and after the chunk) | `10` \| `5`
+
+### Usage
+
+See [HTTP usage](#usages).
+
+#### Through the message broker
 
 STT-Worker accepts requests with the following arguments:
 ```file_path: str, with_metadata: bool```
@@ -291,27 +356,198 @@ On a successfull transcription the returned object is a json object structured a
 * The <ins>word</ins> field contains each word with their time stamp and individual confidence. (Empty if with_metadata=False)
 * The <ins>confidence</ins> field contains the overall confidence for the transcription. (0.0 if with_metadata=False)
 
+## Websocket - Streaming
 
-## Tests
+In WebSocket mode, only the streaming transcription service is deployed. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
 
-### Curl
-You can test your http API using curl:
+The SERVICE_MODE value in the .env should be set to ```websocket```. 
 
-```bash 
-curl -X POST "http://YOUR_SERVICE:YOUR_PORT/transcribe" -H  "accept: application/json" -H  "Content-Type: multipart/form-data" -F "file=@YOUR_FILE;type=audio/x-wav"
+Run the API to transcribe in English in real-time using:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=websocket \
+-e MODEL=nvidia/stt_en_fastconformer_hybrid_medium_streaming_80ms_pc \
+-e ARCHITECTURE=hybrid_bpe \
+-e USER_ID=$(id -u) \
+-e GROUP_ID=$(id -g) \
+-v ~/.cache:/home/appuser/.cache \
+lintoai/linto-stt-nemo
 ```
 
-### Streaming
-You can test your streaming API using a websocket:
-
-```bash 
-python test/test_streaming.py --server ws://YOUR_SERVICE:YOUR_PORT/streaming --audio_file test/bonjour.wav
+or transcribe in French using:
+For example:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=websocket \
+-e MODEL=linto_stt_fr_fastconformer \
+-e ARCHITECTURE=hybrid_bpe \
+-e USER_ID=$(id -u) \
+-e GROUP_ID=$(id -g) \
+-v ~/.cache:/home/appuser/.cache \
+lintoai/linto-stt-nemo
 ```
+
+### Usage
+
+The data exchange process follows these steps:
+1. Client send a json {"config": {"sample_rate":16000}}.
+2. Client send audio chunk (go to 3- ) or {"eof" : 1} (go to 5-).
+3. Server send either a partial result {"partial" : "this is a "} or a final result {"text": "this is a transcription"}.
+4. Back to 2-
+5. Server send a final result and close the connection.
+
+### Streaming parameters
+
+See [Common parameters](#parameters) for other parameters.
+| PARAMETER | DESCRIPTION | EXAMPLE |
+|---|---|---|
+| STREAMING_PORT | The listening port for ingoing WS connections. Default is 80 | `80` |
+| STREAMING_MIN_CHUNK_SIZE | The minimal size of the buffer (in seconds) before transcribing.  Used to lower the hardware usage (low value=high usage, high value=low usage). Default is 0.5 | `0.5` \| `26` \| ... |
+| STREAMING_BUFFER_TRIMMING_SEC | The maximum targeted length of the buffer (in seconds). It tries to cut after a transcription has been made (bigger value=higher hardware usage). Default is 8 | `8` \| `10` \| ... |
+| [STREAMING_PAUSE_FOR_FINAL](#streaming_pause_for_final-environment-variable) | The minimum duration of silence (in seconds) needed to be able to output a final. Default is 1.5 | `0.5` \| `2` \| ... |
+| STREAMING_TIMEOUT_FOR_SILENCE | If a VAD is applied externally, this parameter will allow the server to find the silence (silences are used to output `final`). The `packet duration` is determined from the first packet. If a packet is not received during `packet duration * STREAMING_TIMEOUT_FOR_SILENCE` it considers that a silence (lasting the packet duration) is present. If specified, value should be between 1 and 2 (2 times the duration of a packet). Default is deactivated | `1.8` \| ... |
+| STREAMING_MAX_WORDS_IN_BUFFER | How much words can stay in the buffer. It means how much words can be changed. Default is 4 | `4` \| `2` \| ... |
+| STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND | The maximum of messages that can be sent by the server to the client in one second. Default is 4, put 0 to deactivate it | `3` \| ... |
+| [PUNCTUATION_MODEL](#punctuation_model-environment-variable) | Path to a recasepunc model, for recovering punctuation and upper letter in streaming. Use it if your model doesn't output punctuation and upper case letters.  | /opt/PUNCT |
+
+#### STREAMING_PAUSE_FOR_FINAL environment variable
+
+The `STREAMING_PAUSE_FOR_FINAL` value will depend on your type of speech. On prepared speech for example, you can probably lower it whereas on real discussions you can leave it as default or increase it. Without punctuations, 1.5 seconds is a good value. With punctuations, you can lower it to 1 second because a final will be outputted only when a punctuation is detected.
+
+#### PUNCTUATION_MODEL environment variable
+
+If you use a model that outputs lower-case text without punctuations, you can specify a recasepunc model (which must be in version 0.4 at least).
+Some recasepunc models trained on [Common Crawl](http://data.statmt.org/cc-100/) are available on [recasepunc](https://github.com/benob/recasepunc/releases/) for the following the languages:
+* French
+  * [fr.24000](https://github.com/benob/recasepunc/releases/download/0.4/fr.24000)
+* English
+  * [en.22000](https://github.com/benob/recasepunc/releases/download/0.4/en.22000)
+
+After downloading a recasepunc model, you can mount it as a volume and specify its location within the Docker container using the `PUNCTUATION_MODEL` environment variable.
+```
+-v <PATH>/models/lm/fr.24000:/opt/models/lm/fr.24000
+```
+
+### Example with lowest latency
+
+todo example config with latency expected, used resources, etc.
+
+#### English
+Here is a config for low latency streaming in English that you can use as a starting point:
+```
+SERVICE_MODE=websocket
+STREAMING_PORT=80
+DEVICE=cuda
+
+MODEL=nvidia/stt_en_fastconformer_hybrid_medium_streaming_80ms_pc
+ARCHITECTURE=hybrid_bpe_ctc
+STREAMING_MIN_CHUNK_SIZE=0.5
+STREAMING_BUFFER_TRIMMING_SEC=5
+STREAMING_PAUSE_FOR_FINAL=1.2
+STREAMING_TIMEOUT_FOR_SILENCE=
+STREAMING_MAX_WORDS_IN_BUFFER=6
+STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4
+```
+
+With this config:
+- Include punctuation: yes
+- Latency: around 1s (depends on your hardware)
+- VRAM: around 2GB
+
+Same config with `DEVICE=cpu` and `NUM_THREADS=16`:
+- Latency: around 2s (depends on your hardware)
+
+You can run it with:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=websocket \
+-e MODEL=nvidia/stt_en_fastconformer_hybrid_medium_streaming_80ms_pc \
+-e ARCHITECTURE=hybrid_bpe \
+-e DEVICE=cuda \
+-e STREAMING_MIN_CHUNK_SIZE=0.5 \
+-e STREAMING_BUFFER_TRIMMING_SEC=5 \
+-e STREAMING_PAUSE_FOR_FINAL=1.2 \
+-e STREAMING_MAX_WORDS_IN_BUFFER=6 \
+-e STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4 \
+-e USER_ID=$(id -u) \
+-e GROUP_ID=$(id -g) \
+--gpus all \
+-v ~/.cache:/home/appuser/.cache \
+lintoai/linto-stt-nemo
+```
+
+#### French
+
+```
+SERVICE_MODE=websocket
+STREAMING_PORT=80
+DEVICE=cuda
+
+MODEL=linagora/linto_stt_fr_fastconformer
+ARCHITECTURE=hybrid_bpe_ctc
+STREAMING_MIN_CHUNK_SIZE=0.5
+STREAMING_BUFFER_TRIMMING_SEC=8
+STREAMING_PAUSE_FOR_FINAL=1.5
+STREAMING_TIMEOUT_FOR_SILENCE=
+STREAMING_MAX_WORDS_IN_BUFFER=5
+STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4
+```
+
+With this config:
+- Include punctuation: no ([see](#punctuation_model-environment-variable) and the [example](#docker-options))
+- Latency: around 1.4s (depends on your hardware)
+- VRAM: around 2.5GB
+
+Same config with `DEVICE=cpu` and `NUM_THREADS=16`:
+- Latency: around 2.4s (depends on your hardware)
+
+You can run it with the following command:
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+-e SERVICE_MODE=websocket \
+-e MODEL=linto_stt_fr_fastconformer \
+-e ARCHITECTURE=hybrid_bpe \
+-e DEVICE=cuda \
+-e STREAMING_MIN_CHUNK_SIZE=0.5 \
+-e STREAMING_BUFFER_TRIMMING_SEC=8 \
+-e STREAMING_PAUSE_FOR_FINAL=1.5 \
+-e STREAMING_MAX_WORDS_IN_BUFFER=5 \
+-e STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4 \
+-e USER_ID=$(id -u) \
+-e GROUP_ID=$(id -g) \
+--gpus all \
+-v ~/.cache:/home/appuser/.cache \
+lintoai/linto-stt-nemo
+```
+
+### Example with high latency
+
+Here is a config for high latency streaming (for better accuracy) in English that you can use as a starting point:
+
+```
+SERVICE_MODE=websocket
+STREAMING_PORT=80
+DEVICE=cuda
+
+MODEL=nvidia/parakeet-tdt-0.6b-v2
+ARCHITECTURE=rnnt_bpe
+STREAMING_MIN_CHUNK_SIZE=1
+STREAMING_BUFFER_TRIMMING_SEC=15
+STREAMING_PAUSE_FOR_FINAL=1.0
+STREAMING_TIMEOUT_FOR_SILENCE=
+STREAMING_MAX_WORDS_IN_BUFFER=10
+STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=3
+```
+
+With this config:
+- Include punctuation: yes
+- Latency: around 2.5s (depends on your hardware)
+- VRAM: around 4.5GB
 
 ## License
-This project is developped under the AGPLv3 License (see LICENSE).
+This project is licensed under AGPLv3 (see LICENSE).
 
-## Acknowlegment.
+## Acknowledgments
 
 * [NeMo](https://github.com/NVIDIA/NeMo)
 * [SpeechBrain](https://github.com/speechbrain/speechbrain)

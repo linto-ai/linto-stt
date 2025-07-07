@@ -52,12 +52,9 @@ To test the Kaldi models, you will need to download the models (see [Kaldi model
 To launch the test you can do :
 ```bash
 python test/automated/whisper.py
-```
-To launch tests for whisper or 
-```bash
+python test/automated/nemo.py
 python test/automated/kaldi.py
 ```
-To launch tests for kaldi.
 
 > ⚠️ Be sure to launch it from the root folder of the repository.
 

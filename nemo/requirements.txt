@@ -15,6 +15,7 @@ typing_extensions
 wavio>=0.0.4
 websockets
 auditok<0.3.0
+torch==2.7.1
 torchaudio
 huggingface_hub
 sox
