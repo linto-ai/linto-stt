@@ -4,7 +4,7 @@ flask-cors>=3.0.10
 flask-swagger-ui==3.36.0
 gevent>=22.10.2
 gunicorn>=20.1.0
-transformers==4.39.3
+transformers==4.52.1
 tokenizers==0.15.2
 torch>=2.3.1
 regex==2023.12.25
