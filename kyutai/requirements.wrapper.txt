@@ -1,0 +1,5 @@
+websockets
+msgpack
+numpy
+wavio
+scip

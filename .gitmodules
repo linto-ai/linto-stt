@@ -1,0 +1,6 @@
+[submodule "kyutai/moshi"]
+	path = kyutai/moshi
+	url = https://github.com/kyutai-labs/moshi
+[submodule "kyutai/delayed-streams-modeling"]
+	path = kyutai/delayed-streams-modeling
+	url = https://github.com/kyutai-labs/delayed-streams-modeling
