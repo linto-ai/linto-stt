@@ -1,19 +1,20 @@
 import asyncio
 import json
 import logging
+import os
 
 import msgpack
 import numpy as np
 import websockets
 from websockets.legacy.server import WebSocketServerProtocol
 
-from . import KYUTAI_API_KEY, KYUTAI_URL, logger
+from . import KYUTAI_API_KEY, KYUTAI_URL
 from .utils import SAMPLE_RATE
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
-async def forward_client(ws_client: WebSocketServerProtocol, ws_server):
+async def forward_client(ws_client: WebSocketServerProtocol, ws_server, connection_id: str):
     """Forward audio from LinTO client to Kyutai server"""
     # first message from client contains config
     res = await ws_client.recv()
@@ -21,7 +22,7 @@ async def forward_client(ws_client: WebSocketServerProtocol, ws_server):
         config = json.loads(res)["config"]
         sr = int(config.get("sample_rate", 16000))
     except Exception:
-        logging.error("Invalid config from client")
+        logger.error(f"[{connection_id}] Invalid config from client")
         await ws_client.close(code=1003, reason="Invalid config")
         return
 
@@ -53,34 +54,65 @@ async def forward_client(ws_client: WebSocketServerProtocol, ws_server):
         )
 
 
-async def forward_server(ws_server, ws_client: WebSocketServerProtocol):
+async def forward_server(ws_server, ws_client: WebSocketServerProtocol, connection_id: str):
     transcript = []
-    while True:
-        try:
-            message = await asyncio.wait_for(ws_server.recv(), timeout=2.0)
+    timer_task = None
+    final_transcript_delay = float(os.environ.get("FINAL_TRANSCRIPT_DELAY", 1.5))
+    log_transcripts = os.environ.get("LOG_TRANSCRIPTS", "false").lower() == "true"
+
+    async def send_final_transcript():
+        nonlocal transcript
+        if transcript:
+            full_text = " ".join(transcript)
+            if log_transcripts:
+                logger.info(f"[{connection_id}] Final transcript: {full_text}")
+            await ws_client.send(json.dumps({"text": full_text}))
+            transcript = []
+
+    def on_timer_done(task: asyncio.Task):
+        """Callback executed when the timer task is done."""
+        if not task.cancelled():
+            asyncio.create_task(send_final_transcript())
+
+    try:
+        while True:
+            message = await ws_server.recv()
             data = msgpack.unpackb(message, raw=False)
+
             if data.get("type") == "Word":
+                # A new word has arrived, cancel any pending final-transcript timer.
+                if timer_task:
+                    timer_task.cancel()
+
                 transcript.append(data["text"])
                 await ws_client.send(json.dumps({"partial": " ".join(transcript)}))
-        except asyncio.TimeoutError:
-            if transcript:
-                print(f"DEBUG: Timeout reached. Transcript is: {transcript}")
-                if any(transcript[-1].endswith(p) for p in ".?!..."):
-                    await ws_client.send(json.dumps({"text": " ".join(transcript)}))
-                    transcript = []
+
+                # If the word ends a sentence, start a new timer.
+                if any(data["text"].endswith(p) for p in [".", "?", "!", "..."]):
+                    timer_task = asyncio.create_task(asyncio.sleep(final_transcript_delay))
+                    timer_task.add_done_callback(on_timer_done)
+
+    except websockets.exceptions.ConnectionClosed:
+        logger.info(f"[{connection_id}] Connection closed by peer.")
+    finally:
+        if timer_task:
+            timer_task.cancel()
+        # Send any remaining text as a final transcript
+        if transcript:
+            await send_final_transcript()
 
 
-async def wssDecode(ws: WebSocketServerProtocol, _model):
+async def wssDecode(ws: WebSocketServerProtocol, _model, connection_id: str):
     url = f"{KYUTAI_URL}/api/asr-streaming"
     headers = {"kyutai-api-key": KYUTAI_API_KEY}
-    logging.info(f"Attempting to connect to backend at {url}")
+    logger.info(f"[{connection_id}] Attempting to connect to backend at {url}")
     send_task = None
     recv_task = None
     try:
         async with websockets.connect(url, additional_headers=headers) as ws_server:
-            logging.info(f"Successfully connected to backend at {url}")
-            send_task = asyncio.create_task(forward_client(ws, ws_server))
-            recv_task = asyncio.create_task(forward_server(ws_server, ws))
+            logger.info(f"[{connection_id}] Successfully connected to backend at {url}")
+            send_task = asyncio.create_task(forward_client(ws, ws_server, connection_id))
+            recv_task = asyncio.create_task(forward_server(ws_server, ws, connection_id))
             done, pending = await asyncio.wait(
                 [send_task, recv_task],
                 return_when=asyncio.FIRST_COMPLETED,
@@ -88,10 +120,13 @@ async def wssDecode(ws: WebSocketServerProtocol, _model):
             for task in pending:
                 task.cancel()
     except Exception as e:
-        logging.error(f"Failed to connect or communicate with backend at {url}: {e}", exc_info=True)
+        logger.error(
+            f"[{connection_id}] Failed to connect or communicate with backend at {url}: {e}",
+            exc_info=True
+        )
     finally:
         if send_task:
             send_task.cancel()
         if recv_task:
             recv_task.cancel()
-        logging.info("Connection closed.")
+        logger.info(f"[{connection_id}] Connection closed.")

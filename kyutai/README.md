@@ -77,7 +77,7 @@ Replace the `?server=ws://localhost:8001/streaming` with the actual address you 
 # LinTO wrapper - Purpose of this Kyutai branch
 
 The `kyutai/stt/processing` package shall provide a lightweight wrapper that exposes the
-standard LinTO streaming API and forwards the audio stream to a running Kyutai
+standard LinTO streaming API and forwards the audio stream to a running (dockerized ?) Kyutai
 server.
 
 ## Quick start
@@ -93,9 +93,10 @@ uv pip install -r kyutai/requirements.wrapper.txt
 Then run the websocket server from the repository root. By default it reaches the moshi server on KYUTAI_URL=`ws://localhost:8080` and listens on default `8001`
 
 ```bash
-STREAMING_PORT=8001 PYTHONPATH=kyutai KYUTAI_URL=ws://localhost:8080 uv run python websocket/websocketserver.py
+LOG_TRANSCRIPTS=true LOG_LEVEL=INFO FINAL_TRANSCRIPT_DELAY=1.5 STREAMING_PORT=8002 PYTHONPATH=kyutai KYUTAI_URL=ws://localhost:8080 uv run python websocket/websocketserver.py
 ```
 
+__note__ :  LOG_TRANSCRIPTS to log "finals" (simulated after a semantic utterance, ending with a '.?!...' and followed by a FINAL_TRANSCRIPT_DELAY number of seconds without any new transcription.)
 
 ## LinTO wrapper - Docker image
 
