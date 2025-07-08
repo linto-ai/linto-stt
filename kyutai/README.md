@@ -10,6 +10,35 @@ docker run --rm --gpus all -p 8080:8080 \
            -e RUST_LOG=info              \
            -it moshi-stt:cuda
 
+# Docker Compose
+
+A `docker-compose.yml` file is provided to easily run the entire stack locally. This includes the Moshi server, the LinTO wrapper, and a web client for testing.
+
+## Local Usage
+
+The setup uses Docker Compose profiles to select between the CPU and CUDA environments. Navigate to the `kyutai` directory and use one of the following commands:
+
+To build and run the **CPU** version:
+```bash
+docker-compose --profile cpu up --build
+```
+
+To build and run the **CUDA** version, first set the `MOSHI_SERVER` environment variable, then run the compose command:
+```bash
+export MOSHI_SERVER=moshi-server-cuda
+docker compose --profile cuda up --build
+```
+
+As the Kyutai's model is downloaded, wait a bit until you see logs like 
+
+```bash
+moshi-stt-server-cuda  | 2025-07-08T22:28:57.767774Z  INFO moshi_server: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/moshi-server-0.6.3/src/main.rs:529: listening on http://0.0.0.0:8080
+moshi-stt-server-cuda  | 2025-07-08T22:28:57.767895Z  INFO moshi_server::batched_asr: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/moshi-server-0.6.3/src/batched_asr.rs:226: warming-up the asr
+moshi-stt-server-cuda  | 2025-07-08T22:28:58.231816Z  INFO moshi_server::batched_asr: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/moshi-server-0.6.3/src/batched_asr.rs:228: starting asr loop 64
+```
+
+In either case, the web client will be available at `http://localhost:8088/?server=ws://localhost:8001/streaming`. Allow microphone usage and transcribe.
+
 # Local Rust
 
 ```bash

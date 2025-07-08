@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # --- CPU Profile Services ---
+  moshi-server-cpu:
+    image: lintoai/kyutai-moshi-stt-server:cpu
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-cpu
+    container_name: moshi-stt-server-cpu
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    profiles:
+      - cpu
+
+  # --- CUDA Profile Services ---
+  moshi-server-cuda:
+    image: lintoai/kyutai-moshi-stt-server:cuda
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: moshi-stt-server-cuda
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles:
+      - cuda
+
+  # --- Common Wrapper Service ---
+  wrapper:
+    image: lintoai/linto-stt-kyutai-wrapper:latest
+    build:
+      context: ..
+      dockerfile: kyutai/Dockerfile.wrapper
+    ports:
+      - "8001:8001"
+    environment:
+      - KYUTAI_URL=ws://${MOSHI_SERVER:-moshi-server-cpu}:8080
+      - STREAMING_PORT=8001
+      - LOG_LEVEL=INFO
+      - LOG_TRANSCRIPTS=true
+      - FINAL_TRANSCRIPT_DELAY=1.5
+      - SERVICE_MODE=websocket
+    restart: unless-stopped
+    profiles:
+      - cpu
+      - cuda
+
+  # --- Common Web Client Service ---
+  web-client:
+    image: nginx:alpine
+    container_name: linto-stt-web-client
+    ports:
+      - "8088:80"
+    volumes:
+      - ../webclient:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    restart: unless-stopped
+    profiles:
+      - cpu
+      - cuda
