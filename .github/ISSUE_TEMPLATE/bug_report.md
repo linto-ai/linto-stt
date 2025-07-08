@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: ''
+title: '[BUG]'
 labels: "\U0001FAB2BUG"
 assignees: AudranBert
 
@@ -15,6 +15,7 @@ Backend:
 - - [ ] Ctranslate
 - - [ ] Torch
 - [ ] Nemo
+- [ ] Kyutai
 
 Serving mode:
 - [ ] Task
@@ -27,6 +28,11 @@ A clear and concise description of what the bug is.
 **To Reproduce**
 
 Docker image: 
+
+Docker run command:
+```
+
+```
 
 Env file (parameters) used:
 ```yaml
