@@ -110,7 +110,7 @@ This will run a container providing an [HTTP API](#http-api) binded on the host 
 | HOST_SERVING_PORT | Host serving port | 80 |
 | AM_PATH | Path to the acoustic model on the host machine mounted to /opt/AM | /my/path/to/models/AM_fr-FR_v2.2.0 |
 | LM_PATH | Path to the language model on the host machine mounted to /opt/LM | /my/path/to/models/fr-FR_big-v2.2.0 |
-| MODEL_PATH | Path to the model (using MODEL_TYPE=vosk) mounted to /opt/model | /my/path/to/models/vosk-model |
+| MODEL_PATH | Path to the model (using MODEL_TYPE=vosk) mounted to /opt/models | /my/path/to/models/vosk-model |
 
 ### Celery task
 The TASK serving mode connect a celery worker to a message broker.
@@ -133,7 +133,7 @@ linto-stt-kaldi:latest
 |:-|:-|:-|
 | AM_PATH | Path to the acoustic model on the host machine mounted to /opt/AM | /my/path/to/models/AM_fr-FR_v2.2.0 |
 | LM_PATH | Path to the language model on the host machine mounted to /opt/LM | /my/path/to/models/fr-FR_big-v2.2.0 |
-| MODEL_PATH | Path to the model (using MODEL_TYPE=vosk) mounted to /opt/model | /my/path/to/models/vosk-model |
+| MODEL_PATH | Path to the model (using MODEL_TYPE=vosk) mounted to /opt/models | /my/path/to/models/vosk-model |
 | SHARED_AUDIO_FOLDER | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
 
 

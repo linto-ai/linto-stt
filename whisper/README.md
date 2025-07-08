@@ -240,8 +240,8 @@ This will run a container providing an [HTTP API](#http-api) binded on the host 
 You may also want to add specific options:
 * To enable GPU capabilities, add ```--gpus all```.
   Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
-* To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
-  use ```-v <CACHE_PATH>:/root/.cache```
+* To mount a local cache folder `<CACHE_PATH>` (e.g. "`/opt/models`") and avoid downloading models each time,
+  use ```-v <CACHE_PATH>:/opt/models```
   If you use `MODEL=/opt/model.pt` environment variable, you may want to mount the model file (or folder) with option ```-v <ASR_PATH>:/opt/model.pt```.
 * If you want to specifiy a custom alignment model already downloaded in a folder `<WAV2VEC_PATH>`,
   you can add option ```-v <WAV2VEC_PATH>:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
@@ -250,7 +250,7 @@ You may also want to add specific options:
 | Variables | Description | Example |
 |:-|:-|:-|
 | `HOST_SERVING_PORT` | Host serving port | 8080 |
-| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /opt/models |
 | `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
 | `<WAV2VEC_PATH>` | Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
@@ -271,8 +271,8 @@ linto-stt-whisper:latest
 You may also want to add specific options:
 * To enable GPU capabilities, add ```--gpus all```.
   Note that you can use environment variable `DEVICE=cuda` to make sure GPU is used (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
-* To mount a local cache folder `<CACHE_PATH>` (e.g. "`$HOME/.cache`") and avoid downloading models each time,
-  use ```-v <CACHE_PATH>:/root/.cache```
+* To mount a local cache folder `<CACHE_PATH>` (e.g. "`/opt/models`") and avoid downloading models each time,
+  use ```-v <CACHE_PATH>:/opt/models```
   If you use `MODEL=/opt/model.pt` environment variable, you may want to mount the model file (or folder) with option ```-v <ASR_PATH>:/opt/model.pt```.
 * If you want to specifiy a custom alignment model already downloaded in a folder `<WAV2VEC_PATH>`,
   you can add option ```-v <WAV2VEC_PATH>:/opt/wav2vec``` and environment variable ```ALIGNMENT_MODEL=/opt/wav2vec```.
@@ -281,7 +281,7 @@ You may also want to add specific options:
 | Variables | Description | Example |
 |:-|:-|:-|
 | `<SHARED_AUDIO_FOLDER>` | Shared audio folder mounted to /opt/audio | /my/path/to/models/vosk-model |
-| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /home/username/.cache |
+| `<CACHE_PATH>` | Path to a folder to download wav2vec alignment models when relevant | /opt/models |
 | `<ASR_PATH>` | Path to the Whisper model on the host machine mounted to /opt/model.pt | /my/path/to/models/medium.pt |
 | `<WAV2VEC_PATH>` | Path to a folder to a custom wav2vec alignment model |  /my/path/to/models/wav2vec |
 
