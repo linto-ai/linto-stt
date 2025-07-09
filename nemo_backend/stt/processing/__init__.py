@@ -2,7 +2,7 @@ import logging
 import os
 
 from lockfile import FileLock
-from stt import logger, set_num_threads, NUM_THREADS, VAD
+from nemo_backend.stt import logger, set_num_threads, NUM_THREADS, VAD
 from punctuation.recasepunc import load_recasepunc_model
 
 from .decoding import decode

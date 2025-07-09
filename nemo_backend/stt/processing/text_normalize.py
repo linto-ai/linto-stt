@@ -3,7 +3,7 @@ import re
 # import string
 import unicodedata
 
-from stt import logger
+from nemo_backend.stt import logger
 
 from .utils import flatten
 

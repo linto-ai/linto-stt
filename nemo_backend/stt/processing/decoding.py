@@ -9,7 +9,7 @@ import nemo.collections.asr as nemo_asr
 import torch
 
 import numpy as np
-from stt import (
+from nemo_backend.stt import (
     logger,
     VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION,
     LONG_FILE_THRESHOLD, LONG_FILE_CHUNK_LEN, LONG_FILE_CHUNK_CONTEXT_LEN

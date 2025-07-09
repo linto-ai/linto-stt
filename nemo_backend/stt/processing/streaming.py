@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .vad import remove_non_speech
 from .utils import get_language
 from punctuation.recasepunc import apply_recasepunc
-from stt import (
+from nemo_backend.stt import (
    logger,
    VAD, VAD_DILATATION, VAD_MIN_SPEECH_DURATION, VAD_MIN_SILENCE_DURATION,
    STREAMING_BUFFER_TRIMMING_SEC, STREAMING_MIN_CHUNK_SIZE,

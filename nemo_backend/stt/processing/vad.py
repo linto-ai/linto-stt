@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import shutil
-from stt import logger
+from nemo_backend.stt import logger
 
 
 _silero_vad_model = {}

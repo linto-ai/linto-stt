@@ -3,7 +3,7 @@ flask==3.0.3
 flask-cors==5.0.0
 flask-sock==0.7.0
 flask-swagger-ui==3.36.0
-gevent==24.2.1
+gevent==25.5.1
 gunicorn==23.0.0
 lockfile==0.12.2
 pyyaml==6.0.2

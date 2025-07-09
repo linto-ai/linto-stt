@@ -13,7 +13,7 @@ from nemo.collections.asr.parts.utils.asr_confidence_utils import (
 from nemo.collections.asr.parts.submodules.rnnt_decoding import RNNTDecodingConfig
 from nemo.collections.asr.parts.submodules.ctc_decoding import CTCDecodingConfig
 
-from stt import logger
+from nemo_backend.stt import logger
 import logging
 logging.basicConfig(level = logging.INFO)
 logging.getLogger("nemo_logger").setLevel(logging.ERROR)
