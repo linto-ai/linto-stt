@@ -12,9 +12,9 @@ def main(serving_port: int, wssDecode, MODEL):
         return await wssDecode(ws, MODEL)
 
 
-    async def WSServer(port: int):
+    async def WSServer(host, port: int):
         """Launch the websocket server"""
-        async with websockets.serve(_fun_wrapper, "0.0.0.0", port, ping_interval=None, ping_timeout=None):
+        async with websockets.serve(_fun_wrapper, host, port, ping_interval=None, ping_timeout=None):
             await asyncio.Future()
 
     asyncio.run(WSServer(serving_port))
