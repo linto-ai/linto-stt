@@ -1,10 +1,4 @@
 celery[redis,auth,msgpack]==5.5.1
-flask==3.0.3
-flask-cors==5.0.0
-flask-sock==0.7.0
-flask-swagger-ui==3.36.0
-gevent==25.5.1
-gunicorn==23.0.0
 lockfile==0.12.2
 pyyaml==6.0.2
 requests==2.32.3
@@ -13,7 +7,6 @@ packaging==24.0
 numpy==1.26.4
 typing_extensions
 wavio>=0.0.4
-websockets
 auditok<0.3.0
 torch==2.7.1
 torchaudio
