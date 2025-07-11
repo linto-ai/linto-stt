@@ -1,5 +1,12 @@
 # LinTO-STT
 
+```
+pyenv virtualenv 3.10 lintostt
+pyenv activate lintostt
+pip install .
+lintostt -m websocket -b nemo
+lintostt -m http -b nemo -w 2
+```
 LinTO-STT is an API for Automatic Speech Recognition (ASR).
 
 LinTO-STT can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
