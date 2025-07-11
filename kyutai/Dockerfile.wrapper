@@ -6,7 +6,7 @@ LABEL maintainer="contact@linto.ai"
 # 1. OS-level packages
 # ──────────────────────────────────────────────────────────────────────────────
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg gosu && \
+    apt-get install -y --no-install-recommends ffmpeg gosu netcat-traditional && \
     rm -rf /var/lib/apt/lists/*
 
 # ──────────────────────────────────────────────────────────────────────────────
