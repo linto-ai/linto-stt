@@ -1,0 +1,17 @@
+celery[redis,auth,msgpack]==5.5.1
+lockfile==0.12.2
+pyyaml==6.0.2
+requests==2.32.3
+regex
+packaging==24.0
+numpy==1.26.4
+typing_extensions
+wavio>=0.0.4
+auditok<0.3.0
+torch==2.7.1
+torchaudio
+huggingface_hub
+sox
+nemo_toolkit[asr]==2.3.0
+cuda-python>=12.3
+hf_xet # to speedup downloads from HuggingFace

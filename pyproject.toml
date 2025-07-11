@@ -7,16 +7,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lintostt"
-version = "1.0.2"
+version = "1.0.3"
 dynamic = ["dependencies", "optional-dependencies"]
 requires-python = ">=3.10,<3.11"
 
-[tool.setuptools]
-py-modules = []
-
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
-optional-dependencies = {nemo = { file = ["nemo_backend/requirements.txt"] }}
+optional-dependencies = {nemo = { file = ["lintostt/nemo_backend/requirements.txt"] }}
 
 [project.scripts]
 lintostt = "lintostt:main"
