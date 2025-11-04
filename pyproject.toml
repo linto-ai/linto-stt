@@ -1,0 +1,23 @@
+[project]
+name = "linto-stt"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dotenv>=0.9.9",
+    "fastapi>=0.121.0",
+    "lockfile>=0.12.2",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.38.0",
+    "websockets>=15.0.1",
+]
+
+[project.optional-dependencies]
+nemo = [
+    "auditok>=0.3.0",
+    "nemo-toolkit[asr,audio]>=2.5.2",
+    "onnx==1.18",
+    "torchaudio>=2.9.0",
+    "wavio>=0.0.9",
+]
