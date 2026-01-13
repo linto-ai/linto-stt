@@ -5,10 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "celery>=5.6.2",
     "dotenv>=0.9.9",
     "fastapi>=0.121.0",
     "lockfile>=0.12.2",
     "python-multipart>=0.0.20",
+    "redis>=7.1.0",
     "uvicorn>=0.38.0",
     "websockets>=15.0.1",
 ]
@@ -19,5 +21,6 @@ nemo = [
     "nemo-toolkit[asr,audio]>=2.5.2",
     "onnx==1.18",
     "torchaudio>=2.9.0",
+    "torchcodec>=0.9.1",
     "wavio>=0.0.9",
 ]
