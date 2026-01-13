@@ -5,9 +5,18 @@ apt install python3-pyaudio portaudio19-dev
 ```
 
 ```sh
-uv sync --all-extras
-uv run main.py -m [http|websocket] -b nemo -p [listening_port] -i [listening_ip]
+uv sync --extra [nemo]
 ```
+
+## Run
+
+### HTTP / Websocket
+
+`uv run main.py -m [http|websocket] -b nemo -p [listening_port] -i [listening_ip]`
+
+### Celery
+
+`uv run main.py -m task -b nemo`
 
 ## Nemo configuration
 
