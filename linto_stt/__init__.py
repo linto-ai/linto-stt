@@ -43,7 +43,7 @@ def main():
     parser.add_argument('-m', '--mode', required=True,
                         choices=['http', 'task', 'websocket'])
     parser.add_argument('-b', '--backend', required=False, choices=[
-                        'nemo', 'whisper', 'kaldi'], default=os.environ.get("backend", 'nemo'))
+                        'nemo', 'whisper', 'kaldi', 'kyutai'], default=os.environ.get("backend", 'nemo'))
     parser.add_argument('-p', '--port', required=False, default=8080, type=int)
     parser.add_argument('-i', '--host', required=False, default="127.0.0.1")
     parser.add_argument(

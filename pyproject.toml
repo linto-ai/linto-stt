@@ -24,3 +24,4 @@ nemo = [
     "torchcodec>=0.9.1",
     "wavio>=0.0.9",
 ]
+moshi = []
