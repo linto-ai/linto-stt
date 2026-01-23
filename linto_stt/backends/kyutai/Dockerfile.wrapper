@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.10-slim
+FROM python:3.12-slim
 LABEL maintainer="contact@linto.ai"
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -10,41 +10,38 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 2. Python dependencies
-#    Copy requirements first → better layer-cache utilisation
+# 2. Install uv
 # ──────────────────────────────────────────────────────────────────────────────
-COPY kyutai/requirements.wrapper.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
-    rm /tmp/requirements.txt
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 3. Application code
 # ──────────────────────────────────────────────────────────────────────────────
 WORKDIR /usr/src/app
 
-COPY celery_app/   celery_app/
-COPY http_server/  http_server/
-COPY websocket/    websocket/
-COPY document/     document/
-COPY kyutai/stt/   stt/
+# Copy project files for dependency installation
+COPY pyproject.toml uv.lock ./
 
-# Helper & entrypoint scripts
-COPY kyutai/docker-entrypoint.sh \
-     wait-for-it.sh \
-     healthcheck.sh \
-     ./
+# Install dependencies (kyutai/moshi extra is empty, uses base deps)
+RUN uv sync --no-dev
 
-RUN chmod +x docker-entrypoint.sh wait-for-it.sh healthcheck.sh
+# Copy application code
+COPY linto_stt ./linto_stt
+COPY main.py ./
+COPY healthcheck.sh ./
+COPY test/bonjour.wav ./test/bonjour.wav
+
+RUN chmod +x healthcheck.sh
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 4. Runtime environment
-#    hadolint flag DL3059 suppressed – we INTENTIONALLY reference $PYTHONPATH
 # ──────────────────────────────────────────────────────────────────────────────
-# hadolint ignore=DL3059
-ENV PYTHONPATH="/usr/src/app:${PYTHONPATH}"
+ENV PYTHONPATH="/usr/src/app/linto_stt/backends/kyutai/stt:${PYTHONPATH}"
 
 # Default WebSocket port (override at run-time if needed)
 EXPOSE 8081
 
+HEALTHCHECK CMD ./healthcheck.sh
+
 # ──────────────────────────────────────────────────────────────────────────────
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["uv", "run", "main.py", "-b", "kyutai"]

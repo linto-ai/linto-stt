@@ -42,3 +42,8 @@ whisper = [
     "wavio>=0.0.9",
     "auditok>=0.3.0",
 ]
+kaldi = [
+    "simple-websocket>=1.1.0",
+    "transformers>=4.53.3",
+    "vosk>=0.3.45",
+]

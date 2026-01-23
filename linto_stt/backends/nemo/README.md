@@ -29,12 +29,12 @@ docker pull lintoai/linto-stt-nemo
 ```
 or build it
 ```sh
-docker build . -f nemo/Dockerfile -t linto-stt-nemo
+docker build . -f linto_stt/backends/nemo/Dockerfile -t linto-stt-nemo
 ```
 
 ### Run file transcription API
 
-This API allows you to transcribe audio files through standard HTTP requests. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
+This API allows you to transcribe audio files through standard HTTP requests. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/linto_stt/backends/nemo/.envdefault), which can serve as a template for your own configuration.
 
 Run the API to transcribe in English using in:
 ```sh
@@ -64,7 +64,7 @@ curl -X POST "http://localhost:8080/transcribe" -H "accept: application/json" -H
 
 ### Run streaming transcription API
 
-The real-time transcription (streaming) API is accessible via a WebSocket connection ([see](#websocket---streaming)). Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
+The real-time transcription (streaming) API is accessible via a WebSocket connection ([see](#websocket---streaming)). Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/linto_stt/backends/nemo/.envdefault), which can serve as a template for your own configuration.
 
 Run the API to transcribe in English in real-time using:
 ```sh
@@ -182,7 +182,7 @@ For example, transcribing 4mins30s with model `MODEL=linagora/linto_stt_fr_fastc
 
 ## HTTP serving mode - File transcription
 
-The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route. You can send WAV files to the server. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
+The HTTP serving mode deploys a HTTP server and a swagger-ui to allow transcription request on a dedicated route. You can send WAV files to the server. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/linto_stt/backends/nemo/.envdefault), which can serve as a template for your own configuration.
 
 The SERVICE_MODE value in the .env should be set to ```http```.
 
@@ -358,7 +358,7 @@ On a successfull transcription the returned object is a json object structured a
 
 ## Websocket - Streaming
 
-In WebSocket mode, only the streaming transcription service is deployed. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/nemo/.envdefault), which can serve as a template for your own configuration.
+In WebSocket mode, only the streaming transcription service is deployed. Default API values are defined in [.envdefault](https://github.com/linto-ai/linto-stt/blob/master/linto_stt/backends/nemo/.envdefault), which can serve as a template for your own configuration.
 
 The SERVICE_MODE value in the .env should be set to ```websocket```. 
 

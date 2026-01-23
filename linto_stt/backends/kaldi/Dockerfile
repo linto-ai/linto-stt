@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.12
 LABEL maintainer="contact@linto.ai"
 
 ARG KALDI_MKL
@@ -47,13 +47,6 @@ RUN git clone -b vosk --single-branch https://github.com/alphacep/kaldi /opt/kal
     && sed -i 's: -O1 : -O3 :g' kaldi.mk \
     && make -j $(( $(nproc) < 8 ? $(nproc) : 8 )) online2 lm rnnlm
 
-# Upgrade pip
-RUN pip install --no-cache-dir --upgrade pip
-
-# Install python dependencies
-COPY kaldi/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
 # Install Custom Vosk API
 RUN git clone --depth 1 https://github.com/alphacep/vosk-api /opt/vosk-api && cd /opt/vosk-api/python && \
     cd /opt/vosk-api/src \
@@ -61,27 +54,25 @@ RUN git clone --depth 1 https://github.com/alphacep/vosk-api /opt/vosk-api && cd
     && cd /opt/vosk-api/python \
     && python3 ./setup.py install
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /usr/src/app
 
-# Install what's needed for punctuation
-COPY punctuation/requirements.cpu.txt ./
-RUN pip install --no-cache-dir -r requirements.cpu.txt -f https://download.pytorch.org/whl/torch_stable.html
-RUN rm requirements.cpu.txt
+# Copy project files for dependency installation
+COPY pyproject.toml uv.lock ./
 
-# Copy code
-COPY celery_app /usr/src/app/celery_app
-COPY http_server /usr/src/app/http_server
-COPY websocket /usr/src/app/websocket
-COPY document /usr/src/app/document
-COPY kaldi/stt /usr/src/app/stt
-COPY kaldi/docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
-COPY kaldi/lin_to_vosk.py /usr/src/app/lin_to_vosk.py
-COPY punctuation ./punctuation
+# Install dependencies with kaldi extra
+RUN uv sync --extra kaldi --no-dev
 
-RUN mkdir -p /var/log/supervisor/
+# Copy application code
+COPY linto_stt ./linto_stt
+COPY main.py ./
+COPY healthcheck.sh ./
+COPY test/bonjour.wav ./test/bonjour.wav
 
-ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/stt"
+ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/linto_stt/backends/kaldi/stt"
 
 HEALTHCHECK CMD ./healthcheck.sh
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["uv", "run", "main.py", "-b", "kaldi"]

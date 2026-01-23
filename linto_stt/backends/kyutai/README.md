@@ -1,6 +1,6 @@
 # LinTO wrapper - Purpose of this Kyutai branch
 
-The `kyutai/stt/processing` package shall provide a lightweight wrapper that exposes the
+The `linto_stt/backends/kyutai/stt/processing` package shall provide a lightweight wrapper that exposes the
 standard LinTO streaming API and forwards the audio stream to a running (dockerized ?) Kyutai moshi-server worker
 server.
 
@@ -11,13 +11,13 @@ Install `uv` if not already available and install the wrapper requirements:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv --python 3.9 .venv && source .venv/bin/activate  
-uv pip install -r kyutai/requirements.wrapper.txt  
+uv sync --extra moshi  
 ```
 
 Then run the websocket server from the repository root. By default it reaches the moshi server on KYUTAI_URL=`ws://localhost:8080` and listens on default `8001`
 
 ```bash
-LOG_TRANSCRIPTS=true LOG_LEVEL=INFO FINAL_TRANSCRIPT_DELAY=1.5 STREAMING_PORT=8002 PYTHONPATH=kyutai KYUTAI_URL=ws://localhost:8080 uv run python websocket/websocketserver.py
+LOG_TRANSCRIPTS=true LOG_LEVEL=INFO FINAL_TRANSCRIPT_DELAY=1.5 STREAMING_PORT=8002 KYUTAI_URL=ws://localhost:8080 uv run main.py -m websocket -b kyutai
 ```
 
 ### Semantic VAD Configuration
@@ -41,25 +41,25 @@ The wrapper now supports **Semantic Voice Activity Detection (VAD)** from the Mo
 
 ```bash
 # Default: Use VAD with punctuation confirmation
-PYTHONPATH=kyutai uv run python websocket/websocketserver.py
+uv run main.py -m websocket -b kyutai
 
 # More sensitive VAD (lower threshold)
-USE_SEMANTIC_VAD=true VAD_THRESHOLD=0.3 PYTHONPATH=kyutai uv run python websocket/websocketserver.py
+USE_SEMANTIC_VAD=true VAD_THRESHOLD=0.3 uv run main.py -m websocket -b kyutai
 
 # VAD without requiring punctuation (more aggressive)
-VAD_REQUIRE_PUNCTUATION=false PYTHONPATH=kyutai uv run python websocket/websocketserver.py
+VAD_REQUIRE_PUNCTUATION=false uv run main.py -m websocket -b kyutai
 
 # Debug VAD behavior
-LOG_VAD=true LOG_TRANSCRIPTS=true LOG_LEVEL=DEBUG PYTHONPATH=kyutai uv run python websocket/websocketserver.py
+LOG_VAD=true LOG_TRANSCRIPTS=true LOG_LEVEL=DEBUG uv run main.py -m websocket -b kyutai
 
 # Disable VAD (fallback to original timer-only behavior)
-USE_SEMANTIC_VAD=false PYTHONPATH=kyutai uv run python websocket/websocketserver.py
+USE_SEMANTIC_VAD=false uv run main.py -m websocket -b kyutai
 ```
 
 ## LinTO wrapper - Docker image
 
 ```bash
-docker build -f kyutai/Dockerfile.wrapper -t linto-stt-kyutai-wrapper .
+docker build -f linto_stt/backends/kyutai/Dockerfile.wrapper -t linto-stt-kyutai-wrapper .
 docker run --rm -p 8001:8001 \
   -e SERVICE_MODE=websocket \
   -e KYUTAI_URL=ws://host.docker.internal:8080 \
@@ -93,7 +93,7 @@ A `docker-compose.yml` file is provided to easily run the entire stack locally. 
 
 ## Local Usage
 
-The setup uses Docker Compose profiles to select between the CPU and CUDA environments. Navigate to the `kyutai` directory and use one of the following commands:
+The setup uses Docker Compose profiles to select between the CPU and CUDA environments. Navigate to the `linto_stt/backends/kyutai` directory and use one of the following commands:
 
 To build and run the **CPU** version:
 ```bash
@@ -129,7 +129,7 @@ rustup default stable
 
 ## Run 
 
-After `git submodule update --init --recursive` inside kyutai/delayed-streams-modeling
+After `git submodule update --init --recursive` inside linto_stt/backends/kyutai/delayed-streams-modeling
 ```bash
 moshi-server worker --config configs/config-stt-en_fr-hf.toml
 ```

@@ -1,18 +1,35 @@
 # LinTO-STT
 
+LinTO-STT is an API for Automatic Speech Recognition (ASR).
+
+LinTO-STT can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+
+It can be used to do offline or real-time transcriptions.
+
+The following families of STT models are currently supported (please refer to respective documentation for more details):
+
+- [Kaldi models](linto_stt/backends/kaldi/README.md)
+- [Whisper models](linto_stt/backends/whisper/README.md)
+- [Nemo models](linto_stt/backends/nemo/README.md)
+- [Kyutai Moshi STT](linto_stt/backends/kyutai/README.md) (streaming only)
+
+## Install
+
 ```sh
 apt install python3-pyaudio portaudio19-dev
 ```
 
 ```sh
-uv sync --extra [nemo]
+uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|kyutai]
 ```
 
 ## Run
 
 ### HTTP / Websocket
 
-`uv run main.py -m [http|websocket] -b [kaldi|whisper|nemo|kyutai] -p [listening_port] -i [listening_ip]`
+```sh
+uv run main.py -m [http|websocket] -b [kaldi|whisper|nemo|kyutai] -p [listening_port] -i [listening_ip]
+```
 
 > kyutai only support streaming
 
@@ -20,7 +37,9 @@ uv sync --extra [nemo]
 
 ### Celery
 
-`uv run main.py -m task -b [kaldi|whisper|nemo]`
+```sh
+uv run main.py -m task -b [kaldi|whisper|nemo]
+```
 
 ## Kaldi configuration
 

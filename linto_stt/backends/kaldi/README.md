@@ -41,7 +41,7 @@ On addition, as to prevent large audio from transiting through the message broke
 ```bash
 git clone https://github.com/linto-ai/linto-stt.git
 cd linto-stt
-docker build . -f kaldi/Dockerfile -t linto-stt-kaldi:latest
+docker build . -f linto_stt/backends/kaldi/Dockerfile -t linto-stt-kaldi:latest
 ```
 or
 
@@ -55,7 +55,7 @@ Have the acoustic and language model ready at AM_PATH and LM_PATH if you are usi
 
 **3- Fill the .env file**
 
-An example of .env file is provided in [kaldi/.envdefault](https://github.com/linto-ai/linto-stt/blob/master/kaldi/.envdefault).
+An example of .env file is provided in [linto_stt/backends/kaldi/.envdefault](https://github.com/linto-ai/linto-stt/blob/master/linto_stt/backends/kaldi/.envdefault).
 
 | PARAMETER | DESCRIPTION | EXEMPLE |
 |---|---|---|
