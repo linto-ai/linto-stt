@@ -11,6 +11,7 @@ dependencies = [
     "lockfile>=0.12.2",
     "python-multipart>=0.0.20",
     "redis>=7.1.0",
+    "regex>=2025.11.3",
     "uvicorn>=0.38.0",
     "websockets>=15.0.1",
 ]
@@ -25,3 +26,19 @@ nemo = [
     "wavio>=0.0.9",
 ]
 moshi = []
+
+whisper-ctranslate = [
+    "faster-whisper>=1.2.1",
+    "torchaudio>=2.9.0",
+    "torchcodec>=0.9.1",
+    "wavio>=0.0.9",
+    "auditok>=0.3.0",
+]
+
+whisper = [
+    "whisper-timestamped>=1.15.9",
+    "torchaudio>=2.9.0",
+    "torchcodec>=0.9.1",
+    "wavio>=0.0.9",
+    "auditok>=0.3.0",
+]

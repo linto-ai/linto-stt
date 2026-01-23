@@ -139,9 +139,7 @@ async def forward_client(ws_client: WebSocketServerProtocol, ws_server):
             await asyncio.sleep(0.05)
     logger.info(f"[{client_addr}] Warm-up phase ended")
     while True:
-        print('test 39')
         message = await ws_client.recv()
-        print('test 40')
         if isinstance(message, str) and message.strip().startswith("{"):
             try:
                 if json.loads(message).get("eof"):
@@ -156,7 +154,6 @@ async def forward_client(ws_client: WebSocketServerProtocol, ws_server):
             msgpack.packb({"type": "Audio", "pcm": audio.tolist()},
                           use_single_float=True)
         )
-    print('test 44')
     await ws_server.send(msgpack.packb({"type": "Marker", "id": 0}, use_single_float=True))
     for _ in range(10):
         await ws_server.send(
@@ -329,18 +326,15 @@ async def forward_server(ws_server, ws_client: WebSocketServerProtocol):
 
 async def wssDecode(ws: WebSocketServerProtocol, _model):
     url = f"{KYUTAI_URL}/api/asr-streaming"
-    print("test")
     headers = {"kyutai-api-key": KYUTAI_API_KEY}
     logger.info(f"Attempting to connect to backend at {url}")
     send_task = None
     recv_task = None
     try:
-        print("test 2")
         async with websockets.connect(url, additional_headers=headers) as ws_server:
             logger.info(f"Successfully connected to backend at {url}")
             send_task = asyncio.create_task(forward_client(ws, ws_server))
             recv_task = asyncio.create_task(forward_server(ws_server, ws))
-            print("test 3")
             done, pending = await asyncio.wait(
                 [send_task, recv_task],
                 return_when=asyncio.FIRST_COMPLETED,
