@@ -1896,6 +1896,11 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+kaldi = [
+    { name = "simple-websocket" },
+    { name = "transformers" },
+    { name = "vosk" },
+]
 nemo = [
     { name = "auditok" },
     { name = "nemo-toolkit", extra = ["asr", "audio"] },
@@ -1934,20 +1939,23 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "redis", specifier = ">=7.1.0" },
     { name = "regex", specifier = ">=2025.11.3" },
+    { name = "simple-websocket", marker = "extra == 'kaldi'", specifier = ">=1.1.0" },
     { name = "torchaudio", marker = "extra == 'nemo'", specifier = ">=2.9.0" },
     { name = "torchaudio", marker = "extra == 'whisper'", specifier = ">=2.9.0" },
     { name = "torchaudio", marker = "extra == 'whisper-ctranslate'", specifier = ">=2.9.0" },
     { name = "torchcodec", marker = "extra == 'nemo'", specifier = ">=0.9.1" },
     { name = "torchcodec", marker = "extra == 'whisper'", specifier = ">=0.9.1" },
     { name = "torchcodec", marker = "extra == 'whisper-ctranslate'", specifier = ">=0.9.1" },
+    { name = "transformers", marker = "extra == 'kaldi'", specifier = ">=4.53.3" },
     { name = "uvicorn", specifier = ">=0.38.0" },
+    { name = "vosk", marker = "extra == 'kaldi'", specifier = ">=0.3.45" },
     { name = "wavio", marker = "extra == 'nemo'", specifier = ">=0.0.9" },
     { name = "wavio", marker = "extra == 'whisper'", specifier = ">=0.0.9" },
     { name = "wavio", marker = "extra == 'whisper-ctranslate'", specifier = ">=0.0.9" },
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "whisper-timestamped", marker = "extra == 'whisper'", specifier = ">=1.15.9" },
 ]
-provides-extras = ["nemo", "moshi", "whisper-ctranslate", "whisper"]
+provides-extras = ["nemo", "moshi", "whisper-ctranslate", "whisper", "kaldi"]
 
 [[package]]
 name = "llvmlite"
@@ -4019,6 +4027,18 @@ wheels = [
 ]
 
 [[package]]
+name = "simple-websocket"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "wsproto" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b0/d4/bfa032f961103eba93de583b161f0e6a5b63cebb8f2c7d0c6e6efe1e3d2e/simple_websocket-1.1.0.tar.gz", hash = "sha256:7939234e7aa067c534abdab3a9ed933ec9ce4691b0713c78acb195560aa52ae4", size = 17300, upload-time = "2024-10-10T22:39:31.412Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/52/59/0782e51887ac6b07ffd1570e0364cf901ebc36345fea669969d2084baebb/simple_websocket-1.1.0-py3-none-any.whl", hash = "sha256:4af6069630a38ed6c561010f0e11a5bc0d4ca569b36306eb257cd9a192497c8c", size = 13842, upload-time = "2024-10-10T22:39:29.645Z" },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4132,6 +4152,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/03/51/665617fe4f8c6450f42a6d8d69243f9420f5677395572c2fe9d21b493b7b/sqlalchemy-2.0.44-cp313-cp313-win_amd64.whl", hash = "sha256:c1c80faaee1a6c3428cecf40d16a2365bcf56c424c92c2b6f0f9ad204b899e9e", size = 2127901, upload-time = "2025-10-10T15:03:27.548Z" },
     { url = "https://files.pythonhosted.org/packages/9c/5e/6a29fa884d9fb7ddadf6b69490a9d45fded3b38541713010dad16b77d015/sqlalchemy-2.0.44-py3-none-any.whl", hash = "sha256:19de7ca1246fbef9f9d1bff8f1ab25641569df226364a0e40457dc5457c54b05", size = 1928718, upload-time = "2025-10-10T15:29:45.32Z" },
 ]
+
+[[package]]
+name = "srt"
+version = "3.5.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/b7/4a1bc231e0681ebf339337b0cd05b91dc6a0d701fa852bb812e244b7a030/srt-3.5.3.tar.gz", hash = "sha256:4884315043a4f0740fd1f878ed6caa376ac06d70e135f306a6dc44632eed0cc0", size = 28296, upload-time = "2023-03-28T02:35:44.007Z" }
 
 [[package]]
 name = "stack-data"
@@ -4654,6 +4680,24 @@ wheels = [
 ]
 
 [[package]]
+name = "vosk"
+version = "0.3.45"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+    { name = "requests" },
+    { name = "srt" },
+    { name = "tqdm" },
+    { name = "websockets" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/6d/728d89a4fe8d0573193eb84761b6a55e25690bac91e5bbf30308c7f80051/vosk-0.3.45-py3-none-linux_armv7l.whl", hash = "sha256:4221f83287eefe5abbe54fc6f1da5774e9e3ffcbbdca1705a466b341093b072e", size = 2388263, upload-time = "2022-12-14T23:13:34.467Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/23/3130a69fa0bf4f5566a52e415c18cd854bf561547bb6505666a6eb1bb625/vosk-0.3.45-py3-none-manylinux2014_aarch64.whl", hash = "sha256:54efb47dd890e544e9e20f0316413acec7f8680d04ec095c6140ab4e70262704", size = 2368543, upload-time = "2022-12-14T23:13:25.876Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/ca/83398cfcd557360a3d7b2d732aee1c5f6999f68618d1645f38d53e14c9ff/vosk-0.3.45-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:25e025093c4399d7278f543568ed8cc5460ac3a4bf48c23673ace1e25d26619f", size = 7173758, upload-time = "2022-12-14T23:13:28.513Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/4c/deb0861f7da9696f8a255f1731bb73e9412cca29c4b3888a3fcb2a930a59/vosk-0.3.45-py3-none-win_amd64.whl", hash = "sha256:6994ddc68556c7e5730c3b6f6bad13320e3519b13ce3ed2aa25a86724e7c10ac", size = 13997596, upload-time = "2022-12-14T23:13:31.15Z" },
+]
+
+[[package]]
 name = "wandb"
 version = "0.22.3"
 source = { registry = "https://pypi.org/simple" }
@@ -4870,6 +4914,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b4/c2/502bd4557a3a9199ea73cc5932cf83354bd362682162f0b14164d2e90216/wrapt-2.0.0-cp314-cp314t-win_amd64.whl", hash = "sha256:7a0efbbc06d3e2077476a04f55859819d23206600b4c33f791359a8e6fa3c362", size = 63988, upload-time = "2025-10-19T23:47:23.826Z" },
     { url = "https://files.pythonhosted.org/packages/1f/f2/632b13942f45db7af709f346ff38b8992c8c21b004e61ab320b0dec525fe/wrapt-2.0.0-cp314-cp314t-win_arm64.whl", hash = "sha256:7fec8a9455c029c8cf4ff143a53b6e7c463268d42be6c17efa847ebd2f809965", size = 60584, upload-time = "2025-10-19T23:47:25.396Z" },
     { url = "https://files.pythonhosted.org/packages/00/5c/c34575f96a0a038579683c7f10fca943c15c7946037d1d254ab9db1536ec/wrapt-2.0.0-py3-none-any.whl", hash = "sha256:02482fb0df89857e35427dfb844319417e14fae05878f295ee43fa3bf3b15502", size = 43998, upload-time = "2025-10-19T23:47:52.858Z" },
+]
+
+[[package]]
+name = "wsproto"
+version = "1.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "h11" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c7/79/12135bdf8b9c9367b8701c2c19a14c913c120b882d50b014ca0d38083c2c/wsproto-1.3.2.tar.gz", hash = "sha256:b86885dcf294e15204919950f666e06ffc6c7c114ca900b060d6e16293528294", size = 50116, upload-time = "2025-11-20T18:18:01.871Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/f5/10b68b7b1544245097b2a1b8238f66f2fc6dcaeb24ba5d917f52bd2eed4f/wsproto-1.3.2-py3-none-any.whl", hash = "sha256:61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584", size = 24405, upload-time = "2025-11-20T18:18:00.454Z" },
 ]
 
 [[package]]
