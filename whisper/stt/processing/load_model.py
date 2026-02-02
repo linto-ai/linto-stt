@@ -17,11 +17,14 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
 
     logger.info("Loading Whisper model {}...".format(model_type_or_file))
 
-    default_cache_root = os.path.join(os.path.expanduser("~"), ".cache")
+    default_cache_root = "/opt/models"
     if download_root is None:
         download_root = default_cache_root
 
+    whisper_kwargs = {}
+
     if USE_CTRANSLATE2:
+        whisper_kwargs["cache_dir"] = os.path.join(download_root, ".cache/huggingface")
         if not os.path.isdir(model_type_or_file):
             # Note: There is no good way to set the root cache directory
             #       with the current version of faster_whisper:
@@ -169,6 +172,7 @@ def load_whisper_model(model_type_or_file, device="cpu", download_root=None):
             model_type_or_file,
             device=device,
             download_root=download_root,
+            **whisper_kwargs,
         )
         model.eval()
         model.requires_grad_(False)

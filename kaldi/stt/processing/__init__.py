@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 # Model locations (should be mounted)
-MODEL_PATH = "/opt/model"
+MODEL_PATH = "/opt/models"
 
 PUNCTUATION_MODEL = load_recasepunc_model()
 
