@@ -11,7 +11,8 @@ from .http_server import main as http_server
 
 
 def load_backend_env(backend: str):
-    load_dotenv(f"{backend}/.envdefault")
+    backends_dir = os.path.join(os.path.dirname(__file__), "backends")
+    load_dotenv(os.path.join(backends_dir, backend, ".envdefault"))
     load_dotenv(".env")
 
 
@@ -57,14 +58,24 @@ def main():
 
     args = parser.parse_args()
     os.environ["backend"] = args.backend
-    if args.mode == 'websocket':
+    mode = args.mode if args.mode else os.environ.get("SERVICE_MODE")
+
+    if mode is None:
+        logging.error(
+            "No mode specified, must specify an environment variable SERVICE_MODE in [ http | task | websocket ] or use -m option")
+
+    if mode == 'websocket':
         run_websocket_server(args.host, args.port)
 
-    elif args.mode == 'http':
+    elif mode == 'http':
         run_http_server(args.host, args.port, args.workers)
 
-    elif args.mode == 'task':
+    elif mode == 'task':
         run_celery_server()
+
+    else:
+        logging.error(
+            "Unknown mode, must specify an environment variable SERVICE_MODE in [ http | task | websocket ] or use -m option")
 
 
 def run_http_server(host, port, workers):

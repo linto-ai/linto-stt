@@ -16,7 +16,7 @@ def has_cuda():
 
 
 def get_device():
-    device = os.environ.get("DEVICE", "cuda" if has_cuda() else "cpu")
+    device = os.environ.get("DEVICE") or ("cuda" if has_cuda() else "cpu")
     use_gpu = "cuda" in device
     try:
         device = torch.device(device)

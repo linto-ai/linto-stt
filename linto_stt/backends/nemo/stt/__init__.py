@@ -44,7 +44,7 @@ LONG_FILE_CHUNK_CONTEXT_LEN = int(os.environ.get("LONG_FILE_CHUNK_CONTEXT_LEN", 
 def set_num_threads(n):
     torch.set_num_threads(n)
 
-NUM_THREADS = os.environ.get("NUM_THREADS", os.environ.get("OMP_NUM_THREADS"))
+NUM_THREADS = os.environ.get("NUM_THREADS") or os.environ.get("OMP_NUM_THREADS") or None
 if NUM_THREADS is None:
     NUM_THREADS = torch.get_num_threads()
 if NUM_THREADS is not None:

@@ -923,17 +923,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/55/8f8cab2afd404cf578136ef2cc5dfb50baa1761b68c9da1fb1e4eed343c9/docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491", size = 25901, upload-time = "2014-06-16T11:18:57.406Z" }
 
 [[package]]
-name = "dotenv"
-version = "0.9.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "python-dotenv" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/b7/545d2c10c1fc15e48653c91efde329a790f2eecfbbf2bd16003b5db2bab0/dotenv-0.9.9-py2.py3-none-any.whl", hash = "sha256:29cf74a087b31dafdb5a446b6d7e11cbce8ed2741540e2339c69fbef92c94ce9", size = 1892, upload-time = "2025-02-19T22:15:01.647Z" },
-]
-
-[[package]]
 name = "dtw-python"
 version = "1.5.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1885,9 +1874,9 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "celery" },
-    { name = "dotenv" },
     { name = "fastapi" },
     { name = "lockfile" },
+    { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "redis" },
     { name = "regex" },
@@ -1901,9 +1890,12 @@ kaldi = [
     { name = "transformers" },
     { name = "vosk" },
 ]
+kyutai = [
+    { name = "msgpack" },
+]
 nemo = [
     { name = "auditok" },
-    { name = "nemo-toolkit", extra = ["asr", "audio"] },
+    { name = "nemo-toolkit", extra = ["asr"] },
     { name = "onnx" },
     { name = "torchaudio" },
     { name = "torchcodec" },
@@ -1930,12 +1922,13 @@ requires-dist = [
     { name = "auditok", marker = "extra == 'whisper'", specifier = ">=0.3.0" },
     { name = "auditok", marker = "extra == 'whisper-ctranslate'", specifier = ">=0.3.0" },
     { name = "celery", specifier = ">=5.6.2" },
-    { name = "dotenv", specifier = ">=0.9.9" },
     { name = "fastapi", specifier = ">=0.121.0" },
     { name = "faster-whisper", marker = "extra == 'whisper-ctranslate'", specifier = ">=1.2.1" },
     { name = "lockfile", specifier = ">=0.12.2" },
-    { name = "nemo-toolkit", extras = ["asr", "audio"], marker = "extra == 'nemo'", specifier = ">=2.5.2" },
+    { name = "msgpack", marker = "extra == 'kyutai'", specifier = ">=1.1.2" },
+    { name = "nemo-toolkit", extras = ["asr"], marker = "extra == 'nemo'", specifier = ">=2.5.2" },
     { name = "onnx", marker = "extra == 'nemo'", specifier = "==1.18" },
+    { name = "python-dotenv", specifier = ">=0.9.9" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "redis", specifier = ">=7.1.0" },
     { name = "regex", specifier = ">=2025.11.3" },
@@ -1955,7 +1948,7 @@ requires-dist = [
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "whisper-timestamped", marker = "extra == 'whisper'", specifier = ">=1.15.9" },
 ]
-provides-extras = ["nemo", "moshi", "whisper-ctranslate", "whisper", "kaldi"]
+provides-extras = ["nemo", "moshi", "whisper-ctranslate", "whisper", "kaldi", "kyutai"]
 
 [[package]]
 name = "llvmlite"
@@ -2443,36 +2436,6 @@ asr = [
     { name = "webdataset" },
     { name = "whisper-normalizer" },
 ]
-audio = [
-    { name = "bitsandbytes", marker = "platform_machine == 'x86_64' and sys_platform != 'darwin'" },
-    { name = "cloudpickle" },
-    { name = "datasets" },
-    { name = "einops" },
-    { name = "fiddle" },
-    { name = "hydra-core" },
-    { name = "inflect" },
-    { name = "lhotse" },
-    { name = "librosa" },
-    { name = "lightning" },
-    { name = "matplotlib" },
-    { name = "mediapy" },
-    { name = "nv-one-logger-core" },
-    { name = "nv-one-logger-pytorch-lightning-integration" },
-    { name = "nv-one-logger-training-telemetry" },
-    { name = "omegaconf" },
-    { name = "pandas" },
-    { name = "peft" },
-    { name = "pesq", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-    { name = "pystoi" },
-    { name = "sacremoses" },
-    { name = "scipy" },
-    { name = "sentencepiece" },
-    { name = "soundfile" },
-    { name = "torchmetrics" },
-    { name = "transformers" },
-    { name = "wandb" },
-    { name = "webdataset" },
-]
 
 [[package]]
 name = "networkx"
@@ -2907,12 +2870,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/70/b8/2e79377efaa1e5f0d
 wheels = [
     { url = "https://files.pythonhosted.org/packages/49/fe/a2da1627aa9cb6310b6034598363bd26ac301c4a99d21f415b1b2855891e/peft-0.17.1-py3-none-any.whl", hash = "sha256:3d129d64def3d74779c32a080d2567e5f7b674e77d546e3585138216d903f99e", size = 504896, upload-time = "2025-08-21T09:25:18.974Z" },
 ]
-
-[[package]]
-name = "pesq"
-version = "0.0.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/22/e6/f8bdcef3238ac10fb3ce37d150e9b03a152d971febd681f088c6e5e17d8e/pesq-0.0.4.tar.gz", hash = "sha256:b724b28f73fb638522982bd68e8c3c0957e2f45210639a460233b17aa7fc890b", size = 38702, upload-time = "2022-05-17T14:15:26.301Z" }
 
 [[package]]
 name = "pexpect"
@@ -3435,19 +3392,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0f/49/4cea918a08f02817aabae639e3d0ac046fef9f9180518a3ad394e22da148/pyreadline3-3.5.4.tar.gz", hash = "sha256:8d57d53039a1c75adba8e50dd3d992b28143480816187ea5efbd5c78e6c885b7", size = 99839, upload-time = "2024-09-19T02:40:10.062Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5a/dc/491b7661614ab97483abf2056be1deee4dc2490ecbf7bff9ab5cdbac86e1/pyreadline3-3.5.4-py3-none-any.whl", hash = "sha256:eaf8e6cc3c49bcccf145fc6067ba8643d1df34d604a1ec0eccbf7a18e6d3fae6", size = 83178, upload-time = "2024-09-19T02:40:08.598Z" },
-]
-
-[[package]]
-name = "pystoi"
-version = "0.4.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/bf/3d/1ae8bdb686c6aaaeef474aa6b790abbe38f42b61188b57a974dd9320e521/pystoi-0.4.1.tar.gz", hash = "sha256:1c6f50d6fbfee46b00c922458cdbd27228d9830ca81cea788fd600fc2f7de6e4", size = 10401, upload-time = "2023-12-29T16:48:05.726Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/22/60cd92bd3ec00948800984410f4cf5ded5bd8e9b715729f3642efe0edb3d/pystoi-0.4.1-py2.py3-none-any.whl", hash = "sha256:e277b671663d26d35a2416c9c8010a74084e6c3970354506398051a554896939", size = 8218, upload-time = "2023-12-29T16:48:03.748Z" },
 ]
 
 [[package]]

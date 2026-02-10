@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "celery>=5.6.2",
-    "dotenv>=0.9.9",
+    "python-dotenv>=0.9.9",
     "fastapi>=0.121.0",
     "lockfile>=0.12.2",
     "python-multipart>=0.0.20",
@@ -16,10 +16,13 @@ dependencies = [
     "websockets>=15.0.1",
 ]
 
+[project.scripts]
+linto-stt = "linto_stt:main"
+
 [project.optional-dependencies]
 nemo = [
     "auditok>=0.3.0",
-    "nemo-toolkit[asr,audio]>=2.5.2",
+    "nemo-toolkit[asr]>=2.5.2",
     "onnx==1.18",
     "torchaudio>=2.9.0",
     "torchcodec>=0.9.1",
@@ -46,4 +49,7 @@ kaldi = [
     "simple-websocket>=1.1.0",
     "transformers>=4.53.3",
     "vosk>=0.3.45",
+]
+kyutai = [
+    "msgpack>=1.1.2",
 ]
