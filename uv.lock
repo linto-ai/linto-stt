@@ -1887,8 +1887,10 @@ dependencies = [
 [package.optional-dependencies]
 kaldi = [
     { name = "simple-websocket" },
+    { name = "torch" },
     { name = "transformers" },
     { name = "vosk" },
+    { name = "wavio" },
 ]
 kyutai = [
     { name = "msgpack" },
@@ -1933,6 +1935,7 @@ requires-dist = [
     { name = "redis", specifier = ">=7.1.0" },
     { name = "regex", specifier = ">=2025.11.3" },
     { name = "simple-websocket", marker = "extra == 'kaldi'", specifier = ">=1.1.0" },
+    { name = "torch", marker = "extra == 'kaldi'", specifier = ">=2.9.0" },
     { name = "torchaudio", marker = "extra == 'nemo'", specifier = ">=2.9.0" },
     { name = "torchaudio", marker = "extra == 'whisper'", specifier = ">=2.9.0" },
     { name = "torchaudio", marker = "extra == 'whisper-ctranslate'", specifier = ">=2.9.0" },
@@ -1942,6 +1945,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'kaldi'", specifier = ">=4.53.3" },
     { name = "uvicorn", specifier = ">=0.38.0" },
     { name = "vosk", marker = "extra == 'kaldi'", specifier = ">=0.3.45" },
+    { name = "wavio", marker = "extra == 'kaldi'", specifier = ">=0.0.9" },
     { name = "wavio", marker = "extra == 'nemo'", specifier = ">=0.0.9" },
     { name = "wavio", marker = "extra == 'whisper'", specifier = ">=0.0.9" },
     { name = "wavio", marker = "extra == 'whisper-ctranslate'", specifier = ">=0.0.9" },

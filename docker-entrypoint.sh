@@ -93,7 +93,7 @@ case "$SERVICE_MODE" in
         #     echo "$SERVICES_BROKER is up" || exit 1
 
         echo "Launching celery worker"
-        exec gosu "$USER_NAME" python -m linto_stt -m task -b "$BACKEND"
+        exec gosu "$USER_NAME" python -m linto_stt -m task -b "$SERVICE_NAME"
         
         # exec gosu "$USER_NAME" celery \
         #     --app=celery_app.celeryapp worker $OPT -Ofair \

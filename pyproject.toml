@@ -47,8 +47,10 @@ whisper = [
 ]
 kaldi = [
     "simple-websocket>=1.1.0",
+    "torch>=2.9.0",
     "transformers>=4.53.3",
     "vosk>=0.3.45",
+    "wavio>=0.0.9",
 ]
 kyutai = [
     "msgpack>=1.1.2",
