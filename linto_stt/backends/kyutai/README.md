@@ -1,8 +1,9 @@
-# LinTO wrapper - Purpose of this Kyutai branch
+# LinTO-STT-Kyutai
 
-The `linto_stt/backends/kyutai/stt/processing` package shall provide a lightweight wrapper that exposes the
-standard LinTO streaming API and forwards the audio stream to a running (dockerized ?) Kyutai moshi-server worker
-server.
+Lightweight wrapper that exposes the standard LinTO streaming API and forwards audio to a running Kyutai moshi-server. **WebSocket streaming mode only** (no HTTP file transcription or Celery task mode).
+
+> See the [main README](../../../README.md) for the WebSocket protocol and general docs.
+> See [ENV.md](../../../ENV.md) for all environment variables.
 
 ## Quick start
 
@@ -59,15 +60,16 @@ USE_SEMANTIC_VAD=false uv run main.py -m websocket -b kyutai
 ## LinTO wrapper - Docker image
 
 ```bash
-docker build -f linto_stt/backends/kyutai/Dockerfile.wrapper -t linto-stt-kyutai-wrapper .
-docker run --rm -p 8001:8001 \
+docker build -t linto-stt-kyutai:latest --build-arg SERVICE_NAME=kyutai .
+docker run --rm -p 8001:80 \
   -e SERVICE_MODE=websocket \
+  -e SERVICE_NAME=kyutai \
   -e KYUTAI_URL=ws://host.docker.internal:8080 \
-  linto-stt-kyutai-wrapper
+  linto-stt-kyutai
 ```
 
 The container exposes the same `/streaming` endpoint as other LinTO backends and
-forwards requests to a Kyutai server running locally or on the network. See [protocol details](PROTOCOL.md)
+forwards requests to a Kyutai server running locally or on the network.
 
 # Moshi-server worker - Docker image
 

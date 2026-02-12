@@ -11,9 +11,10 @@ from .http_server import main as http_server
 
 
 def load_backend_env(backend: str):
+
     backends_dir = os.path.join(os.path.dirname(__file__), "backends")
-    load_dotenv(os.path.join(backends_dir, backend, ".envdefault"))
     load_dotenv(".env")
+    load_dotenv(os.path.join(backends_dir, backend, ".envdefault"))
 
 
 def import_stt_module(backend: str, submodule: str = None):
@@ -30,7 +31,7 @@ logging.basicConfig(
 
 
 def server_factory():
-    backend = os.environ.get("backend", 'nemo')
+    backend = os.environ.get("SERVICE_NAME", 'nemo')
     load_backend_env(backend)
     stt = import_stt_module(backend)
     return http_server(stt.MODEL, stt.USE_GPU, stt.decode, stt.load_wave_buffer, stt.warmup)
@@ -44,7 +45,7 @@ def main():
     parser.add_argument('-m', '--mode', required=True,
                         choices=['http', 'task', 'websocket'])
     parser.add_argument('-b', '--backend', required=False, choices=[
-                        'nemo', 'whisper', 'kaldi', 'kyutai'], default=os.environ.get("backend", 'nemo'))
+                        'nemo', 'whisper', 'kaldi', 'kyutai'], default=os.environ.get("SERVICE_NAME", 'nemo'))
     parser.add_argument('-p', '--port', required=False, default=8080, type=int)
     parser.add_argument('-i', '--host', required=False, default="127.0.0.1")
     parser.add_argument(
@@ -57,7 +58,7 @@ def main():
     )
 
     args = parser.parse_args()
-    os.environ["backend"] = args.backend
+    os.environ["SERVICE_NAME"] = args.backend
     mode = args.mode if args.mode else os.environ.get("SERVICE_MODE")
 
     if mode is None:
@@ -84,7 +85,7 @@ def run_http_server(host, port, workers):
 
 
 def run_websocket_server(host, port):
-    backend = os.environ.get("backend", 'nemo')
+    backend = os.environ.get("SERVICE_NAME", 'nemo')
     load_backend_env(backend)
     stt = import_stt_module(backend)
     stt_streaming = import_stt_module(backend, "streaming")
@@ -96,7 +97,7 @@ def run_celery_server():
 
     @app.task(name='transcribe_task')
     def transcribe_task(file_name: str, with_metadata: bool, language: Optional[str] = None):
-        backend = os.environ.get("backend", 'nemo')
+        backend = os.environ.get("SERVICE_NAME", 'nemo')
         load_backend_env(backend)
         stt = import_stt_module(backend)
         stt_utils = import_stt_module(backend, "utils")
