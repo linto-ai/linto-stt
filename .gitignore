@@ -81,3 +81,5 @@ Thumbs.db
 # Fichiers de cache
 __pycache__/
 *.pyc
+
+tmp*
