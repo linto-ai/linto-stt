@@ -2,8 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
 env-test/
+
+CLAUDE.md
+
 # Distribution / packaging
 .Python
 build/

@@ -215,16 +215,65 @@ KYUTAI_URL=ws://localhost:9002
 
 ## Testing
 
+### Manual test
+
 ```sh
-# HTTP transcription
 curl -X POST "http://localhost:8080/transcribe" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
   -F "file=@test/bonjour.wav;type=audio/wav"
-
-# Streaming
-python test/test_streaming.py -v --audio_file test/bonjour.wav
 ```
+
+### Automated test suite (pytest)
+
+Install the backend you want to test along with the `test` extra:
+
+```sh
+uv sync --extra nemo --extra test
+```
+
+Example commands:
+
+```sh
+# All NeMo tests (UV only, no Docker)
+uv run pytest -m nemo --uv-only
+
+# Docker tests only
+uv run pytest -m docker
+
+# NeMo CPU, no Docker
+uv run pytest test/test_nemo.py -m "not docker and not gpu"
+
+# Whisper on GPU
+uv run pytest -m whisper --device cuda
+
+# Kaldi (requires model paths)
+uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
+```
+
+**CLI options:**
+
+| Option | Description |
+|--------|-------------|
+| `--backend` | Only run tests for this backend (`nemo`, `whisper`, `kaldi`) |
+| `--device` | Target device: `cpu` (default) or `cuda` |
+| `--uv-only` | Only run UV-based tests (skip Docker) |
+| `--docker-only` | Only run Docker-based tests |
+| `--server-timeout` | Timeout in seconds for server startup (default: 600) |
+| `--kaldi-am-path` | Path to Kaldi acoustic model |
+| `--kaldi-lm-path` | Path to Kaldi language model |
+
+**Markers:**
+
+| Marker | Description |
+|--------|-------------|
+| `nemo` | Backend NeMo |
+| `whisper` | Backend Whisper |
+| `kaldi` | Backend Kaldi |
+| `docker` | Tests that build and run a Docker container |
+| `uv` | Tests via UV subprocess |
+| `gpu` | Requires CUDA |
+| `slow` | Tests taking > 2 minutes |
 
 ## License
 

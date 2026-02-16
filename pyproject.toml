@@ -55,3 +55,22 @@ kaldi = [
 kyutai = [
     "msgpack>=1.1.2",
 ]
+test = [
+    "pytest>=8.0",
+    "pytest-timeout>=2.2",
+    "requests>=2.31",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+markers = [
+    "docker: Tests Docker (build + run container)",
+    "uv: Tests via UV subprocess",
+    "gpu: Requiert CUDA",
+    "nemo: Backend NeMo",
+    "whisper: Backend Whisper",
+    "kaldi: Backend Kaldi",
+    "slow: Tests > 2 minutes",
+]
+addopts = "-v --tb=short"
+timeout = 900
