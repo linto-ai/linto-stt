@@ -284,7 +284,7 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 
 ## Examples
 
-The `examples/` directory contains quick-and-dirty demo pages for testing WebSocket streaming transcription:
+The `examples/demo_streaming/` directory contains quick-and-dirty demo pages for testing WebSocket streaming transcription:
 
 - **`audioprocessor.html`** — uses the deprecated ScriptProcessor API
 - **`worklet.html`** — uses the modern AudioWorklet API (+ `audio-processor.js`)
@@ -294,7 +294,7 @@ Both pages accept a `?server=ws://host:port/streaming` query parameter to point 
 To serve them locally:
 
 ```sh
-cd examples
+cd examples/demo_streaming/
 python3 -m http.server
 ```
 
