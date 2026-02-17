@@ -77,29 +77,13 @@ case "$SERVICE_MODE" in
             echo "ERROR: SERVICES_BROKER not set, cannot start celery worker"
             exit 1
         fi
-        # TODO
-        # # GPU detection
-        # if nvidia-smi >/dev/null 2>&1; then
-        #     echo "GPU detected"
-        #     OPT="--pool=solo"
-        # else
-        #     echo "No GPU detected"
-        #     OPT=""
-        # fi
 
-        # # Wait for broker
-        # BROKER_HOST=$(echo "$SERVICES_BROKER" | cut -d'/' -f 3)
-        # /usr/src/app/wait-for-it.sh "$BROKER_HOST" --timeout=20 --strict -- \
-        #     echo "$SERVICES_BROKER is up" || exit 1
+        BROKER_HOST=$(echo "$SERVICES_BROKER" | cut -d'/' -f 3)
+        ./wait-for-it.sh "$BROKER_HOST" --timeout=20 --strict -- \
+            echo "$SERVICES_BROKER (Service Broker) is up" || exit 1
 
         echo "Launching celery worker"
         exec gosu "$USER_NAME" python -m linto_stt -m task -b "$SERVICE_NAME"
-        
-        # exec gosu "$USER_NAME" celery \
-        #     --app=celery_app.celeryapp worker $OPT -Ofair \
-        #     --queues="${SERVICE_NAME}" \
-        #     -c "${CONCURRENCY}" \
-        #     -n "${SERVICE_NAME}_worker@%h"
         ;;
     *)
         echo "ERROR: Unknown SERVICE_MODE '$SERVICE_MODE' (expected: http | task | websocket)"

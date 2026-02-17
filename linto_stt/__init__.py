@@ -95,31 +95,39 @@ def run_websocket_server(host, port):
 def run_celery_server():
     from .celery import celery as app
 
+    backend = os.environ.get("SERVICE_NAME", 'nemo')
+    load_backend_env(backend)
+    stt = import_stt_module(backend)
+
     @app.task(name='transcribe_task')
     def transcribe_task(file_name: str, with_metadata: bool, language: Optional[str] = None):
-        backend = os.environ.get("SERVICE_NAME", 'nemo')
-        load_backend_env(backend)
-        stt = import_stt_module(backend)
         stt_utils = import_stt_module(backend, "utils")
-
         audio_dir = os.environ.get("AUDIO_DIR", "/opt/audio")
         file_path = os.path.join(audio_dir, file_name)
         try:
             file_content = stt_utils.load_audiofile(file_path)
-        except Exception as err:
+        except Exception:
             import traceback
-            msg = f"{traceback.format_exc()}\nFailed to load ressource {file_path}"
-            raise Exception(msg)  # from err
-
-        # Decode
+            raise Exception(f"{traceback.format_exc()}\nFailed to load resource {file_path}")
         try:
-            result = stt.decode(file_content, stt.MODEL,
-                                with_metadata, language=language)
-        except Exception as err:
+            result = stt.decode(file_content, stt.MODEL, with_metadata, language=language)
+        except Exception:
             import traceback
-
-            msg = f"{traceback.format_exc()}\nFailed to decode {file_path}"
-            raise Exception(msg)  # from err
-
+            raise Exception(f"{traceback.format_exc()}\nFailed to decode {file_path}")
         return result
-    app.worker_main(argv=['worker', '--loglevel=info'])
+
+    concurrency = os.environ.get("CONCURRENCY", "1")
+    worker_args = [
+        'worker',
+        '--loglevel=info',
+        '-c', concurrency,
+        '-Ofair',
+        '-Q', backend,
+        '-n', f'{backend}_worker@%h',
+    ]
+
+    # GPU: use solo pool to avoid CUDA context issues with prefork
+    if stt.USE_GPU:
+        worker_args.extend(['--pool=solo'])
+
+    app.worker_main(argv=worker_args)

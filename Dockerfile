@@ -37,6 +37,7 @@ COPY tests/bonjour.wav /usr/src/app/tests/bonjour.wav
 RUN uv pip install --system --no-cache --no-deps .
 
 COPY docker-entrypoint.sh /usr/src/app/docker-entrypoint.sh
-RUN chmod +x docker-entrypoint.sh
+COPY wait-for-it.sh /usr/src/app/wait-for-it.sh
+RUN chmod +x docker-entrypoint.sh wait-for-it.sh
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
