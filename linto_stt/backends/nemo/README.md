@@ -18,7 +18,9 @@ ASR API built on the [NeMo toolkit](https://github.com/NVIDIA/NeMo). Supports of
 ```sh
 docker pull lintoai/linto-stt-nemo
 ```
+
 or
+
 ```sh
 docker build -t linto-stt-nemo:latest --build-arg SERVICE_NAME=nemo .
 ```
@@ -26,6 +28,7 @@ docker build -t linto-stt-nemo:latest --build-arg SERVICE_NAME=nemo .
 ### Run File Transcription (HTTP)
 
 English:
+
 ```sh
 docker run -p 8080:80 -it --name linto-stt-nemo \
   -e SERVICE_MODE=http \
@@ -35,6 +38,7 @@ docker run -p 8080:80 -it --name linto-stt-nemo \
 ```
 
 French:
+
 ```sh
 docker run -p 8080:80 -it --name linto-stt-nemo \
   -e SERVICE_MODE=http \
@@ -44,13 +48,15 @@ docker run -p 8080:80 -it --name linto-stt-nemo \
 ```
 
 Add `--gpus all` for GPU. Test with:
+
 ```sh
-curl -X POST "http://localhost:8080/transcribe" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "file=@test/bonjour.wav;type=audio/wav"
+curl -X POST "http://localhost:8080/transcribe" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "file=@tests/bonjour.wav;type=audio/wav"
 ```
 
 ### Run Streaming (WebSocket)
 
 English:
+
 ```sh
 docker run -p 8080:80 -it --name linto-stt-nemo \
   -e SERVICE_MODE=websocket \
@@ -60,6 +66,7 @@ docker run -p 8080:80 -it --name linto-stt-nemo \
 ```
 
 French (no built-in punctuation, see [Punctuation Model](../../../README.md#punctuation-model-recasepunc)):
+
 ```sh
 docker run -p 8080:80 -it --name linto-stt-nemo \
   -e SERVICE_MODE=websocket \
@@ -69,8 +76,9 @@ docker run -p 8080:80 -it --name linto-stt-nemo \
 ```
 
 Add `-e DEVICE=cuda --gpus all` for GPU. Test with:
+
 ```sh
-python test/test_streaming.py -v --audio_file test/bonjour.wav
+python test/test_streaming.py -v --audio_file tests/bonjour.wav
 ```
 
 ### Run Celery Task
@@ -93,14 +101,14 @@ docker run -p 8080:80 -it --name linto-stt-nemo \
 
 The model is downloaded from HuggingFace to the cache folder and loaded at startup.
 
-| Model | HuggingFace ID | Lang | Punctuation | Architecture | WER (Common Voice) | RTFx GPU (RTX 4090) | RTFx CPU (16 threads) | VRAM/RAM (GB) |
-|---|---|---|---|---|---|---|---|---|
-| [LinTO French Fast Conformer](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `linagora/linto_stt_fr_fastconformer` | fr | No | `hybrid_bpe_rnnt` | 8.96 | 318 | 48 | 0.8 |
-| [LinTO French Fast Conformer](https://huggingface.co/linagora/linto_stt_fr_fastconformer) | `linagora/linto_stt_fr_fastconformer` | fr | No | `hybrid_bpe_ctc` | 10.53 | 734 | 60 | 0.8 |
-| [NVIDIA French Fast Conformer](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc) | `nvidia/stt_fr_fastconformer_hybrid_large_pc` | fr | Yes | `hybrid_bpe_rnnt` | 10.04 | 318 | 48 | 0.8 |
-| [NVIDIA English Fast Conformer](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) | `nvidia/stt_en_fastconformer_transducer_large` | en | No | `rnnt_bpe` | 7.5 | 367 | 48 | 0.8 |
-| [NVIDIA Parakeet TDT 0.6b](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | `nvidia/parakeet-tdt-0.6b-v2` | en | Yes | `rnnt_bpe` | Best EN | 252 | 16 | 2.7 |
-| [NVIDIA Parakeet CTC 1.1b](https://huggingface.co/nvidia/parakeet-ctc-1.1b) | `nvidia/parakeet-ctc-1.1b` | en | No | `ctc_bpe` | 6.53 | 180 | 12 | 4.4 |
+| Model                                                                                                | HuggingFace ID                                 | Lang | Punctuation | Architecture      | WER (Common Voice) | RTFx GPU (RTX 4090) | RTFx CPU (16 threads) | VRAM/RAM (GB) |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---- | ----------- | ----------------- | ------------------ | ------------------- | --------------------- | ------------- |
+| [LinTO French Fast Conformer](https://huggingface.co/linagora/linto_stt_fr_fastconformer)            | `linagora/linto_stt_fr_fastconformer`          | fr   | No          | `hybrid_bpe_rnnt` | 8.96               | 318                 | 48                    | 0.8           |
+| [LinTO French Fast Conformer](https://huggingface.co/linagora/linto_stt_fr_fastconformer)            | `linagora/linto_stt_fr_fastconformer`          | fr   | No          | `hybrid_bpe_ctc`  | 10.53              | 734                 | 60                    | 0.8           |
+| [NVIDIA French Fast Conformer](https://huggingface.co/nvidia/stt_fr_fastconformer_hybrid_large_pc)   | `nvidia/stt_fr_fastconformer_hybrid_large_pc`  | fr   | Yes         | `hybrid_bpe_rnnt` | 10.04              | 318                 | 48                    | 0.8           |
+| [NVIDIA English Fast Conformer](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) | `nvidia/stt_en_fastconformer_transducer_large` | en   | No          | `rnnt_bpe`        | 7.5                | 367                 | 48                    | 0.8           |
+| [NVIDIA Parakeet TDT 0.6b](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)                       | `nvidia/parakeet-tdt-0.6b-v2`                  | en   | Yes         | `rnnt_bpe`        | Best EN            | 252                 | 16                    | 2.7           |
+| [NVIDIA Parakeet CTC 1.1b](https://huggingface.co/nvidia/parakeet-ctc-1.1b)                          | `nvidia/parakeet-ctc-1.1b`                     | en   | No          | `ctc_bpe`         | 6.53               | 180                 | 12                    | 4.4           |
 
 More models available on [NVIDIA HuggingFace](https://huggingface.co/nvidia).
 
@@ -113,11 +121,11 @@ Hybrid models can do both CTC and RNNT decoding. Add `_ctc` or `_rnnt` to `hybri
 Number of threads per worker when running on CPU. Transcription speed does not scale linearly:
 
 | NUM_THREADS | Time (4m30s file, `linagora/linto_stt_fr_fastconformer`) |
-|---|---|
-| 2 | 38s |
-| 4 | 25.4s |
-| 8 | 18.1s |
-| 16 | 16s |
+| ----------- | -------------------------------------------------------- |
+| 2           | 38s                                                      |
+| 4           | 25.4s                                                    |
+| 8           | 18.1s                                                    |
+| 16          | 16s                                                      |
 
 ### CONCURRENCY
 
@@ -131,6 +139,7 @@ Maximum number of parallel requests plus one (`CONCURRENCY=0` = 1 worker, `CONCU
 Splits long files to avoid OOM. Audio is processed in parallel (2 chunks at a time). Values depend on available VRAM/RAM and should be as high as possible.
 
 Example with 16GB VRAM GPU and `linagora/linto_stt_fr_fastconformer`:
+
 - `LONG_FILE_THRESHOLD=540` (9 minutes)
 - `LONG_FILE_CHUNK_LEN=360` (6 minutes)
 - `LONG_FILE_CHUNK_CONTEXT_LEN=5` (5s overlap at each boundary)
@@ -152,6 +161,7 @@ STREAMING_PAUSE_FOR_FINAL=1.2
 STREAMING_MAX_WORDS_IN_BUFFER=6
 STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4
 ```
+
 - Punctuation: yes | Latency: ~1s GPU, ~2s CPU (16 threads) | VRAM: ~2GB
 
 ### Low Latency Example (French)
@@ -167,6 +177,7 @@ STREAMING_PAUSE_FOR_FINAL=1.5
 STREAMING_MAX_WORDS_IN_BUFFER=5
 STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4
 ```
+
 - Punctuation: no ([add recasepunc](../../../README.md#punctuation-model-recasepunc)) | Latency: ~1.4s GPU, ~2.4s CPU (16 threads) | VRAM: ~2.5GB
 
 ### High Latency Example (English, better accuracy)
@@ -182,6 +193,7 @@ STREAMING_PAUSE_FOR_FINAL=1.0
 STREAMING_MAX_WORDS_IN_BUFFER=10
 STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=3
 ```
+
 - Punctuation: yes | Latency: ~2.5s | VRAM: ~4.5GB
 
 ## License
@@ -190,7 +202,7 @@ AGPLv3 (see LICENSE).
 
 ## Acknowledgments
 
-* [NeMo](https://github.com/NVIDIA/NeMo)
-* [SpeechBrain](https://github.com/speechbrain/speechbrain)
-* [TorchAudio](https://github.com/pytorch/audio)
-* [Whisper_Streaming](https://github.com/ufal/whisper_streaming)
+- [NeMo](https://github.com/NVIDIA/NeMo)
+- [SpeechBrain](https://github.com/speechbrain/speechbrain)
+- [TorchAudio](https://github.com/pytorch/audio)
+- [Whisper_Streaming](https://github.com/ufal/whisper_streaming)

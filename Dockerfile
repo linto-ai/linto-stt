@@ -31,7 +31,7 @@ RUN uv export --extra "$SERVICE_NAME" --no-emit-project --frozen > requirements.
 
 # Copy source and test data
 COPY linto_stt /usr/src/app/linto_stt
-COPY test/bonjour.wav /usr/src/app/test/bonjour.wav
+COPY tests/bonjour.wav /usr/src/app/tests/bonjour.wav
 
 # Install the project itself (no deps, fast)
 RUN uv pip install --system --no-cache --no-deps .

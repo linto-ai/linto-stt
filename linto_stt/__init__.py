@@ -102,7 +102,8 @@ def run_celery_server():
         stt = import_stt_module(backend)
         stt_utils = import_stt_module(backend, "utils")
 
-        file_path = os.path.join("/opt/audio", file_name)
+        audio_dir = os.environ.get("AUDIO_DIR", "/opt/audio")
+        file_path = os.path.join(audio_dir, file_name)
         try:
             file_content = stt_utils.load_audiofile(file_path)
         except Exception as err:

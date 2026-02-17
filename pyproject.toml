@@ -62,7 +62,7 @@ test = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["test"]
+testpaths = ["tests"]
 markers = [
     "docker: Tests Docker (build + run container)",
     "uv: Tests via UV subprocess",

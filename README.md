@@ -10,12 +10,12 @@ It supports both offline and real-time (streaming) transcriptions.
 
 The following STT backends are supported (see each README for backend-specific details):
 
-| Backend | Description | Modes |
-|---------|-------------|-------|
-| [NeMo](linto_stt/backends/nemo/README.md) | NVIDIA NeMo toolkit | http, websocket, task |
-| [Whisper](linto_stt/backends/whisper/README.md) | OpenAI Whisper models | http, websocket, task |
-| [Kaldi](linto_stt/backends/kaldi/README.md) | Kaldi/Vosk toolkit | http, websocket, task |
-| [Kyutai](linto_stt/backends/kyutai/README.md) | Kyutai Moshi STT wrapper | websocket only |
+| Backend                                         | Description              | Modes                 |
+| ----------------------------------------------- | ------------------------ | --------------------- |
+| [NeMo](linto_stt/backends/nemo/README.md)       | NVIDIA NeMo toolkit      | http, websocket, task |
+| [Whisper](linto_stt/backends/whisper/README.md) | OpenAI Whisper models    | http, websocket, task |
+| [Kaldi](linto_stt/backends/kaldi/README.md)     | Kaldi/Vosk toolkit       | http, websocket, task |
+| [Kyutai](linto_stt/backends/kyutai/README.md)   | Kyutai Moshi STT wrapper | websocket only        |
 
 ## Install
 
@@ -102,6 +102,7 @@ STT can be used in three ways:
 - **User/Group**: Set `USER_ID` and `GROUP_ID` to avoid file permission issues with mounted volumes (default: `33`, www-data).
 
 Full example:
+
 ```sh
 docker run -p 8080:80 -it --name linto-stt-nemo \
   -e SERVICE_MODE=websocket \
@@ -132,6 +133,7 @@ Transcription endpoint.
 - **Language** (optional query param): Override the `LANGUAGE` environment variable
 
 Response (`Accept: application/json`):
+
 ```json
 {
     "text": "This is the transcription as text",
@@ -180,12 +182,14 @@ The celery tasks can be managed using [LinTO Transcription service](https://gith
 If your model outputs lower-case text without punctuation, you can use a recasepunc model (version 0.4+) to add punctuation marks to final results.
 
 Available models trained on [Common Crawl](http://data.statmt.org/cc-100/):
+
 - French: [fr.24000](https://github.com/benob/recasepunc/releases/download/0.4/fr.24000)
 - English: [en.22000](https://github.com/benob/recasepunc/releases/download/0.4/en.22000)
 - Italian: [it.23000](https://github.com/benob/recasepunc/releases/download/0.4/it.23000)
 - Chinese: [zh-Hant.17000](https://github.com/benob/recasepunc/releases/download/0.4/zh-Hant.17000)
 
 Mount the model and set the `PUNCTUATION_MODEL` variable:
+
 ```sh
 -v /path/to/fr.24000:/opt/models/fr.24000 -e PUNCTUATION_MODEL=/opt/models/fr.24000
 ```
@@ -197,18 +201,21 @@ See [ENV.md](ENV.md) for a complete reference of all environment variables.
 ### Backend Quick Configs
 
 **Nemo** (French):
+
 ```
 ARCHITECTURE=hybrid_bpe_rnnt
 MODEL=linagora/linto_stt_fr_fastconformer
 ```
 
 **Kaldi** (Vosk model):
+
 ```
 MODEL_PATH=/path/to/vosk_model
 MODEL_TYPE=vosk
 ```
 
 **Kyutai** (requires a running [moshi server](https://github.com/kyutai-labs/delayed-streams-modeling)):
+
 ```
 KYUTAI_URL=ws://localhost:9002
 ```
@@ -221,7 +228,7 @@ KYUTAI_URL=ws://localhost:9002
 curl -X POST "http://localhost:8080/transcribe" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
-  -F "file=@test/bonjour.wav;type=audio/wav"
+  -F "file=@tests/bonjour.wav;type=audio/wav"
 ```
 
 ### Automated test suite (pytest)
@@ -253,27 +260,47 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 
 **CLI options:**
 
-| Option | Description |
-|--------|-------------|
-| `--backend` | Only run tests for this backend (`nemo`, `whisper`, `kaldi`) |
-| `--device` | Target device: `cpu` (default) or `cuda` |
-| `--uv-only` | Only run UV-based tests (skip Docker) |
-| `--docker-only` | Only run Docker-based tests |
-| `--server-timeout` | Timeout in seconds for server startup (default: 600) |
-| `--kaldi-am-path` | Path to Kaldi acoustic model |
-| `--kaldi-lm-path` | Path to Kaldi language model |
+| Option             | Description                                                  |
+| ------------------ | ------------------------------------------------------------ |
+| `--backend`        | Only run tests for this backend (`nemo`, `whisper`, `kaldi`) |
+| `--device`         | Target device: `cpu` (default) or `cuda`                     |
+| `--uv-only`        | Only run UV-based tests (skip Docker)                        |
+| `--docker-only`    | Only run Docker-based tests                                  |
+| `--server-timeout` | Timeout in seconds for server startup (default: 600)         |
+| `--kaldi-am-path`  | Path to Kaldi acoustic model                                 |
+| `--kaldi-lm-path`  | Path to Kaldi language model                                 |
 
 **Markers:**
 
-| Marker | Description |
-|--------|-------------|
-| `nemo` | Backend NeMo |
-| `whisper` | Backend Whisper |
-| `kaldi` | Backend Kaldi |
-| `docker` | Tests that build and run a Docker container |
-| `uv` | Tests via UV subprocess |
-| `gpu` | Requires CUDA |
-| `slow` | Tests taking > 2 minutes |
+| Marker    | Description                                 |
+| --------- | ------------------------------------------- |
+| `nemo`    | Backend NeMo                                |
+| `whisper` | Backend Whisper                             |
+| `kaldi`   | Backend Kaldi                               |
+| `docker`  | Tests that build and run a Docker container |
+| `uv`      | Tests via UV subprocess                     |
+| `gpu`     | Requires CUDA                               |
+| `slow`    | Tests taking > 2 minutes                    |
+
+## Examples
+
+The `examples/` directory contains quick-and-dirty demo pages for testing WebSocket streaming transcription:
+
+- **`audioprocessor.html`** — uses the deprecated ScriptProcessor API
+- **`worklet.html`** — uses the modern AudioWorklet API (+ `audio-processor.js`)
+
+Both pages accept a `?server=ws://host:port/streaming` query parameter to point at your STT server.
+
+To serve them locally:
+
+```sh
+cd examples
+python3 -m http.server
+```
+
+Then open e.g. `http://localhost:8000/worklet.html?server=ws://localhost:8080/streaming`.
+
+For production use, see [WebVoiceSDK](https://github.com/linto-ai/WebVoiceSDK).
 
 ## License
 
