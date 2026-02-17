@@ -204,7 +204,7 @@ def normalize_text(text: str, lang: str) -> str:
     # Remove extra spaces before punctuation
     # text = re.sub(r" ([\.,!:;])",r"\1",text)
 
-    return collapse_whitespace(text)
+    return re.sub(r'\s+', ' ', text).strip()
 
 
 def replace_keeping_word_boundaries(orig, dest, text):

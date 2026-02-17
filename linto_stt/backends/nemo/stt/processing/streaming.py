@@ -41,7 +41,7 @@ def processor_output_to_text(o, punctuation_model):
     res = o[2]
     if punctuation_model is not None:
         res = apply_recasepunc(punctuation_model, res)
-    return o[2]
+    return res
 
 
 def norm_str(text):

@@ -2,6 +2,7 @@ import logging
 import json
 
 from fastapi import FastAPI, APIRouter, Request, UploadFile
+from fastapi.responses import PlainTextResponse
 
 
 logger = logging.getLogger("__stt-standalone-worker__")
@@ -33,9 +34,10 @@ class Http_Server:
     def transcribe(self, request: Request, file: UploadFile):
         try:
             logger.info("Transcribe request received")
-            if request.headers.get("accept").lower() == "application/json":
+            accept = request.headers.get("accept", "").lower()
+            if accept == "application/json":
                 join_metadata = True
-            elif request.headers.get("accept").lower() == "text/plain":
+            elif accept == "text/plain":
                 join_metadata = False
             else:
                 raise ValueError(
@@ -55,16 +57,17 @@ class Http_Server:
                 audio_data, self.model, join_metadata, language=language)
 
             if join_metadata:
-                return json.dumps(transcription, ensure_ascii=False), 200
+                return json.dumps(transcription, ensure_ascii=False)
             else:
-                return transcription, 200
+                return transcription
 
         except Exception as error:
             import traceback
             logger.error(traceback.format_exc())
             logger.error(repr(error))
-            return "Server Error: {}".format(str(error)), (
-                400 if isinstance(error, ValueError) else 500
+            return PlainTextResponse(
+                content=f"Server Error: {error}",
+                status_code=400 if isinstance(error, ValueError) else 500
             )
 
 

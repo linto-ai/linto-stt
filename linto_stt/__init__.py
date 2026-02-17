@@ -59,11 +59,7 @@ def main():
 
     args = parser.parse_args()
     os.environ["SERVICE_NAME"] = args.backend
-    mode = args.mode if args.mode else os.environ.get("SERVICE_MODE")
-
-    if mode is None:
-        logging.error(
-            "No mode specified, must specify an environment variable SERVICE_MODE in [ http | task | websocket ] or use -m option")
+    mode = args.mode
 
     if mode == 'websocket':
         run_websocket_server(args.host, args.port)

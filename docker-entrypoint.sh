@@ -30,7 +30,7 @@ else
 fi
 
 # Check if a user with the specified UID already exists
-if id -u "$USER_ID" >/dev/null 2>&1; then
+if getent passwd "$USER_ID" >/dev/null 2>&1; then
     USER_NAME=$(getent passwd "$USER_ID" | cut -d: -f1)
 else
     useradd -m -u "$USER_ID" -g "$GROUP_NAME" "$USER_NAME"
@@ -79,8 +79,8 @@ case "$SERVICE_MODE" in
         fi
 
         BROKER_HOST=$(echo "$SERVICES_BROKER" | cut -d'/' -f 3)
-        ./wait-for-it.sh "$BROKER_HOST" --timeout=20 --strict -- \
-            echo "$SERVICES_BROKER (Service Broker) is up" || exit 1
+        ./wait-for-it.sh "$BROKER_HOST" --timeout=20 --strict || exit 1
+        echo "$SERVICES_BROKER (Service Broker) is up"
 
         echo "Launching celery worker"
         exec gosu "$USER_NAME" python -m linto_stt -m task -b "$SERVICE_NAME"

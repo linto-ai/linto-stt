@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse, urlunparse
 
 from celery import Celery
 
@@ -9,8 +10,10 @@ if os.environ.get("BROKER_PASS", False):
     components = broker_url.split("//")
     broker_url = f'{components[0]}//:{os.environ.get("BROKER_PASS")}@{components[1]}'
 
-celery.conf.broker_url = f"{broker_url}/0"
-celery.conf.result_backend = f"{broker_url}/1"
+parsed = urlparse(broker_url)
+base_url = urlunparse(parsed._replace(path=""))
+celery.conf.broker_url = f"{base_url}/0"
+celery.conf.result_backend = f"{base_url}/1"
 celery.conf.task_acks_late = False
 celery.conf.task_track_started = True
 celery.conf.broker_transport_options = {"visibility_timeout": float("inf")}
