@@ -11,9 +11,9 @@ def notifyLintoDeploy(service_name, tag, commit_sha) {
 }
 
 def buildDockerImage(service_type, image_name, version, changedFiles, commit_sha, pushLatest = true) {
-    boolean has_changed = changedFiles.contains("linto_stt/backends/${service_type}/")
+    boolean has_changed = changedFiles.contains("linto_stt/engines/${service_type}/")
 
-    // Shared paths that affect all backends
+    // Shared paths that affect all engines
     def sharedPaths = [
         'Dockerfile',
         'docker-entrypoint.sh',
@@ -35,7 +35,7 @@ def buildDockerImage(service_type, image_name, version, changedFiles, commit_sha
         echo "Building Docker image for ${image_name} with version ${version} (service_type: ${service_type})"
 
         script {
-            def image = docker.build(image_name, "--build-arg SERVICE_TYPE=${service_type} -f Dockerfile .")
+            def image = docker.build(image_name, "--build-arg STT_ENGINE=${service_type} -f Dockerfile .")
 
             docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
                 image.push(version)

@@ -19,7 +19,7 @@ def _nemo_configs(device, vads, servings=("http",),
                 "VAD": vad,
             }
             yield pytest.param(
-                {"backend": "nemo", "mode": serving, "port": 0, "env_overrides": env},
+                {"engine": "nemo", "mode": serving, "port": 0, "env_overrides": env},
                 id=f"{device}-vad_{vad}-{serving}",
             )
 
@@ -31,7 +31,7 @@ def _nemo_configs(device, vads, servings=("http",),
 @pytest.mark.nemo
 @pytest.mark.uv
 class TestNemoCPU:
-    """NeMo backend on CPU via UV subprocess."""
+    """NeMo engine on CPU via UV subprocess."""
 
     @pytest.mark.parametrize("uv_server",
         list(_nemo_configs("cpu", ["false"])),
@@ -46,7 +46,7 @@ class TestNemoCPU:
 @pytest.mark.uv
 @pytest.mark.gpu
 class TestNemoGPU:
-    """NeMo backend on CUDA via UV subprocess."""
+    """NeMo engine on CUDA via UV subprocess."""
 
     @pytest.mark.parametrize("uv_server",
         list(_nemo_configs("cuda", [None, "false", "auditok", "silero"])),
@@ -79,11 +79,11 @@ class TestNemoCTC:
 @pytest.mark.nemo
 @pytest.mark.docker
 class TestNemoDocker:
-    """NeMo backend via Docker container."""
+    """NeMo engine via Docker container."""
 
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
-            {"backend": "nemo", "mode": "http", "port": 0,
+            {"engine": "nemo", "mode": "http", "port": 0,
              "env_overrides": {"MODEL": "nvidia/parakeet-tdt-0.6b-v2",
                                "ARCHITECTURE": "rnnt_bpe",
                                "DEVICE": "cpu", "VAD": "false"}},
@@ -97,7 +97,7 @@ class TestNemoDocker:
 
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
-            {"backend": "nemo", "mode": "task", "port": 0,
+            {"engine": "nemo", "mode": "task", "port": 0,
              "env_overrides": {"MODEL": "nvidia/parakeet-tdt-0.6b-v2",
                                "ARCHITECTURE": "rnnt_bpe",
                                "DEVICE": "cpu", "VAD": "false",
@@ -114,7 +114,7 @@ class TestNemoDocker:
     @pytest.mark.gpu
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
-            {"backend": "nemo", "mode": "http", "port": 0, "use_gpu": True,
+            {"engine": "nemo", "mode": "http", "port": 0, "use_gpu": True,
              "env_overrides": {"MODEL": "nvidia/parakeet-tdt-0.6b-v2",
                                "ARCHITECTURE": "rnnt_bpe",
                                "DEVICE": "cuda", "VAD": "false"}},

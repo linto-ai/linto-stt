@@ -6,16 +6,16 @@ LinTO-STT can either be used as a standalone transcription service or deployed w
 
 It supports both offline and real-time (streaming) transcriptions.
 
-## Backends
+## Engines
 
-The following STT backends are supported (see each README for backend-specific details):
+The following STT engines are supported (see each README for engine-specific details):
 
-| Backend                                         | Description              | Modes                 |
-| ----------------------------------------------- | ------------------------ | --------------------- |
-| [NeMo](linto_stt/backends/nemo/README.md)       | NVIDIA NeMo toolkit      | http, websocket, task |
-| [Whisper](linto_stt/backends/whisper/README.md) | OpenAI Whisper models    | http, websocket, task |
-| [Kaldi](linto_stt/backends/kaldi/README.md)     | Kaldi/Vosk toolkit       | http, websocket, task |
-| [Kyutai](linto_stt/backends/kyutai/README.md)   | Kyutai Moshi STT wrapper | websocket only        |
+| Engine                                         | Description              | Modes                 |
+| ---------------------------------------------- | ------------------------ | --------------------- |
+| [NeMo](linto_stt/engines/nemo/README.md)       | NVIDIA NeMo toolkit      | http, websocket, task |
+| [Whisper](linto_stt/engines/whisper/README.md) | OpenAI Whisper models    | http, websocket, task |
+| [Kaldi](linto_stt/engines/kaldi/README.md)     | Kaldi/Vosk toolkit       | http, websocket, task |
+| [Kyutai](linto_stt/engines/kyutai/README.md)   | Kyutai Moshi STT wrapper | websocket only        |
 
 ## Install
 
@@ -33,13 +33,13 @@ uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|kyutai]
 
 #### Build
 
-A single Dockerfile is used for all backends. Specify the backend with `--build-arg SERVICE_NAME`:
+A single Dockerfile is used for all engines. Specify the engine with `--build-arg STT_ENGINE`:
 
 ```sh
-docker build -t linto-stt-nemo:latest --build-arg SERVICE_NAME=nemo .
-docker build -t linto-stt-whisper:latest --build-arg SERVICE_NAME=whisper .
-docker build -t linto-stt-kaldi:latest --build-arg SERVICE_NAME=kaldi .
-docker build -t linto-stt-kyutai:latest --build-arg SERVICE_NAME=kyutai .
+docker build -t linto-stt-nemo:latest --build-arg STT_ENGINE=nemo .
+docker build -t linto-stt-whisper:latest --build-arg STT_ENGINE=whisper .
+docker build -t linto-stt-kaldi:latest --build-arg STT_ENGINE=kaldi .
+docker build -t linto-stt-kyutai:latest --build-arg STT_ENGINE=kyutai .
 ```
 
 Or pull pre-built images:
@@ -54,15 +54,15 @@ docker pull lintoai/linto-stt-kaldi
 
 ```sh
 # HTTP mode (file transcription)
-docker run -p 8080:80 -e SERVICE_MODE=http -e SERVICE_NAME=nemo \
+docker run -p 8080:80 -e SERVICE_MODE=http -e STT_ENGINE=nemo \
   --env-file .env linto-stt-nemo:latest
 
 # WebSocket mode (streaming)
-docker run -p 8080:80 -e SERVICE_MODE=websocket -e SERVICE_NAME=nemo \
+docker run -p 8080:80 -e SERVICE_MODE=websocket -e STT_ENGINE=nemo \
   --env-file .env linto-stt-nemo:latest
 
 # Celery task mode (async via message broker)
-docker run -e SERVICE_MODE=task -e SERVICE_NAME=nemo \
+docker run -e SERVICE_MODE=task -e STT_ENGINE=nemo \
   -v ~/data/audio:/opt/audio \
   --env-file .env linto-stt-nemo:latest
 ```
@@ -71,10 +71,10 @@ docker run -e SERVICE_MODE=task -e SERVICE_NAME=nemo \
 
 ```sh
 # HTTP / Websocket
-uv run main.py -m [http|websocket] -b [kaldi|whisper|nemo|kyutai] -p [listening_port] -i [listening_ip]
+uv run main.py -m [http|websocket] -e [kaldi|whisper|nemo|kyutai] -p [listening_port] -i [listening_ip]
 
 # Celery
-uv run main.py -m task -b [kaldi|whisper|nemo]
+uv run main.py -m task -e [kaldi|whisper|nemo]
 ```
 
 ## Serving Modes
@@ -198,7 +198,7 @@ Mount the model and set the `PUNCTUATION_MODEL` variable:
 
 See [ENV.md](ENV.md) for a complete reference of all environment variables.
 
-### Backend Quick Configs
+### Engine Quick Configs
 
 **Nemo** (French):
 
@@ -233,7 +233,7 @@ curl -X POST "http://localhost:8080/transcribe" \
 
 ### Automated test suite (pytest)
 
-Install the backend you want to test along with the `test` extra:
+Install the engine you want to test along with the `test` extra:
 
 ```sh
 uv sync --extra nemo --extra test
@@ -262,7 +262,7 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 
 | Option             | Description                                                  |
 | ------------------ | ------------------------------------------------------------ |
-| `--backend`        | Only run tests for this backend (`nemo`, `whisper`, `kaldi`) |
+| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`)  |
 | `--device`         | Target device: `cpu` (default) or `cuda`                     |
 | `--uv-only`        | Only run UV-based tests (skip Docker)                        |
 | `--docker-only`    | Only run Docker-based tests                                  |
@@ -274,9 +274,9 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 
 | Marker    | Description                                 |
 | --------- | ------------------------------------------- |
-| `nemo`    | Backend NeMo                                |
-| `whisper` | Backend Whisper                             |
-| `kaldi`   | Backend Kaldi                               |
+| `nemo`    | Engine NeMo                                 |
+| `whisper` | Engine Whisper                              |
+| `kaldi`   | Engine Kaldi                                |
 | `docker`  | Tests that build and run a Docker container |
 | `uv`      | Tests via UV subprocess                     |
 | `gpu`     | Requires CUDA                               |

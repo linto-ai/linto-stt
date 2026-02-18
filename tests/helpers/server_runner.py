@@ -46,10 +46,10 @@ def _poll_healthcheck(url: str, timeout: float, process_or_container=None) -> No
 class UVServerRunner:
     """Launch a linto-stt server via `uv run main.py` as a subprocess."""
 
-    def __init__(self, project_root: str, backend: str, mode: str, port: int,
+    def __init__(self, project_root: str, engine: str, mode: str, port: int,
                  env_dict: dict, timeout: float = 600):
         self.project_root = project_root
-        self.backend = backend
+        self.engine = engine
         self.mode = mode
         self.port = port if port != 0 else find_free_port()
         self.env_dict = env_dict
@@ -65,12 +65,12 @@ class UVServerRunner:
         # Build subprocess environment: inherit current env + overlay our vars
         env = os.environ.copy()
         env.update(self.env_dict)
-        env["SERVICE_NAME"] = self.backend
+        env["STT_ENGINE"] = self.engine
 
         cmd = [
             "uv", "run", "main.py",
             "-m", self.mode,
-            "-b", self.backend,
+            "-e", self.engine,
             "-p", str(self.port),
             "-i", "127.0.0.1",
         ]
@@ -121,12 +121,12 @@ class DockerServerRunner:
 
     _built_images: dict[str, str] = {}  # dockerfile -> image tag
 
-    def __init__(self, project_root: str, backend: str, mode: str, port: int,
+    def __init__(self, project_root: str, engine: str, mode: str, port: int,
                  env_dict: dict, timeout: float = 600,
                  dockerfile: str = "Dockerfile", use_gpu: bool = False,
                  volumes: dict = None):
         self.project_root = project_root
-        self.backend = backend
+        self.engine = engine
         self.mode = mode
         self.port = port if port != 0 else find_free_port()
         self.env_dict = env_dict
@@ -134,7 +134,7 @@ class DockerServerRunner:
         self.dockerfile = dockerfile
         self.use_gpu = use_gpu
         self.volumes = volumes or {}
-        self.container_name = f"test_{backend}_{mode}_{self.port}"
+        self.container_name = f"test_{engine}_{mode}_{self.port}"
         self._env_file = None
 
     @property
@@ -146,11 +146,11 @@ class DockerServerRunner:
         if self.dockerfile in DockerServerRunner._built_images:
             return DockerServerRunner._built_images[self.dockerfile]
 
-        tag = f"linto-stt-test:{self.backend}"
+        tag = f"linto-stt-test:{self.engine}"
         cmd = [
             "docker", "build", ".",
             "-f", self.dockerfile,
-            "--build-arg", f"SERVICE_TYPE={self.backend}",
+            "--build-arg", f"STT_ENGINE={self.engine}",
             "-t", tag,
         ]
         logger.info(f"Building Docker image: {' '.join(cmd)}")
@@ -172,7 +172,7 @@ class DockerServerRunner:
         )
         env_with_mode = dict(self.env_dict)
         env_with_mode["SERVICE_MODE"] = self.mode
-        env_with_mode["SERVICE_NAME"] = self.backend
+        env_with_mode["STT_ENGINE"] = self.engine
         for k, v in env_with_mode.items():
             self._env_file.write(f"{k}={v}\n")
         self._env_file.close()

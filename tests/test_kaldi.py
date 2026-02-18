@@ -25,7 +25,7 @@ def _skip_without_kaldi_paths(request):
 @pytest.mark.kaldi
 @pytest.mark.uv
 class TestKaldiUV:
-    """Kaldi backend via UV subprocess. Requires --kaldi-am-path and --kaldi-lm-path."""
+    """Kaldi engine via UV subprocess. Requires --kaldi-am-path and --kaldi-lm-path."""
 
     @pytest.fixture(autouse=True)
     def _check_paths(self, request):
@@ -33,7 +33,7 @@ class TestKaldiUV:
 
     @pytest.mark.parametrize("uv_server", [
         pytest.param(
-            {"backend": "kaldi", "mode": "http", "port": 0,
+            {"engine": "kaldi", "mode": "http", "port": 0,
              "env_overrides": {}},
             id="http",
         ),
@@ -51,7 +51,7 @@ class TestKaldiUV:
 @pytest.mark.kaldi
 @pytest.mark.docker
 class TestKaldiDocker:
-    """Kaldi backend via Docker. Requires --kaldi-am-path and --kaldi-lm-path.
+    """Kaldi engine via Docker. Requires --kaldi-am-path and --kaldi-lm-path.
     Volumes are auto-injected by the docker_server fixture in conftest.py.
     """
 
@@ -61,7 +61,7 @@ class TestKaldiDocker:
 
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
-            {"backend": "kaldi", "mode": "http", "port": 0,
+            {"engine": "kaldi", "mode": "http", "port": 0,
              "env_overrides": {}},
             id="http",
         ),
@@ -73,7 +73,7 @@ class TestKaldiDocker:
 
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
-            {"backend": "kaldi", "mode": "task", "port": 0,
+            {"engine": "kaldi", "mode": "task", "port": 0,
              "env_overrides": {"SERVICES_BROKER": "redis://172.17.0.1:6379"}},
             id="task",
         ),

@@ -2,11 +2,12 @@
 
 Reference for all environment variables used by LinTO-STT, grouped by category.
 
-## Common (all backends)
+## Common (all engines)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SERVICE_NAME` | `nemo` | Backend STT (`nemo`, `whisper`, `kaldi`, `kyutai`). Also used as Docker build arg and as Celery queue name in task mode |
+| `STT_ENGINE` | `nemo` | STT engine to use (`nemo`, `whisper`, `kaldi`, `kyutai`). Used as Docker build arg and CLI default |
+| `SERVICE_NAME` | `stt` | Celery queue/worker name in task mode. Defaults to the engine name when not set |
 | `SERVICE_MODE` | `http` | STT serving mode: `http`, `task`, `websocket` |
 | `PORT` | `80` (Docker) / `8080` (CLI) | Listening port |
 | `IP` | `0.0.0.0` (Docker) / `127.0.0.1` (CLI) | Bind address |

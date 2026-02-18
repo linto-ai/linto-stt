@@ -3,12 +3,12 @@ set -euo pipefail
 set -a
 
 
-if [ -z "${SERVICE_NAME:-}" ]; then
-    echo "ERROR: SERVICE_NAME not set (e.g. kaldi, whisper, nemo, kyutai)"
+if [ -z "${STT_ENGINE:-}" ]; then
+    echo "ERROR: STT_ENGINE not set (e.g. kaldi, whisper, nemo, kyutai)"
     exit 1
 fi
 
-echo "Starting ${SERVICE_NAME} service…"
+echo "Starting ${STT_ENGINE} engine…"
 
 ###############################################################################
 # 1 — Runtime user / group
@@ -64,12 +64,12 @@ echo "=> SERVICE_MODE=$SERVICE_MODE"
 case "$SERVICE_MODE" in
     http)
         echo "Launching HTTP server"
-        exec gosu "$USER_NAME" python -m linto_stt -m http -b "$SERVICE_NAME" -p "$PORT" -i "$IP"
+        exec gosu "$USER_NAME" python -m linto_stt -m http -e "$STT_ENGINE" -p "$PORT" -i "$IP"
         ;;
 
     websocket)
         echo "Launching websocket server"
-        exec gosu "$USER_NAME" python -m linto_stt -m websocket -b "$SERVICE_NAME" -p "$PORT" -i "$IP"
+        exec gosu "$USER_NAME" python -m linto_stt -m websocket -e "$STT_ENGINE" -p "$PORT" -i "$IP"
         ;;
 
     task)
@@ -83,7 +83,7 @@ case "$SERVICE_MODE" in
         echo "$SERVICES_BROKER (Service Broker) is up"
 
         echo "Launching celery worker"
-        exec gosu "$USER_NAME" python -m linto_stt -m task -b "$SERVICE_NAME"
+        exec gosu "$USER_NAME" python -m linto_stt -m task -e "$STT_ENGINE"
         ;;
     *)
         echo "ERROR: Unknown SERVICE_MODE '$SERVICE_MODE' (expected: http | task | websocket)"

@@ -17,7 +17,7 @@ def _whisper_configs(device, vads, model="tiny", language="fr", servings=("http"
             if vad:
                 env["VAD"] = vad
             yield pytest.param(
-                {"backend": "whisper", "mode": serving, "port": 0, "env_overrides": env},
+                {"engine": "whisper", "mode": serving, "port": 0, "env_overrides": env},
                 id=f"{'nodevice' if not device else device}-vad_{vad or 'none'}-{serving}",
             )
 
@@ -32,7 +32,7 @@ def _whisper_docker_configs(device, vads, dockerfile, model="tiny",
             if vad:
                 env["VAD"] = vad
             yield pytest.param(
-                {"backend": "whisper", "mode": serving, "port": 0,
+                {"engine": "whisper", "mode": serving, "port": 0,
                  "dockerfile": dockerfile, "env_overrides": env},
                 id=f"{dockerfile.split('/')[-1]}-{'nodevice' if not device else device}-vad_{vad or 'none'}-{serving}",
             )
@@ -45,7 +45,7 @@ def _whisper_docker_configs(device, vads, dockerfile, model="tiny",
 @pytest.mark.whisper
 @pytest.mark.uv
 class TestWhisperCPU:
-    """Whisper backend on CPU via UV subprocess."""
+    """Whisper engine on CPU via UV subprocess."""
 
     @pytest.mark.parametrize("uv_server",
         list(_whisper_configs("cpu", ["false", "auditok", "silero"])),
@@ -60,7 +60,7 @@ class TestWhisperCPU:
 @pytest.mark.uv
 @pytest.mark.gpu
 class TestWhisperGPU:
-    """Whisper backend on CUDA via UV subprocess."""
+    """Whisper engine on CUDA via UV subprocess."""
 
     @pytest.mark.parametrize("uv_server",
         list(_whisper_configs("cuda", [None])),
@@ -74,7 +74,7 @@ class TestWhisperGPU:
 @pytest.mark.whisper
 @pytest.mark.uv
 class TestWhisperNoDevice:
-    """Whisper backend with no explicit device."""
+    """Whisper engine with no explicit device."""
 
     @pytest.mark.parametrize("uv_server",
         list(_whisper_configs(None, [None])),
@@ -96,7 +96,7 @@ class TestWhisperLanguages:
 
     @pytest.mark.parametrize("uv_server", [
         pytest.param(
-            {"backend": "whisper", "mode": "http", "port": 0,
+            {"engine": "whisper", "mode": "http", "port": 0,
              "env_overrides": {"MODEL": "tiny", "LANGUAGE": "*"}},
             id="nolanguage",
         ),
@@ -108,7 +108,7 @@ class TestWhisperLanguages:
 
     @pytest.mark.parametrize("uv_server", [
         pytest.param(
-            {"backend": "whisper", "mode": "http", "port": 0,
+            {"engine": "whisper", "mode": "http", "port": 0,
              "env_overrides": {"MODEL": "tiny", "LANGUAGE": "FR-FR"}},
             id="languagecode-FR-FR",
         ),
@@ -120,7 +120,7 @@ class TestWhisperLanguages:
 
     @pytest.mark.parametrize("uv_server", [
         pytest.param(
-            {"backend": "whisper", "mode": "http", "port": 0,
+            {"engine": "whisper", "mode": "http", "port": 0,
              "env_overrides": {"MODEL": "tiny", "LANGUAGE": "ru"}},
             id="russian",
         ),
@@ -132,7 +132,7 @@ class TestWhisperLanguages:
 
     @pytest.mark.parametrize("uv_server", [
         pytest.param(
-            {"backend": "whisper", "mode": "http", "port": 0,
+            {"engine": "whisper", "mode": "http", "port": 0,
              "env_overrides": {"MODEL": "tiny", "LANGUAGE": "ru"}},
             id="language-over-config",
         ),
@@ -156,7 +156,7 @@ class TestWhisperModels:
 
     @pytest.mark.parametrize("uv_server", [
         pytest.param(
-            {"backend": "whisper", "mode": "http", "port": 0,
+            {"engine": "whisper", "mode": "http", "port": 0,
              "env_overrides": {"MODEL": "small", "LANGUAGE": "fr"}},
             id="model-small",
         ),
@@ -174,7 +174,7 @@ class TestWhisperModels:
 @pytest.mark.whisper
 @pytest.mark.docker
 class TestWhisperDockerCPU:
-    """Whisper backend via Docker (CPU dockerfiles)."""
+    """Whisper engine via Docker (CPU dockerfiles)."""
 
     @pytest.mark.parametrize("docker_server",
         list(_whisper_docker_configs("cpu", ["false", "auditok", "silero"],
@@ -190,7 +190,7 @@ class TestWhisperDockerCPU:
 @pytest.mark.docker
 @pytest.mark.gpu
 class TestWhisperDockerGPU:
-    """Whisper backend via Docker (CUDA dockerfiles)."""
+    """Whisper engine via Docker (CUDA dockerfiles)."""
 
     @pytest.mark.parametrize("docker_server",
         list(_whisper_docker_configs("cuda", [None],
@@ -213,7 +213,7 @@ class TestWhisperDockerCelery:
 
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
-            {"backend": "whisper", "mode": "task", "port": 0,
+            {"engine": "whisper", "mode": "task", "port": 0,
              "env_overrides": {"MODEL": "tiny", "LANGUAGE": "ru",
                                "SERVICES_BROKER": "redis://172.17.0.1:6379"}},
             id="russian-task",
@@ -227,7 +227,7 @@ class TestWhisperDockerCelery:
 
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
-            {"backend": "whisper", "mode": "task", "port": 0,
+            {"engine": "whisper", "mode": "task", "port": 0,
              "env_overrides": {"MODEL": "tiny", "LANGUAGE": "ru",
                                "SERVICES_BROKER": "redis://172.17.0.1:6379"}},
             id="language-over-config-task",

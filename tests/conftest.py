@@ -14,9 +14,9 @@ from helpers.server_runner import UVServerRunner, DockerServerRunner, find_free_
 # ---------------------------------------------------------------------------
 
 def pytest_addoption(parser):
-    parser.addoption("--backend", action="store", default=None,
+    parser.addoption("--engine", action="store", default=None,
                      choices=["nemo", "whisper", "kaldi"],
-                     help="Only run tests for this backend")
+                     help="Only run tests for this engine")
     parser.addoption("--device", action="store", default="cpu",
                      choices=["cpu", "cuda"],
                      help="Target device (skip GPU tests when cpu)")
@@ -37,7 +37,7 @@ def pytest_addoption(parser):
 # ---------------------------------------------------------------------------
 
 def pytest_collection_modifyitems(config, items):
-    backend_filter = config.getoption("--backend")
+    engine_filter = config.getoption("--engine")
     device = config.getoption("--device")
     docker_only = config.getoption("--docker-only")
     uv_only = config.getoption("--uv-only")
@@ -47,10 +47,10 @@ def pytest_collection_modifyitems(config, items):
     for item in items[:]:
         markers = {m.name for m in item.iter_markers()}
 
-        # Filter by backend
-        if backend_filter:
-            backend_markers = markers & {"nemo", "whisper", "kaldi"}
-            if backend_markers and backend_filter not in backend_markers:
+        # Filter by engine
+        if engine_filter:
+            engine_markers = markers & {"nemo", "whisper", "kaldi"}
+            if engine_markers and engine_filter not in engine_markers:
                 deselected.append(item)
                 continue
 
@@ -101,36 +101,36 @@ def server_timeout(request):
 @pytest.fixture
 def uv_server(request, project_root, server_timeout):
     """Launch a UV server. Parametrize indirectly with a dict:
-    {"backend": str, "mode": str, "port": int, "env_overrides": dict}
+    {"engine": str, "mode": str, "port": int, "env_overrides": dict}
     """
     params = request.param
-    backend = params["backend"]
+    engine = params["engine"]
     mode = params.get("mode", "http")
     port = params.get("port", 0)
     env_overrides = params.get("env_overrides", {})
 
-    env_dict = build_env_dict(project_root, backend, env_overrides)
+    env_dict = build_env_dict(project_root, engine, env_overrides)
     runner = UVServerRunner(
         project_root=project_root,
-        backend=backend,
+        engine=engine,
         mode=mode,
         port=port,
         env_dict=env_dict,
         timeout=server_timeout,
     )
     url = runner.start()
-    yield {"url": url, "runner": runner, "backend": backend, "mode": mode}
+    yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
     runner.stop()
 
 
 @pytest.fixture
 def docker_server(request, project_root, server_timeout):
     """Launch a Docker server. Parametrize indirectly with a dict:
-    {"backend": str, "mode": str, "port": int, "env_overrides": dict,
+    {"engine": str, "mode": str, "port": int, "env_overrides": dict,
      "dockerfile": str, "use_gpu": bool, "volumes": dict}
     """
     params = request.param
-    backend = params["backend"]
+    engine = params["engine"]
     mode = params.get("mode", "http")
     port = params.get("port", 0)
     env_overrides = params.get("env_overrides", {})
@@ -144,7 +144,7 @@ def docker_server(request, project_root, server_timeout):
         volumes.setdefault(test_dir, "/opt/audio")
 
     # Kaldi needs AM/LM model volumes
-    if backend == "kaldi":
+    if engine == "kaldi":
         am_path = request.config.getoption("--kaldi-am-path")
         lm_path = request.config.getoption("--kaldi-lm-path")
         if am_path:
@@ -152,10 +152,10 @@ def docker_server(request, project_root, server_timeout):
         if lm_path:
             volumes.setdefault(lm_path, "/opt/LM")
 
-    env_dict = build_env_dict(project_root, backend, env_overrides)
+    env_dict = build_env_dict(project_root, engine, env_overrides)
     runner = DockerServerRunner(
         project_root=project_root,
-        backend=backend,
+        engine=engine,
         mode=mode,
         port=port,
         env_dict=env_dict,
@@ -165,7 +165,7 @@ def docker_server(request, project_root, server_timeout):
         volumes=volumes,
     )
     url = runner.start()
-    yield {"url": url, "runner": runner, "backend": backend, "mode": mode}
+    yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
     runner.stop()
 
 
