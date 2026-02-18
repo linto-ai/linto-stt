@@ -1,4 +1,4 @@
-FROM python:3.12-trixie
+FROM python:3.12-slim
 LABEL maintainer="contact@linto.ai"
 
 ARG STT_ENGINE=nemo
@@ -10,18 +10,21 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  build-essential \
   ffmpeg \
   git \
   curl \
   gosu \
   netcat-traditional \
+  passwd \
   libsndfile1 sox \
   libfreetype6 \
   swig \
   portaudio19-dev \
   libavutil-dev \
   libavdevice-dev && \
-  rm -rf /var/lib/apt/lists/*;
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
