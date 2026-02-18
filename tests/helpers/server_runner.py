@@ -150,7 +150,7 @@ class DockerServerRunner:
         cmd = [
             "docker", "build", ".",
             "-f", self.dockerfile,
-            "--build-arg", f"SERVICE_NAME={self.backend}",
+            "--build-arg", f"SERVICE_TYPE={self.backend}",
             "-t", tag,
         ]
         logger.info(f"Building Docker image: {' '.join(cmd)}")

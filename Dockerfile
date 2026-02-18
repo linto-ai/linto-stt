@@ -1,7 +1,7 @@
 FROM python:3.12-trixie
 LABEL maintainer="contact@linto.ai"
 
-ARG SERVICE_NAME=nemo
+ARG SERVICE_TYPE=nemo
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
@@ -26,7 +26,7 @@ WORKDIR /usr/src/app
 
 # Install dependencies first (cached as long as pyproject.toml/uv.lock don't change)
 COPY pyproject.toml uv.lock /usr/src/app/
-RUN uv export --extra "$SERVICE_NAME" --no-emit-project --frozen > requirements.txt && \
+RUN uv export --extra "$SERVICE_TYPE" --no-emit-project --frozen > requirements.txt && \
     uv pip install --system --no-cache -r requirements.txt
 
 # Copy source and test data
