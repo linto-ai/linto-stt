@@ -2,6 +2,7 @@ FROM python:3.12-slim
 LABEL maintainer="contact@linto.ai"
 
 ARG STT_ENGINE=nemo
+ARG EXTRA_DEPS=""
 ENV STT_ENGINE=${STT_ENGINE}
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -28,8 +29,15 @@ WORKDIR /usr/src/app
 
 # Install dependencies first (cached as long as pyproject.toml/uv.lock don't change)
 COPY pyproject.toml uv.lock /usr/src/app/
-RUN uv export --extra "$STT_ENGINE" --no-emit-project --frozen > requirements.txt && \
+RUN uv export --extra "$STT_ENGINE" --no-emit-project --no-hashes --frozen > requirements.txt && \
     uv pip install --system --no-cache -r requirements.txt
+
+# Optional: install recasepunc (torch CPU + transformers)
+RUN if [ "$EXTRA_DEPS" = "recasepunc" ]; then \
+        uv pip install --system --no-cache \
+            "torch>=2.0.0" --index-url https://download.pytorch.org/whl/cpu && \
+        uv pip install --system --no-cache "transformers>=4.30.0"; \
+    fi
 
 # Copy source and test data
 COPY linto_stt /usr/src/app/linto_stt

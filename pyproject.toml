@@ -48,6 +48,10 @@ kaldi = [
     "vosk>=0.3.45",
     "wavio>=0.0.9",
 ]
+recasepunc = [
+    "torch>=2.0.0",
+    "transformers>=4.30.0",
+]
 kyutai = [
     "msgpack>=1.1.2",
 ]

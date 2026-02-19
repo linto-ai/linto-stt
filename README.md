@@ -26,7 +26,7 @@ apt install python3-pyaudio portaudio19-dev
 ```
 
 ```sh
-uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|kyutai]
+uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|kyutai|recasepunc]
 ```
 
 ### Docker
@@ -40,6 +40,10 @@ docker build -t linto-stt-nemo:latest --build-arg STT_ENGINE=nemo .
 docker build -t linto-stt-whisper:latest --build-arg STT_ENGINE=whisper .
 docker build -t linto-stt-kaldi:latest --build-arg STT_ENGINE=kaldi .
 docker build -t linto-stt-kyutai:latest --build-arg STT_ENGINE=kyutai .
+
+# Avec recasepunc (ponctuation + recasing, ajoute torch CPU ~1.2GB)
+docker build -t linto-stt-kaldi-recasepunc:latest \
+  --build-arg STT_ENGINE=kaldi --build-arg EXTRA_DEPS=recasepunc .
 ```
 
 Or pull pre-built images:
@@ -48,6 +52,7 @@ Or pull pre-built images:
 docker pull lintoai/linto-stt-nemo
 docker pull lintoai/linto-stt-whisper
 docker pull lintoai/linto-stt-kaldi
+docker pull lintoai/linto-stt-kaldi-recasepunc
 ```
 
 #### Run
@@ -181,6 +186,8 @@ The celery tasks can be managed using [LinTO Transcription service](https://gith
 
 If your model outputs lower-case text without punctuation, you can use a recasepunc model (version 0.4+) to add punctuation marks to final results.
 
+> L'image doit être buildée avec `--build-arg EXTRA_DEPS=recasepunc`.
+
 Available models trained on [Common Crawl](http://data.statmt.org/cc-100/):
 
 - French: [fr.24000](https://github.com/benob/recasepunc/releases/download/0.4/fr.24000)
@@ -260,15 +267,15 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 
 **CLI options:**
 
-| Option             | Description                                                  |
-| ------------------ | ------------------------------------------------------------ |
-| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`)  |
-| `--device`         | Target device: `cpu` (default) or `cuda`                     |
-| `--uv-only`        | Only run UV-based tests (skip Docker)                        |
-| `--docker-only`    | Only run Docker-based tests                                  |
-| `--server-timeout` | Timeout in seconds for server startup (default: 600)         |
-| `--kaldi-am-path`  | Path to Kaldi acoustic model                                 |
-| `--kaldi-lm-path`  | Path to Kaldi language model                                 |
+| Option             | Description                                                 |
+| ------------------ | ----------------------------------------------------------- |
+| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`) |
+| `--device`         | Target device: `cpu` (default) or `cuda`                    |
+| `--uv-only`        | Only run UV-based tests (skip Docker)                       |
+| `--docker-only`    | Only run Docker-based tests                                 |
+| `--server-timeout` | Timeout in seconds for server startup (default: 600)        |
+| `--kaldi-am-path`  | Path to Kaldi acoustic model                                |
+| `--kaldi-lm-path`  | Path to Kaldi language model                                |
 
 **Markers:**
 

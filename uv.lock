@@ -1910,6 +1910,10 @@ nemo = [
     { name = "torchcodec" },
     { name = "wavio" },
 ]
+recasepunc = [
+    { name = "torch" },
+    { name = "transformers" },
+]
 test = [
     { name = "pytest" },
     { name = "pytest-timeout" },
@@ -1948,10 +1952,12 @@ requires-dist = [
     { name = "regex", specifier = ">=2025.11.3" },
     { name = "requests", marker = "extra == 'test'", specifier = ">=2.31" },
     { name = "simple-websocket", marker = "extra == 'kaldi'", specifier = ">=1.1.0" },
+    { name = "torch", marker = "extra == 'recasepunc'", specifier = ">=2.0.0" },
     { name = "torchaudio", marker = "extra == 'nemo'", specifier = ">=2.9.0" },
     { name = "torchaudio", marker = "extra == 'whisper-torch'", specifier = ">=2.9.0" },
     { name = "torchcodec", marker = "extra == 'nemo'", specifier = ">=0.9.1" },
     { name = "torchcodec", marker = "extra == 'whisper-torch'", specifier = ">=0.9.1" },
+    { name = "transformers", marker = "extra == 'recasepunc'", specifier = ">=4.30.0" },
     { name = "uvicorn", specifier = ">=0.38.0" },
     { name = "vosk", marker = "extra == 'kaldi'", specifier = ">=0.3.45" },
     { name = "wavio", marker = "extra == 'kaldi'", specifier = ">=0.0.9" },
@@ -1961,7 +1967,7 @@ requires-dist = [
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "whisper-timestamped", marker = "extra == 'whisper-torch'", specifier = ">=1.15.9" },
 ]
-provides-extras = ["nemo", "moshi", "whisper", "whisper-torch", "kaldi", "kyutai", "test"]
+provides-extras = ["nemo", "moshi", "whisper", "whisper-torch", "kaldi", "recasepunc", "kyutai", "test"]
 
 [[package]]
 name = "llvmlite"
