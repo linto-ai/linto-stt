@@ -7,7 +7,10 @@ from linto_stt.engines.kaldi.stt import logger
 from vosk import KaldiRecognizer, Model
 from websockets.legacy.server import WebSocketServerProtocol
 
-from linto_stt.punctuation.recasepunc import apply_recasepunc
+try:
+    from linto_stt.punctuation.recasepunc import apply_recasepunc
+except ImportError:
+    apply_recasepunc = lambda config, text, **kw: text
 
 EOF_REGEX = re.compile(r' *\{.*"eof" *: *1.*\} *$')
 

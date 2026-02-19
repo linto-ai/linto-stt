@@ -30,15 +30,13 @@ nemo = [
 ]
 moshi = []
 
-whisper-ctranslate = [
+whisper = [
     "faster-whisper>=1.2.1",
-    "torchaudio>=2.9.0",
-    "torchcodec>=0.9.1",
     "wavio>=0.0.9",
     "auditok>=0.3.0",
 ]
 
-whisper = [
+whisper-torch = [
     "whisper-timestamped>=1.15.9",
     "torchaudio>=2.9.0",
     "torchcodec>=0.9.1",
@@ -47,8 +45,6 @@ whisper = [
 ]
 kaldi = [
     "simple-websocket>=1.1.0",
-    "torch>=2.9.0",
-    "transformers>=4.53.3",
     "vosk>=0.3.45",
     "wavio>=0.0.9",
 ]

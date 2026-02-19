@@ -1896,8 +1896,6 @@ dependencies = [
 [package.optional-dependencies]
 kaldi = [
     { name = "simple-websocket" },
-    { name = "torch" },
-    { name = "transformers" },
     { name = "vosk" },
     { name = "wavio" },
 ]
@@ -1919,27 +1917,25 @@ test = [
 ]
 whisper = [
     { name = "auditok" },
+    { name = "faster-whisper" },
+    { name = "wavio" },
+]
+whisper-torch = [
+    { name = "auditok" },
     { name = "torchaudio" },
     { name = "torchcodec" },
     { name = "wavio" },
     { name = "whisper-timestamped" },
-]
-whisper-ctranslate = [
-    { name = "auditok" },
-    { name = "faster-whisper" },
-    { name = "torchaudio" },
-    { name = "torchcodec" },
-    { name = "wavio" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "auditok", marker = "extra == 'nemo'", specifier = ">=0.3.0" },
     { name = "auditok", marker = "extra == 'whisper'", specifier = ">=0.3.0" },
-    { name = "auditok", marker = "extra == 'whisper-ctranslate'", specifier = ">=0.3.0" },
+    { name = "auditok", marker = "extra == 'whisper-torch'", specifier = ">=0.3.0" },
     { name = "celery", specifier = ">=5.6.2" },
     { name = "fastapi", specifier = ">=0.121.0" },
-    { name = "faster-whisper", marker = "extra == 'whisper-ctranslate'", specifier = ">=1.2.1" },
+    { name = "faster-whisper", marker = "extra == 'whisper'", specifier = ">=1.2.1" },
     { name = "lockfile", specifier = ">=0.12.2" },
     { name = "msgpack", marker = "extra == 'kyutai'", specifier = ">=1.1.2" },
     { name = "nemo-toolkit", extras = ["asr"], marker = "extra == 'nemo'", specifier = ">=2.5.2" },
@@ -1952,24 +1948,20 @@ requires-dist = [
     { name = "regex", specifier = ">=2025.11.3" },
     { name = "requests", marker = "extra == 'test'", specifier = ">=2.31" },
     { name = "simple-websocket", marker = "extra == 'kaldi'", specifier = ">=1.1.0" },
-    { name = "torch", marker = "extra == 'kaldi'", specifier = ">=2.9.0" },
     { name = "torchaudio", marker = "extra == 'nemo'", specifier = ">=2.9.0" },
-    { name = "torchaudio", marker = "extra == 'whisper'", specifier = ">=2.9.0" },
-    { name = "torchaudio", marker = "extra == 'whisper-ctranslate'", specifier = ">=2.9.0" },
+    { name = "torchaudio", marker = "extra == 'whisper-torch'", specifier = ">=2.9.0" },
     { name = "torchcodec", marker = "extra == 'nemo'", specifier = ">=0.9.1" },
-    { name = "torchcodec", marker = "extra == 'whisper'", specifier = ">=0.9.1" },
-    { name = "torchcodec", marker = "extra == 'whisper-ctranslate'", specifier = ">=0.9.1" },
-    { name = "transformers", marker = "extra == 'kaldi'", specifier = ">=4.53.3" },
+    { name = "torchcodec", marker = "extra == 'whisper-torch'", specifier = ">=0.9.1" },
     { name = "uvicorn", specifier = ">=0.38.0" },
     { name = "vosk", marker = "extra == 'kaldi'", specifier = ">=0.3.45" },
     { name = "wavio", marker = "extra == 'kaldi'", specifier = ">=0.0.9" },
     { name = "wavio", marker = "extra == 'nemo'", specifier = ">=0.0.9" },
     { name = "wavio", marker = "extra == 'whisper'", specifier = ">=0.0.9" },
-    { name = "wavio", marker = "extra == 'whisper-ctranslate'", specifier = ">=0.0.9" },
+    { name = "wavio", marker = "extra == 'whisper-torch'", specifier = ">=0.0.9" },
     { name = "websockets", specifier = ">=15.0.1" },
-    { name = "whisper-timestamped", marker = "extra == 'whisper'", specifier = ">=1.15.9" },
+    { name = "whisper-timestamped", marker = "extra == 'whisper-torch'", specifier = ">=1.15.9" },
 ]
-provides-extras = ["nemo", "moshi", "whisper-ctranslate", "whisper", "kaldi", "kyutai", "test"]
+provides-extras = ["nemo", "moshi", "whisper", "whisper-torch", "kaldi", "kyutai", "test"]
 
 [[package]]
 name = "llvmlite"

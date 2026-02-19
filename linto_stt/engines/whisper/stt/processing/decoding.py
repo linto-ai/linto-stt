@@ -71,6 +71,10 @@ def decode_ct2(
     remove_punctuation_from_words,
     **kwargs,
 ):
+    # Rename prompt -> initial_prompt for faster-whisper API
+    prompt = kwargs.pop("prompt", None)
+    if prompt is not None:
+        kwargs["initial_prompt"] = prompt
     kwargs["no_speech_threshold"] = 1  # To avoid empty output
     if kwargs.get("beam_size") is None:
         kwargs["beam_size"] = 1

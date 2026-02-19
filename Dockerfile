@@ -6,24 +6,22 @@ ENV STT_ENGINE=${STT_ENGINE}
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Common system dependencies
+# Common system dependencies (all engines)
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  build-essential \
-  ffmpeg \
   git \
   curl \
   gosu \
   netcat-traditional \
   passwd \
-  libsndfile1 sox \
-  libfreetype6 \
-  swig \
-  portaudio19-dev \
-  libavutil-dev \
-  libavdevice-dev && \
-  apt-get clean && \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ]; then \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential \
+    portaudio19-dev \
+    libsndfile1; \
+  fi \
+  && apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app

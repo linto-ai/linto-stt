@@ -4,7 +4,10 @@ from typing import Tuple
 
 from vosk import KaldiRecognizer, Model
 
-from linto_stt.punctuation.recasepunc import apply_recasepunc
+try:
+    from linto_stt.punctuation.recasepunc import apply_recasepunc
+except ImportError:
+    apply_recasepunc = lambda config, text, **kw: text
 
 def decode(audio: Tuple[bytes, int], model: Model, with_metadata: bool, language=None) -> dict:
     """Transcribe the audio data using the vosk library with the defined model."""

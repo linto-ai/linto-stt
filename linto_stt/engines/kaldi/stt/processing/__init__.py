@@ -3,13 +3,11 @@ import sys
 from time import time
 
 from linto_stt.engines.kaldi.stt import logger
-from linto_stt.punctuation.recasepunc import load_recasepunc_model
 
 from .decoding import decode
 from .utils import load_audiofile, load_wave_buffer
 
 from vosk import Model
-import torch
 
 
 __all__ = [
@@ -24,7 +22,11 @@ __all__ = [
 # Model locations (should be mounted)
 MODEL_PATH = os.environ.get("MODEL_PATH", "/opt/model")
 
-PUNCTUATION_MODEL = load_recasepunc_model()
+if os.environ.get("PUNCTUATION_MODEL"):
+    from linto_stt.punctuation.recasepunc import load_recasepunc_model
+    PUNCTUATION_MODEL = load_recasepunc_model()
+else:
+    PUNCTUATION_MODEL = None
 
 # Load ASR models (acoustic model and decoding graph)
 logger.info("Loading acoustic model and decoding graph ...")
@@ -40,14 +42,8 @@ logger.info(
 
 
 # Number of CPU threads
-NUM_THREADS = os.environ.get("NUM_THREADS", torch.get_num_threads())
-NUM_THREADS = int(NUM_THREADS)
-# This set the number of threads for sklearn
-os.environ["OMP_NUM_THREADS"] = str(
-    NUM_THREADS
-)  # This must be done BEFORE importing packages (sklearn, etc.)
-# For Torch, we will set it afterward, because setting that before loading the model can hang the process (see https://github.com/pytorch/pytorch/issues/58962)
-torch.set_num_threads(1)
+NUM_THREADS = int(os.environ.get("NUM_THREADS", os.cpu_count() or 1))
+os.environ["OMP_NUM_THREADS"] = str(NUM_THREADS)
 
 MODEL = (ASR_MODEL, PUNCTUATION_MODEL)
 
