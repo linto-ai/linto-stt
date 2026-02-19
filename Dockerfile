@@ -3,6 +3,7 @@ LABEL maintainer="contact@linto.ai"
 
 ARG STT_ENGINE=nemo
 ARG EXTRA_DEPS=""
+ARG GPU=""
 ENV STT_ENGINE=${STT_ENGINE}
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -37,6 +38,16 @@ RUN if [ "$EXTRA_DEPS" = "recasepunc" ]; then \
         uv pip install --system --no-cache \
             "torch>=2.0.0" --index-url https://download.pytorch.org/whl/cpu && \
         uv pip install --system --no-cache "transformers>=4.30.0"; \
+    fi
+
+# Optional: install CUDA runtime libraries for GPU (cuBLAS + cuDNN for ctranslate2)
+RUN if [ -n "$GPU" ]; then \
+        uv pip install --system --no-cache \
+            "nvidia-cublas-cu12>=12.4,<13" \
+            "nvidia-cudnn-cu12>=9,<10" && \
+        find /usr/local/lib -path '*/nvidia/*/lib' -type d \
+            > /etc/ld.so.conf.d/nvidia.conf && \
+        ldconfig; \
     fi
 
 # Copy source and test data

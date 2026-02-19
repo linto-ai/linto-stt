@@ -41,6 +41,10 @@ docker build -t linto-stt-whisper:latest --build-arg STT_ENGINE=whisper .
 docker build -t linto-stt-kaldi:latest --build-arg STT_ENGINE=kaldi .
 docker build -t linto-stt-kyutai:latest --build-arg STT_ENGINE=kyutai .
 
+# Avec GPU (cuBLAS + cuDNN pour ctranslate2, ajoute ~1.3GB)
+docker build -t linto-stt-whisper-gpu:latest \
+  --build-arg STT_ENGINE=whisper --build-arg GPU=1 .
+
 # Avec recasepunc (ponctuation + recasing, ajoute torch CPU ~1.2GB)
 docker build -t linto-stt-kaldi-recasepunc:latest \
   --build-arg STT_ENGINE=kaldi --build-arg EXTRA_DEPS=recasepunc .
@@ -51,6 +55,7 @@ Or pull pre-built images:
 ```sh
 docker pull lintoai/linto-stt-nemo
 docker pull lintoai/linto-stt-whisper
+docker pull lintoai/linto-stt-whisper-gpu
 docker pull lintoai/linto-stt-kaldi
 docker pull lintoai/linto-stt-kaldi-recasepunc
 ```
@@ -94,7 +99,7 @@ STT can be used in three ways:
 
 ## Docker Options
 
-- **GPU**: Add `--gpus all` and set `DEVICE=cuda`. On multi-GPU machines, use `CUDA_VISIBLE_DEVICES` to select a specific GPU.
+- **GPU**: Add `--gpus all` and set `DEVICE=cuda`. For Whisper (ctranslate2), use the GPU image (`linto-stt-whisper-gpu`) which includes the CUDA runtime libraries (cuBLAS, cuDNN). On multi-GPU machines, use `CUDA_VISIBLE_DEVICES` to select a specific GPU.
 - **Cache mount**: Mount a local cache folder to avoid re-downloading models each time:
   ```sh
   -v ~/.cache:/var/www/.cache

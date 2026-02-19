@@ -28,11 +28,19 @@ Approximate GPU VRAM peak usage by model size and backend:
 ### Pull or Build
 
 ```sh
+# CPU
 docker pull lintoai/linto-stt-whisper
+
+# GPU (includes CUDA runtime: cuBLAS + cuDNN for ctranslate2)
+docker pull lintoai/linto-stt-whisper-gpu
 ```
 or
 ```sh
+# CPU
 docker build -t linto-stt-whisper:latest --build-arg STT_ENGINE=whisper .
+
+# GPU (~1.3GB larger, adds cuBLAS + cuDNN)
+docker build -t linto-stt-whisper-gpu:latest --build-arg STT_ENGINE=whisper --build-arg GPU=1 .
 ```
 
 ### Run
@@ -55,7 +63,18 @@ docker run -p 8080:80 --rm \
   lintoai/linto-stt-whisper
 ```
 
-Add `--gpus all -e DEVICE=cuda` for GPU. Mount cache with `-v ~/.cache:/root/.cache` to avoid re-downloads.
+For GPU, use the GPU image with `--gpus all -e DEVICE=cuda`:
+```sh
+docker run -p 8080:80 --rm \
+  -e SERVICE_MODE=http \
+  -e MODEL=large-v3 \
+  -e DEVICE=cuda \
+  --gpus all \
+  --env-file .env \
+  lintoai/linto-stt-whisper-gpu
+```
+
+Mount cache with `-v ~/.cache:/root/.cache` to avoid re-downloads.
 
 ## Whisper Models
 
