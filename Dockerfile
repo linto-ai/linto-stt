@@ -23,6 +23,10 @@ RUN apt-get update && \
     portaudio19-dev \
     libsndfile1; \
   fi \
+  && if [ "$STT_ENGINE" = "nemo" ]; then \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ffmpeg; \
+  fi \
   && apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
