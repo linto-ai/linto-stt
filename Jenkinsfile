@@ -114,28 +114,5 @@ pipeline {
                 }
             }
         }
-
-        stage('Docker build for feature branches (temporary)') {
-            when {
-                branch 'project-structure-uv'
-            }
-            steps {
-                echo 'Building temporary images'
-                script {
-                    def changedFiles = sh(returnStdout: true, script: 'git diff --name-only HEAD^ HEAD').trim()
-                    def commit_sha = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-                    echo "Changed files: ${changedFiles}"
-
-                    def version = 'dev-uv-migration'
-
-                    buildDockerImage('nemo',    env.DOCKER_HUB_REPO_NEMO,    version, changedFiles, commit_sha, false)
-                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, false)
-                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_GPU, version, changedFiles, commit_sha, false, '', true)
-                    buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI,   version, changedFiles, commit_sha, false)
-                    buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, false, 'recasepunc')
-                    // buildDockerImage('kyutai',  env.DOCKER_HUB_REPO_KYUTAI,  version, changedFiles, commit_sha, false)
-                }
-            }
-        }
     }
 }
