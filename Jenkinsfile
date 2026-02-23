@@ -59,9 +59,9 @@ pipeline {
     environment {
         DOCKER_HUB_REPO_KALDI   = "lintoai/linto-stt-kaldi"
         DOCKER_HUB_REPO_WHISPER = "lintoai/linto-stt-whisper"
+        DOCKER_HUB_REPO_WHISPER_CPU = "lintoai/linto-stt-whisper-cpu"
         DOCKER_HUB_REPO_NEMO    = "lintoai/linto-stt-nemo"
         DOCKER_HUB_REPO_KYUTAI  = "lintoai/linto-stt-kyutai"
-        DOCKER_HUB_REPO_WHISPER_GPU = "lintoai/linto-stt-whisper-gpu"
         DOCKER_HUB_REPO_KALDI_RECASEPUNC = "lintoai/linto-stt-kaldi-recasepunc"
     }
 
@@ -83,8 +83,8 @@ pipeline {
                     ).trim()
 
                     buildDockerImage('nemo',    env.DOCKER_HUB_REPO_NEMO,    version, changedFiles, commit_sha)
-                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha)
-                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_GPU, version, changedFiles, commit_sha, true, '', true)
+                    // buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_CPU, version, changedFiles, commit_sha)
+                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, true, '', true)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI,   version, changedFiles, commit_sha)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, true, 'recasepunc')
                     // buildDockerImage('kyutai',  env.DOCKER_HUB_REPO_KYUTAI,  version, changedFiles, commit_sha)
@@ -106,8 +106,8 @@ pipeline {
                     def version = 'latest-unstable'
 
                     buildDockerImage('nemo',    env.DOCKER_HUB_REPO_NEMO,    version, changedFiles, commit_sha)
-                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha)
-                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_GPU, version, changedFiles, commit_sha, true, '', true)
+                    // buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_CPU, version, changedFiles, commit_sha)
+                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, true, '', true)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI,   version, changedFiles, commit_sha)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, true, 'recasepunc')
                     // buildDockerImage('kyutai',  env.DOCKER_HUB_REPO_KYUTAI,  version, changedFiles, commit_sha)
