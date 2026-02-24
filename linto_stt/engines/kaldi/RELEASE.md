@@ -1,3 +1,5 @@
+> For version 2.0.0 and later, see the [main RELEASE.md](../../../RELEASE.md).
+
 #  1.1.0
 - Fix EOF when streaming 
 - Add possibility to add recase & punctuation in streaming

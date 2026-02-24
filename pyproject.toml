@@ -1,7 +1,10 @@
 [project]
 name = "linto-stt"
-version = "1.1.0"
-description = "Add your description here"
+version = "2.0.0"
+description = "LinTO-STT is an API for Automatic Speech Recognition (ASR).
+LinTO-STT can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+It can be used to do offline or real-time transcriptions. 
+The following families of STT models are currently supported: Kaldi models, Whisper models, Nemo models, Kyutai Moshi STT (streaming only)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
