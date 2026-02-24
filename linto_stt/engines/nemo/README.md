@@ -2,8 +2,8 @@
 
 ASR API built on the [NeMo toolkit](https://github.com/NVIDIA/NeMo). Supports offline and real-time transcription.
 
-> See the [main README](../../../README.md) for API docs, Docker options, and serving modes.
-> See [ENV.md](../../../ENV.md) for all environment variables.
+> See the [main README](https://github.com/linto-ai/linto-stt/blob/master/README.md) for API docs, Docker options, and serving modes.
+> See [ENV.md](https://github.com/linto-ai/linto-stt/blob/master/ENV.md) for all environment variables.
 
 ## Quick Start
 

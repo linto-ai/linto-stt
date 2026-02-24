@@ -2,8 +2,8 @@
 
 ASR API based on [Whisper models](https://openai.com/research/whisper). Supports offline and real-time transcription.
 
-> See the [main README](../../../README.md) for API docs, Docker options, and serving modes.
-> See [ENV.md](../../../ENV.md) for all environment variables.
+> See the [main README](https://github.com/linto-ai/linto-stt/blob/master/README.md) for API docs, Docker options, and serving modes.
+> See [ENV.md](https://github.com/linto-ai/linto-stt/blob/master/ENV.md) for all environment variables.
 
 ## Quick Start
 
@@ -18,12 +18,12 @@ ASR API based on [Whisper models](https://openai.com/research/whisper). Supports
 
 Approximate GPU VRAM peak usage by model size and backend:
 
-| Model size | ct2/faster_whisper int8 | ct2/faster_whisper float16 | ct2/faster_whisper float32 | torch/whisper_timestamped float32 |
-|---|---|---|---|---|
-| tiny | 1.5G | 1.5G | 1.5G | 1.5G |
-| distil-whisper/distil-large-v2 | 2.2G | 3.2G | 4.8G | 4.4G |
-| large (large-v3, ...) | 2.8G | 4.8G | 8.2G | 10.4G |
-| large-v3-turbo | 1.3G | 2.0G | 4.0G | 6.0G |
+| Model size                     | ct2/faster_whisper int8 | ct2/faster_whisper float16 | ct2/faster_whisper float32 | torch/whisper_timestamped float32 |
+| ------------------------------ | ----------------------- | -------------------------- | -------------------------- | --------------------------------- |
+| tiny                           | 1.5G                    | 1.5G                       | 1.5G                       | 1.5G                              |
+| distil-whisper/distil-large-v2 | 2.2G                    | 3.2G                       | 4.8G                       | 4.4G                              |
+| large (large-v3, ...)          | 2.8G                    | 4.8G                       | 8.2G                       | 10.4G                             |
+| large-v3-turbo                 | 1.3G                    | 2.0G                       | 4.0G                       | 6.0G                              |
 
 ### Pull or Build
 
@@ -34,7 +34,9 @@ docker pull lintoai/linto-stt-whisper
 # GPU (includes CUDA runtime: cuBLAS + cuDNN for ctranslate2)
 docker pull lintoai/linto-stt-whisper-gpu
 ```
+
 or
+
 ```sh
 # CPU
 docker build -t linto-stt-whisper:latest --build-arg STT_ENGINE=whisper .
@@ -46,6 +48,7 @@ docker build -t linto-stt-whisper-gpu:latest --build-arg STT_ENGINE=whisper --bu
 ### Run
 
 HTTP file transcription:
+
 ```sh
 docker run -p 8080:80 --rm \
   -e SERVICE_MODE=http \
@@ -55,6 +58,7 @@ docker run -p 8080:80 --rm \
 ```
 
 WebSocket streaming:
+
 ```sh
 docker run -p 8080:80 --rm \
   -e SERVICE_MODE=websocket \
@@ -64,6 +68,7 @@ docker run -p 8080:80 --rm \
 ```
 
 For GPU, use the GPU image with `--gpus all -e DEVICE=cuda`:
+
 ```sh
 docker run -p 8080:80 --rm \
   -e SERVICE_MODE=http \
@@ -113,6 +118,7 @@ The `ALIGNMENT_MODEL` variable for wav2vec word alignment is deprecated and no l
 The `LANGUAGE` variable sets the default recognition language (can be overridden per request).
 
 Values:
+
 - `*` — automatic language detection
 - Language code: `fr`, `en`, `yue`, ...
 - BCP-47 code: `fr-FR`, `en-US`, `yue-HK`, ...
@@ -152,7 +158,7 @@ AGPLv3 (see LICENSE).
 
 ## Acknowledgments
 
-* [Ctranslate2](https://github.com/OpenNMT/CTranslate2) / [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper)
-* [OpenAI Whisper](https://github.com/openai/whisper) / [Whisper-Timestamped](https://github.com/linto-ai/whisper-timestamped)
-* [HuggingFace Transformers](https://github.com/huggingface/transformers)
-* [Whisper_Streaming](https://github.com/ufal/whisper_streaming)
+- [Ctranslate2](https://github.com/OpenNMT/CTranslate2) / [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper)
+- [OpenAI Whisper](https://github.com/openai/whisper) / [Whisper-Timestamped](https://github.com/linto-ai/whisper-timestamped)
+- [HuggingFace Transformers](https://github.com/huggingface/transformers)
+- [Whisper_Streaming](https://github.com/ufal/whisper_streaming)
