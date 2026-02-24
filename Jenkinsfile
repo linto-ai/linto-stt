@@ -10,7 +10,7 @@ def notifyLintoDeploy(service_name, tag, commit_sha) {
     }
 }
 
-def buildDockerImage(service_type, image_name, version, changedFiles, commit_sha, pushLatest = true, extraDeps = '', gpu = false) {
+def buildDockerImage(service_type, image_name, version, changedFiles, commit_sha, extraDeps = '', gpu = false) {
     boolean has_changed = changedFiles.contains("linto_stt/engines/${service_type}/")
 
     // Shared paths that affect all engines
@@ -41,13 +41,13 @@ def buildDockerImage(service_type, image_name, version, changedFiles, commit_sha
 
             docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
                 image.push(version)
-                if (pushLatest && !version.contains('latest-unstable')) {
+                if (!version.contains('latest-unstable')) {
                     image.push('latest')
                 }
             }
         }
 
-        if (pushLatest) {
+        if (!version.contains('latest-unstable')) {
             def service_name = image_name.replace('lintoai/', '')
             notifyLintoDeploy(service_name, version, commit_sha)
         }
@@ -84,9 +84,9 @@ pipeline {
 
                     buildDockerImage('nemo',    env.DOCKER_HUB_REPO_NEMO,    version, changedFiles, commit_sha)
                     // buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_CPU, version, changedFiles, commit_sha)
-                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, true, '', true)
+                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, '', true)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI,   version, changedFiles, commit_sha)
-                    buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, true, 'recasepunc')
+                    buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, 'recasepunc')
                     // buildDockerImage('kyutai',  env.DOCKER_HUB_REPO_KYUTAI,  version, changedFiles, commit_sha)
                 }
             }
@@ -107,9 +107,9 @@ pipeline {
 
                     buildDockerImage('nemo',    env.DOCKER_HUB_REPO_NEMO,    version, changedFiles, commit_sha)
                     // buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_CPU, version, changedFiles, commit_sha)
-                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, true, '', true)
+                    buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, '', true)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI,   version, changedFiles, commit_sha)
-                    buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, true, 'recasepunc')
+                    buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, 'recasepunc')
                     // buildDockerImage('kyutai',  env.DOCKER_HUB_REPO_KYUTAI,  version, changedFiles, commit_sha)
                 }
             }
