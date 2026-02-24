@@ -1,0 +1,69 @@
+############################################
+# SERVING PARAMETERS
+############################################
+# "http" or "task" or "websocket"
+SERVICE_MODE=http
+
+# Below: used when SERVICE_MODE=task
+SERVICE_NAME=stt
+SERVICES_BROKER=redis://172.17.0.1:6379
+BROKER_PASS=
+
+# HTTP PARAMETERS
+ENABLE_STREAMING=false
+
+# WEBSOCKET PARAMETERS
+STREAMING_PORT=80
+
+############################################
+# STT MODELING PARAMETERS
+############################################
+
+# The model can be a path to a model (e.g. "/root/.cache/whisper/large-v3.pt", "/root/.cache/huggingface/hub/models--openai--whisper-large-v3"),
+# or a model size ("tiny", "base", "small", "medium", "large-v1", "large-v2", "large-v3" or "large-v3-turbo")
+# or a HuggingFace model name (e.g. "distil-whisper/distil-large-v2", "bofenghuang/whisper-large-v3-french-distil-dec8", ...)
+MODEL=large-v3
+
+# The language can be in different formats: "en", "en-US", "English", ...
+# If not set or set to "*", the language will be detected automatically.
+LANGUAGE=*
+
+# Prompt to use for the model. This can be used to provide context to the model, to encourage disfluencies or a special behaviour regarding punctuation and capitalization.
+PROMPT=
+
+# An alignment wav2vec model can be used to get word timestamps.
+# It can be a path to a model, a language code (fr, en, ...), or "wav2vec" to automatically chose a model for the language
+# This option is experimental (and not implemented with ctranslate2).
+# ALIGNMENT_MODEL=wav2vec
+
+# Voice Activity Detection (VAD) method
+# It can be either "0"/"false" (no VAD), "silero", or "1"/"true"/"auditok" (by default)
+# VAD=auditok
+
+# Voice Activity Detection (VAD) parameters
+# VAD_DILATATION=0.1                # Time to add before and after the detected speech
+# VAD_MIN_SPEECH_DURATION=0.1       # Minimum duration of speech to keep
+# VAD_MIN_SILENCE_DURATION=0.1      # Minimum duration of silence to keep
+
+# Streaming parameters
+# STREAMING_MIN_CHUNK_SIZE=26           # Minimum size of the buffer before transcribing
+# STREAMING_BUFFER_TRIMMING_SEC=5       # Maximum targeted size of the buffer after a transcription
+# STREAMING_PAUSE_FOR_FINAL=2           # The minimum duration of silence (in seconds) needed to be able to output a final
+# STREAMING_TIMEOUT_FOR_SILENCE=1.5     # Will consider that silence is detected if no audio is received for the duration of the paquet (dtermined from the first message) * this variable
+
+# USE_ACCURATE=true       # Use more expensive parameters that will slow down transcription but for better accuracy
+
+############################################
+# EFFICIENCY PARAMETERS
+############################################
+
+# Device to use. It can be "cuda" to force/check GPU, "cpu" to force computation on CPU, or a specific GPU ("cuda:0", "cuda:1", ...)
+# DEVICE=cuda
+# CUDA_DEVICE_ORDER=PCI_BUS_ID
+# CUDA_VISIBLE_DEVICES=0
+
+# Number of threads per worker when running on CPU
+# NUM_THREADS=4
+
+# Number of workers minus one (all except from the main one)
+CONCURRENCY=2

@@ -1,4 +1,87 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+env-test/
+
+CLAUDE.md
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+pytest_debug.log
+
+# Environnements virtuels
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv_bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Fichiers de configuration locaux
 .env
+.env.local
+.env*.local
+.env*.dev
+.env*.test
+.env*.prod
+
+# Fichiers de logs et de base de données
+*.log
+*.sqlite
+*.db
+*.sqlite3
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers de build (C extensions, etc.)
+*.so
+
+# Fichiers de cache
+__pycache__/
+*.pyc
+
 tmp*
-test.log
-__pycache__

@@ -1,0 +1,76 @@
+[project]
+name = "linto-stt"
+version = "2.0.0"
+description = "Automatic Speech Recognition API with support for multiple STT backends"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "celery>=5.6.2",
+    "python-dotenv>=0.9.9",
+    "fastapi>=0.121.0",
+    "lockfile>=0.12.2",
+    "python-multipart>=0.0.20",
+    "redis>=7.1.0",
+    "regex>=2025.11.3",
+    "uvicorn>=0.38.0",
+    "websockets>=15.0.1",
+]
+
+[project.scripts]
+linto-stt = "linto_stt:main"
+
+[project.optional-dependencies]
+nemo = [
+    "auditok>=0.3.0",
+    "nemo-toolkit[asr]>=2.5.2",
+    "onnx==1.18",
+    "torchaudio>=2.9.0",
+    "torchcodec>=0.9.1",
+    "wavio>=0.0.9",
+]
+moshi = []
+
+whisper = [
+    "faster-whisper>=1.2.1",
+    "wavio>=0.0.9",
+    "auditok>=0.3.0",
+]
+
+whisper-torch = [
+    "whisper-timestamped>=1.15.9",
+    "torchaudio>=2.9.0",
+    "torchcodec>=0.9.1",
+    "wavio>=0.0.9",
+    "auditok>=0.3.0",
+]
+kaldi = [
+    "simple-websocket>=1.1.0",
+    "vosk>=0.3.45",
+    "wavio>=0.0.9",
+]
+recasepunc = [
+    "torch>=2.0.0",
+    "transformers>=4.30.0",
+]
+kyutai = [
+    "msgpack>=1.1.2",
+]
+test = [
+    "pytest>=8.0",
+    "pytest-timeout>=2.2",
+    "requests>=2.31",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "docker: Tests Docker (build + run container)",
+    "uv: Tests via UV subprocess",
+    "gpu: Requiert CUDA",
+    "nemo: Backend NeMo",
+    "whisper: Backend Whisper",
+    "kaldi: Backend Kaldi",
+    "slow: Tests > 2 minutes",
+]
+addopts = "-v --tb=short"
+timeout = 900

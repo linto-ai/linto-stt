@@ -4,19 +4,316 @@ LinTO-STT is an API for Automatic Speech Recognition (ASR).
 
 LinTO-STT can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
-It can be used to do offline or real-time transcriptions.
+It supports both offline and real-time (streaming) transcriptions.
 
-The following families of STT models are currently supported (please refer to respective documentation for more details):
-* [Kaldi models](kaldi/README.md)
-* [Whisper models](whisper/README.md)
-* [Nemo models](nemo/README.md)
-* [Kyutai Moshi STT](kyutai/README.md) (streaming only)
+## Engines
 
-Some functional tests can be found in [the `test/` subfolder](test/README.md).
+The following STT engines are supported (see each README for engine-specific details):
 
-LinTO-STT can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
+| Engine                                         | Description              | Modes                 |
+| ---------------------------------------------- | ------------------------ | --------------------- |
+| [NeMo](linto_stt/engines/nemo/README.md)       | NVIDIA NeMo toolkit      | http, websocket, task |
+| [Whisper](linto_stt/engines/whisper/README.md) | OpenAI Whisper models    | http, websocket, task |
+| [Kaldi](linto_stt/engines/kaldi/README.md)     | Kaldi/Vosk toolkit       | http, websocket, task |
+| [Kyutai](linto_stt/engines/kyutai/README.md)   | Kyutai Moshi STT wrapper | websocket only        |
 
-You can try LinTO-STT directly in your browser via [LinTO Studio](https://studio.linto.app/).
+## Install
+
+### Local (development)
+
+```sh
+apt install python3-pyaudio portaudio19-dev
+```
+
+```sh
+uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|kyutai|recasepunc]
+```
+
+### Docker
+
+#### Build
+
+A single Dockerfile is used for all engines. Specify the engine with `--build-arg STT_ENGINE`:
+
+```sh
+docker build -t linto-stt-nemo:latest --build-arg STT_ENGINE=nemo .
+docker build -t linto-stt-whisper:latest --build-arg STT_ENGINE=whisper .
+docker build -t linto-stt-kaldi:latest --build-arg STT_ENGINE=kaldi .
+docker build -t linto-stt-kyutai:latest --build-arg STT_ENGINE=kyutai .
+
+# Avec GPU (cuBLAS + cuDNN pour ctranslate2, ajoute ~1.3GB)
+docker build -t linto-stt-whisper-gpu:latest \
+  --build-arg STT_ENGINE=whisper --build-arg GPU=1 .
+
+# Avec recasepunc (ponctuation + recasing, ajoute torch CPU ~1.2GB)
+docker build -t linto-stt-kaldi-recasepunc:latest \
+  --build-arg STT_ENGINE=kaldi --build-arg EXTRA_DEPS=recasepunc .
+```
+
+Or pull pre-built images:
+
+```sh
+docker pull lintoai/linto-stt-nemo
+docker pull lintoai/linto-stt-whisper
+docker pull lintoai/linto-stt-whisper-gpu
+docker pull lintoai/linto-stt-kaldi
+docker pull lintoai/linto-stt-kaldi-recasepunc
+```
+
+#### Run
+
+```sh
+# HTTP mode (file transcription)
+docker run -p 8080:80 -e SERVICE_MODE=http -e STT_ENGINE=nemo \
+  --env-file .env linto-stt-nemo:latest
+
+# WebSocket mode (streaming)
+docker run -p 8080:80 -e SERVICE_MODE=websocket -e STT_ENGINE=nemo \
+  --env-file .env linto-stt-nemo:latest
+
+# Celery task mode (async via message broker)
+docker run -e SERVICE_MODE=task -e STT_ENGINE=nemo \
+  -v ~/data/audio:/opt/audio \
+  --env-file .env linto-stt-nemo:latest
+```
+
+## Run (local)
+
+```sh
+# HTTP / Websocket
+uv run main.py -m [http|websocket] -e [kaldi|whisper|nemo|kyutai] -p [listening_port] -i [listening_ip]
+
+# Celery
+uv run main.py -m task -e [kaldi|whisper|nemo]
+```
+
+## Serving Modes
+
+![Serving Modes](https://i.ibb.co/qrtv3Z6/platform-stt.png)
+
+STT can be used in three ways:
+
+- **HTTP** (`SERVICE_MODE=http`): Deploys a HTTP server with a Swagger UI. Send audio files via POST requests.
+- **WebSocket** (`SERVICE_MODE=websocket`): Deploys a WebSocket server for real-time streaming transcription.
+- **Celery Task** (`SERVICE_MODE=task`): Connects a Celery worker to a message broker for async processing. Requires `SERVICES_BROKER` to be set.
+
+## Docker Options
+
+- **GPU**: Add `--gpus all` and set `DEVICE=cuda`. For Whisper (ctranslate2), use the GPU image (`linto-stt-whisper-gpu`) which includes the CUDA runtime libraries (cuBLAS, cuDNN). On multi-GPU machines, use `CUDA_VISIBLE_DEVICES` to select a specific GPU.
+- **Cache mount**: Mount a local cache folder to avoid re-downloading models each time:
+  ```sh
+  -v ~/.cache:/var/www/.cache
+  ```
+  If `USER_ID`/`GROUP_ID` are set, use `/home/appuser/.cache` instead.
+- **Model volume**: Mount a local model file or folder:
+  ```sh
+  -v /path/to/model.nemo:/opt/model.nemo
+  ```
+- **User/Group**: Set `USER_ID` and `GROUP_ID` to avoid file permission issues with mounted volumes (default: `33`, www-data).
+
+Full example:
+
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+  -e SERVICE_MODE=websocket \
+  -e MODEL=linagora/linto_stt_fr_fastconformer \
+  -e ARCHITECTURE=hybrid_bpe \
+  -e DEVICE=cuda \
+  -e USER_ID=$(id -u) \
+  -e GROUP_ID=$(id -g) \
+  --gpus all \
+  -v ~/.cache:/home/appuser/.cache \
+  lintoai/linto-stt-nemo
+```
+
+## API Reference
+
+### HTTP API
+
+#### GET /healthcheck
+
+Returns `"1"` if the service is running.
+
+#### POST /transcribe
+
+Transcription endpoint.
+
+- **Content-Type**: `multipart/form-data`
+- **File**: Audio file (WAV 16bit 16kHz recommended)
+- **Language** (optional query param): Override the `LANGUAGE` environment variable
+
+Response (`Accept: application/json`):
+
+```json
+{
+    "text": "This is the transcription as text",
+    "words": [
+        {"word": "This", "start": 0.0, "end": 0.124, "conf": 0.82341},
+        ...
+    ],
+    "language": "en",
+    "confidence-score": 0.879
+}
+```
+
+With `Accept: text/plain`, returns only the raw text.
+
+#### GET /docs
+
+Swagger/OpenAPI interface.
+
+### WebSocket Protocol
+
+The streaming protocol follows these steps:
+
+1. Client sends a JSON config: `{"config": {"sample_rate": 16000}}`
+2. Client sends audio chunks (binary) → go to 3, or `{"eof": 1}` → go to 5
+3. Server sends a partial `{"partial": "this is a "}` or final `{"text": "this is a transcription"}` result
+4. Back to 2
+5. Server sends a final result and closes the connection
+
+Final results are triggered by punctuation marks detected by the model, silence (`STREAMING_PAUSE_FOR_FINAL`), or as a fallback by `STREAMING_FINAL_MAX_DURATION`.
+
+### Celery Task Format
+
+In task mode, operations are triggered via tasks sent through the message broker. A shared storage folder must be mounted to `/opt/audio` (e.g. `-v ~/data/audio:/opt/audio`).
+
+Worker arguments: `file_path: str, with_metadata: bool`
+
+- **file_path**: Location of the file within the shared folder
+- **with_metadata**: If `True`, word timestamps and confidence are computed
+
+Response format is the same as the HTTP JSON response.
+
+The celery tasks can be managed using [LinTO Transcription service](https://github.com/linto-ai/linto-transcription-service).
+
+## Punctuation Model (recasepunc)
+
+If your model outputs lower-case text without punctuation, you can use a recasepunc model (version 0.4+) to add punctuation marks to final results.
+
+> L'image doit être buildée avec `--build-arg EXTRA_DEPS=recasepunc`.
+
+Available models trained on [Common Crawl](http://data.statmt.org/cc-100/):
+
+- French: [fr.24000](https://github.com/benob/recasepunc/releases/download/0.4/fr.24000)
+- English: [en.22000](https://github.com/benob/recasepunc/releases/download/0.4/en.22000)
+- Italian: [it.23000](https://github.com/benob/recasepunc/releases/download/0.4/it.23000)
+- Chinese: [zh-Hant.17000](https://github.com/benob/recasepunc/releases/download/0.4/zh-Hant.17000)
+
+Mount the model and set the `PUNCTUATION_MODEL` variable:
+
+```sh
+-v /path/to/fr.24000:/opt/models/fr.24000 -e PUNCTUATION_MODEL=/opt/models/fr.24000
+```
+
+## Configuration
+
+See [ENV.md](ENV.md) for a complete reference of all environment variables.
+
+### Engine Quick Configs
+
+**Nemo** (French):
+
+```
+ARCHITECTURE=hybrid_bpe_rnnt
+MODEL=linagora/linto_stt_fr_fastconformer
+```
+
+**Kaldi** (Vosk model):
+
+```
+MODEL_PATH=/path/to/vosk_model
+MODEL_TYPE=vosk
+```
+
+**Kyutai** (requires a running [moshi server](https://github.com/kyutai-labs/delayed-streams-modeling)):
+
+```
+KYUTAI_URL=ws://localhost:9002
+```
+
+## Testing
+
+### Manual test
+
+```sh
+curl -X POST "http://localhost:8080/transcribe" \
+  -H "accept: application/json" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@tests/bonjour.wav;type=audio/wav"
+```
+
+### Automated test suite (pytest)
+
+Install the engine you want to test along with the `test` extra:
+
+```sh
+uv sync --extra nemo --extra test
+```
+
+Example commands:
+
+```sh
+# All NeMo tests (UV only, no Docker)
+uv run pytest -m nemo --uv-only
+
+# Docker tests only
+uv run pytest -m docker
+
+# NeMo CPU, no Docker
+uv run pytest test/test_nemo.py -m "not docker and not gpu"
+
+# Whisper on GPU
+uv run pytest -m whisper --device cuda
+
+# Kaldi (requires model paths)
+uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
+```
+
+**CLI options:**
+
+| Option             | Description                                                 |
+| ------------------ | ----------------------------------------------------------- |
+| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`) |
+| `--device`         | Target device: `cpu` (default) or `cuda`                    |
+| `--uv-only`        | Only run UV-based tests (skip Docker)                       |
+| `--docker-only`    | Only run Docker-based tests                                 |
+| `--server-timeout` | Timeout in seconds for server startup (default: 600)        |
+| `--kaldi-am-path`  | Path to Kaldi acoustic model                                |
+| `--kaldi-lm-path`  | Path to Kaldi language model                                |
+
+**Markers:**
+
+| Marker    | Description                                 |
+| --------- | ------------------------------------------- |
+| `nemo`    | Engine NeMo                                 |
+| `whisper` | Engine Whisper                              |
+| `kaldi`   | Engine Kaldi                                |
+| `docker`  | Tests that build and run a Docker container |
+| `uv`      | Tests via UV subprocess                     |
+| `gpu`     | Requires CUDA                               |
+| `slow`    | Tests taking > 2 minutes                    |
+
+## Examples
+
+The `examples/demo_streaming/` directory contains quick-and-dirty demo pages for testing WebSocket streaming transcription:
+
+- **`audioprocessor.html`** — uses the deprecated ScriptProcessor API
+- **`worklet.html`** — uses the modern AudioWorklet API (+ `audio-processor.js`)
+
+Both pages accept a `?server=ws://host:port/streaming` query parameter to point at your STT server.
+
+To serve them locally:
+
+```sh
+cd examples/demo_streaming/
+python3 -m http.server
+```
+
+Then open e.g. `http://localhost:8000/worklet.html?server=ws://localhost:8080/streaming`.
+
+For production use, see [WebVoiceSDK](https://github.com/linto-ai/WebVoiceSDK).
 
 ## License
-This project is developped under the AGPLv3 License (see LICENSE).
+
+This project is licensed under AGPLv3 (see LICENSE).
