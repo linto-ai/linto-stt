@@ -37,8 +37,6 @@ if STREAMING_TIMEOUT_FOR_SILENCE:
 STREAMING_MAX_WORDS_IN_BUFFER=int(os.environ.get("STREAMING_MAX_WORDS_IN_BUFFER", 5))
 STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=float(os.environ.get("STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND", 4))
 
-ATT_CONTEXT_SIZE = int(os.environ.get("ATT_CONTEXT_SIZE", 128))  # Local attention window in encoder frames (~80ms each). 128 frames ≈ 10s context per side. Set to -1 for full attention.
-
 LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", 9*60))  # 9*60=9mins
 LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", 6*60))  # 6*60=6mins. Size of chunk to divide the long file into
 LONG_FILE_CHUNK_CONTEXT_LEN = int(os.environ.get("LONG_FILE_CHUNK_CONTEXT_LEN", 5))    # Size of the context of the chunk (10 means 10s before and 10 after)
