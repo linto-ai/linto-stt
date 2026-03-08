@@ -66,7 +66,6 @@ def decode_encoder(
         hypothesis.language = language
         result = format_nemo_response(hypothesis, from_dict=False, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
     del hypothesis
-    torch.cuda.empty_cache()
     return result
 
 
