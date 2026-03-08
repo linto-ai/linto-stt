@@ -7,7 +7,6 @@ import asyncio
 import re
 import os
 import time
-import torch
 import nemo.collections.asr as nemo_asr
 
 from concurrent.futures import ThreadPoolExecutor
@@ -252,7 +251,6 @@ class StreamingASRProcessor:
             [audio_speech], return_hypotheses=True, timestamps=True, verbose=False)[0]
         formatted_words = self.format_words(
             hypothesis.timestamp['word'], conversion_function if self.vad else None)
-        torch.cuda.empty_cache()
         return formatted_words, hypothesis
 
     def process_iter(self):
