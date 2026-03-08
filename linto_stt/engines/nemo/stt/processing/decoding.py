@@ -60,14 +60,12 @@ def decode_encoder(
             f"Audio last more than {LONG_FILE_THRESHOLD/60}min, splitting the decoding")
         hypothesis = stream_long_file(audio, model)
         hypothesis['language'] = language
-        result = format_nemo_response(hypothesis, from_dict=True, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
+        return format_nemo_response(hypothesis, from_dict=True, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
     else:
-        hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[0]
+        hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[
+            0]      # /!\ Will run out of memory on long audios
         hypothesis.language = language
-        result = format_nemo_response(hypothesis, from_dict=False, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
-    del hypothesis
-    torch.cuda.empty_cache()
-    return result
+        return format_nemo_response(hypothesis, from_dict=False, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
 
 
 def contains_alphanum(text: str) -> bool:
