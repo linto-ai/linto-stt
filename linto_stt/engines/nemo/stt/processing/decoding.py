@@ -16,7 +16,6 @@ from linto_stt.engines.nemo.stt import (
 )
 
 from .vad import remove_non_speech
-from .text_normalize import normalize_text, remove_emoji, remove_punctuation
 from .utils import SAMPLE_RATE, get_language
 
 default_prompt = os.environ.get("PROMPT", None)
@@ -27,7 +26,6 @@ def decode(
     model_and_alignementmodel,  # Tuple[model, alignment_model]
     with_word_timestamps: bool,
     language: str = None,
-    remove_punctuation_from_words=False,
 ) -> dict:
     language = get_language(language)
     kwargs = copy.copy(locals())
@@ -48,7 +46,6 @@ def decode_encoder(
     model,
     with_word_timestamps,
     language,
-    remove_punctuation_from_words,
     **kwargs,
 ):
     if VAD:
@@ -60,29 +57,23 @@ def decode_encoder(
             f"Audio last more than {LONG_FILE_THRESHOLD/60}min, splitting the decoding")
         hypothesis = stream_long_file(audio, model)
         hypothesis['language'] = language
-        return format_nemo_response(hypothesis, from_dict=True, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
+        return format_nemo_response(hypothesis, from_dict=True, with_word_timestamps=with_word_timestamps)
     else:
         hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[
             0]      # /!\ Will run out of memory on long audios
         hypothesis.language = language
-        return format_nemo_response(hypothesis, from_dict=False, remove_punctuation_from_words=remove_punctuation_from_words, with_word_timestamps=with_word_timestamps)
-
-
-def contains_alphanum(text: str) -> bool:
-    return re.search(r"[^\W\'\-_]", text)
+        return format_nemo_response(hypothesis, from_dict=False, with_word_timestamps=with_word_timestamps)
 
 
 def format_nemo_response(
-    hypothesis, from_dict=False, remove_punctuation_from_words=False, with_word_timestamps=False
+    hypothesis, from_dict=False, with_word_timestamps=False
 ):
     words = []
     if from_dict:
         if with_word_timestamps:
             if hypothesis.get('word_confidence', False):
                 for word, conf in zip(hypothesis['timestamp']['word'], hypothesis['word_confidence']):
-                    text = remove_punctuation_from_words(
-                        word['word']) if remove_punctuation_from_words else word['word']
-                    words.append({'word': text, 'start': round(
+                    words.append({'word': word['word'], 'start': round(
                         word['start'], 2), 'end': round(word['end'], 2), 'conf': conf})
                 return {
                     "text": hypothesis['text'].strip(),
@@ -93,9 +84,7 @@ def format_nemo_response(
                 }
             else:
                 for word in hypothesis['timestamp']['word']:
-                    text = remove_punctuation_from_words(
-                        word['word']) if remove_punctuation_from_words else word['word']
-                    words.append({'word': text, 'start': round(
+                    words.append({'word': word['word'], 'start': round(
                         word['start'], 2), 'end': round(word['end'], 2)})
         return {
             "text": hypothesis['text'].strip(),
@@ -106,9 +95,7 @@ def format_nemo_response(
         if with_word_timestamps:
             if hypothesis.word_confidence:
                 for word, conf in zip(hypothesis.timestamp['word'], hypothesis.word_confidence):
-                    text = remove_punctuation_from_words(
-                        word['word']) if remove_punctuation_from_words else word['word']
-                    words.append({'word': text, 'start': round(
+                    words.append({'word': word['word'], 'start': round(
                         word['start'], 2), 'end': round(word['end'], 2), 'conf': conf})
                 return {
                     "text": hypothesis.text.strip(),
@@ -119,9 +106,7 @@ def format_nemo_response(
                 }
             else:
                 for word in hypothesis.timestamp['word']:
-                    text = remove_punctuation_from_words(
-                        word['word']) if remove_punctuation_from_words else word['word']
-                    words.append({'word': text, 'start': round(
+                    words.append({'word': word['word'], 'start': round(
                         word['start'], 2), 'end': round(word['end'], 2)})
         return {
             "text": hypothesis.text.strip(),
