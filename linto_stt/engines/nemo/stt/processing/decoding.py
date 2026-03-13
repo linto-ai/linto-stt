@@ -41,6 +41,7 @@ def decode(
     return res
 
 
+@torch.no_grad()
 def decode_encoder(
     audio,
     model,
@@ -48,6 +49,7 @@ def decode_encoder(
     language,
     **kwargs,
 ):
+    model.eval()
     if VAD:
         audio_speech, _, _ = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION,
                                                min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, avoid_empty_speech=True)
