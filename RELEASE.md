@@ -1,3 +1,6 @@
+# 2.1.0
+- Fix memory leak in NeMo engine
+
 # 2.0.0
 - Project restructuring: all engines (whisper, nemo, kaldi, kyutai) unified under a single `linto_stt` Python package
 - Migration to [UV](https://docs.astral.sh/uv/) for dependency management, replacing `requirements.txt` with `pyproject.toml` and `uv.lock`
