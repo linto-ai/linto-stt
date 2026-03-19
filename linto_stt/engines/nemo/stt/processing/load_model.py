@@ -19,19 +19,18 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("nemo_logger").setLevel(logging.ERROR)
 
 
-def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybridRNNTCTCModel, device="cpu", download_root=None, decoding_strategy_if_hybrid="ctc"):
+def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decoding_strategy_if_hybrid="ctc"):
     start = time.time()
     logger.info(f"Loading Nemo model {model_type_or_file}...")
     default_cache_root = os.path.join(os.path.expanduser("~"), ".cache")
     if download_root is None:
         download_root = default_cache_root
     if model_type_or_file.endswith(".nemo"):
-        model = model_class.restore_from(
+        model = nemo_asr.models.ASRModel.restore_from(
             model_type_or_file, map_location=device)
     else:
-        model = model_class.from_pretrained(
+        model = model = nemo_asr.models.ASRModel.from_pretrained(
             model_type_or_file, map_location=device)
-        # model = nemo_asr.models.ASRModel.from_pretrained(model_type_or_file, map_location=device)     # todo: make architecture optional if use remote by using this line
     logger.info(f"Nemo model loaded. (t={time.time() - start:.2f}s)")
     if isinstance(model, nemo_asr.models.EncDecRNNTModel):
         if isinstance(model, nemo_asr.models.EncDecHybridRNNTCTCModel):
