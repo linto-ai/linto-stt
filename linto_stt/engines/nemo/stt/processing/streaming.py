@@ -12,6 +12,7 @@ import nemo.collections.asr as nemo_asr
 from concurrent.futures import ThreadPoolExecutor
 from .vad import remove_non_speech
 from .utils import get_language
+from .decoding import nemo_transcribe
 from linto_stt.punctuation.recasepunc import apply_recasepunc
 from linto_stt.engines.nemo.stt import (
     logger,
@@ -75,7 +76,9 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             await ws.close(reason="Failed to load configuration")
 
         model, punctuation_model = model_and_alignementmodel
+        language = get_language(config.get("language"))
         streaming_processor = StreamingASRProcessor(model,
+                                                    kwargs={"language": language},
                                                     buffer_trimming=STREAMING_BUFFER_TRIMMING_SEC, pause_for_final=STREAMING_PAUSE_FOR_FINAL, max_words_in_buffer=STREAMING_MAX_WORDS_IN_BUFFER,
                                                     vad=VAD, dilatation=VAD_DILATATION, min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION,
                                                     final_min_duration=STREAMING_FINAL_MIN_DURATION,
@@ -192,6 +195,7 @@ class StreamingASRProcessor:
         final_min_duration=2,
         final_max_duration=10,
         streaming_pause_for_final=1,
+        kwargs={},
     ):
         self.model: nemo_asr.models.EncDecCTCModel = model
         self.logfile = logfile
@@ -210,6 +214,7 @@ class StreamingASRProcessor:
         self.final_min_duration = final_min_duration
         self.final_max_duration = final_max_duration
         self.streaming_pause_for_final = streaming_pause_for_final
+        self.kwargs = kwargs
 
     def init(self):
         """run this when starting or restarting processing"""
@@ -247,8 +252,7 @@ class StreamingASRProcessor:
         return word_list
 
     def transcribe(self, audio_speech, conversion_function):
-        hypothesis = self.model.transcribe(
-            [audio_speech], return_hypotheses=True, timestamps=True, verbose=False)[0]
+        hypothesis = nemo_transcribe(self.model, [audio_speech], self.kwargs | {"verbose": False})[0]
         formatted_words = self.format_words(
             hypothesis.timestamp['word'], conversion_function if self.vad else None)
         return formatted_words, hypothesis

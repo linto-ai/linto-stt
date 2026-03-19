@@ -57,14 +57,30 @@ def decode_encoder(
     if len(audio) > SAMPLE_RATE*LONG_FILE_THRESHOLD:
         logger.info(
             f"Audio last more than {LONG_FILE_THRESHOLD/60}min, splitting the decoding")
-        hypothesis = stream_long_file(audio, model)
+        hypothesis = stream_long_file(audio, model, source_lang=language)
         hypothesis['language'] = language
         return format_nemo_response(hypothesis, from_dict=True, with_word_timestamps=with_word_timestamps)
     else:
-        hypothesis = model.transcribe([audio], return_hypotheses=True, timestamps=True)[
-            0]      # /!\ Will run out of memory on long audios
+        # /!\ Will run out of memory on long audios
+        hypothesis = nemo_transcribe(model, [audio], {"language": language})[0]
         hypothesis.language = language
         return format_nemo_response(hypothesis, from_dict=False, with_word_timestamps=with_word_timestamps)
+
+def nemo_transcribe(model, audios, kwargs):
+    support_language = isinstance(model, nemo_asr.models.EncDecMultiTaskModel)
+    # Note: nemo_asr.models.EncDecMultiTaskModel also should support the options:
+    # - task="asr",
+    # - pnc="yes",
+    # - answer="na",
+    if "language" in kwargs:
+        language = kwargs.pop("language")
+        kwargs["source_lang"] = language
+        kwargs["target_lang"] = language
+    if kwargs.get("source_lang") in ("unknown", "*") or not support_language:
+        kwargs.pop("source_lang")
+    if kwargs.get("target_lang") in ("unknown", "*") or not support_language:
+        kwargs.pop("target_lang")
+    return model.transcribe(audios, return_hypotheses=True, timestamps=True, **kwargs)
 
 
 def format_nemo_response(
@@ -136,13 +152,14 @@ def get_chunks(samples, frame_duration, sample_rate, context_duration=0):
 
 class ChunkBufferDecoder:
 
-    def __init__(self, asr_model, chunk_len_in_secs=1, context_len_in_secs=3):
+    def __init__(self, asr_model, chunk_len_in_secs=1, context_len_in_secs=3, kwargs={}):
         self.asr_model = asr_model
         self.asr_model.eval()
         self.buffers = []
         self.all_preds = []
         self.chunk_len = chunk_len_in_secs
         self.context_len = context_len_in_secs
+        self.kwargs = kwargs
 
     @torch.no_grad()
     def transcribe_buffers(self, buffers):
@@ -151,8 +168,7 @@ class ChunkBufferDecoder:
         return self.merge_results()
 
     def _get_batch_preds(self, buffers):
-        hypothesis = self.asr_model.transcribe(
-            buffers, return_hypotheses=True, timestamps=True, batch_size=2)
+        hypothesis = nemo_transcribe(self.asr_model, buffers, self.kwargs | {"batch_size": 2})
         self.all_preds = hypothesis
 
     def merge_results(self):
@@ -182,10 +198,10 @@ class ChunkBufferDecoder:
         return result
 
 
-def stream_long_file(audio, model):
+def stream_long_file(audio, model, **kwargs):
     buffer_list = get_chunks(audio, LONG_FILE_CHUNK_LEN,
                              SAMPLE_RATE, LONG_FILE_CHUNK_CONTEXT_LEN)
     asr_decoder = ChunkBufferDecoder(
-        model, chunk_len_in_secs=LONG_FILE_CHUNK_LEN, context_len_in_secs=LONG_FILE_CHUNK_CONTEXT_LEN)
+        model, chunk_len_in_secs=LONG_FILE_CHUNK_LEN, context_len_in_secs=LONG_FILE_CHUNK_CONTEXT_LEN, kwargs=kwargs)
     result = asr_decoder.transcribe_buffers(buffer_list)
     return result
