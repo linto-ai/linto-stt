@@ -27,10 +27,17 @@ def get_device():
 
 def get_language(language = None):
     """
-    Get the language from the environment variable LANGUAGE, and format as expected by Whisper.
+    Get the language from the environment variable LANGUAGE, and format as expected by NeMo (if supported).
     """
     if language is None:
-        language = os.environ.get("LANGUAGE", None)
+        language = os.environ.get("LANGUAGE", "*")
+    # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
+    language_fields = language.split("-")
+    if len(language_fields) == 2:
+        language = language_fields[0]
+    # "*" means "all languages"
+    if language == "*":
+        language = None
     if language is None:
         language = "unknown"
     return language
