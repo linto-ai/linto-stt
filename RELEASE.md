@@ -1,6 +1,9 @@
 # 2.1.0
-- Fix memory leak in NeMo engine
-- Add local attention support for NeMo engine
+- NeMo engine updates:
+    - Fix memory leak
+    - Fix timestamps when VAD is enabled
+    - Add support for specified (source and target) language
+    - Add local attention support
 
 # 2.0.0
 - Project restructuring: all engines (whisper, nemo, kaldi, kyutai) unified under a single `linto_stt` Python package

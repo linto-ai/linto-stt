@@ -50,8 +50,9 @@ def decode_encoder(
     **kwargs,
 ):
     model.eval()
+    conversion_function = None
     if VAD:
-        audio_speech, _, _ = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION,
+        audio_speech, _, conversion_function = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION,
                                                min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, avoid_empty_speech=True)
         audio = audio_speech
     if len(audio) > SAMPLE_RATE*LONG_FILE_THRESHOLD:
@@ -59,12 +60,12 @@ def decode_encoder(
             f"Audio last more than {LONG_FILE_THRESHOLD/60}min, splitting the decoding")
         hypothesis = stream_long_file(audio, model, source_lang=language)
         hypothesis['language'] = language
-        return format_nemo_response(hypothesis, from_dict=True, with_word_timestamps=with_word_timestamps)
+        return format_nemo_response(hypothesis, from_dict=True, with_word_timestamps=with_word_timestamps, conversion_function=conversion_function)
     else:
         # /!\ Will run out of memory on long audios
         hypothesis = nemo_transcribe(model, [audio], {"language": language})[0]
         hypothesis.language = language
-        return format_nemo_response(hypothesis, from_dict=False, with_word_timestamps=with_word_timestamps)
+        return format_nemo_response(hypothesis, from_dict=False, with_word_timestamps=with_word_timestamps, conversion_function=conversion_function)
 
 def nemo_transcribe(model, audios, kwargs):
     support_language = isinstance(model, nemo_asr.models.EncDecMultiTaskModel)
@@ -83,16 +84,22 @@ def nemo_transcribe(model, audios, kwargs):
     return model.transcribe(audios, return_hypotheses=True, timestamps=True, **kwargs)
 
 
+def _convert_timestamps(start, end, conversion_function):
+    if conversion_function is not None:
+        start, end = conversion_function(start, end)
+    return round(start, 2), round(end, 2)
+
+
 def format_nemo_response(
-    hypothesis, from_dict=False, with_word_timestamps=False
+    hypothesis, from_dict=False, with_word_timestamps=False, conversion_function=None
 ):
     words = []
     if from_dict:
         if with_word_timestamps:
             if hypothesis.get('word_confidence', False):
                 for word, conf in zip(hypothesis['timestamp']['word'], hypothesis['word_confidence']):
-                    words.append({'word': word['word'], 'start': round(
-                        word['start'], 2), 'end': round(word['end'], 2), 'conf': conf})
+                    start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
+                    words.append({'word': word['word'], 'start': start, 'end': end, 'conf': conf})
                 return {
                     "text": hypothesis['text'].strip(),
                     "language": hypothesis.get('language', None),
@@ -102,8 +109,8 @@ def format_nemo_response(
                 }
             else:
                 for word in hypothesis['timestamp']['word']:
-                    words.append({'word': word['word'], 'start': round(
-                        word['start'], 2), 'end': round(word['end'], 2)})
+                    start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
+                    words.append({'word': word['word'], 'start': start, 'end': end})
         return {
             "text": hypothesis['text'].strip(),
             "language": hypothesis.get('language', None),
@@ -113,8 +120,8 @@ def format_nemo_response(
         if with_word_timestamps:
             if hypothesis.word_confidence:
                 for word, conf in zip(hypothesis.timestamp['word'], hypothesis.word_confidence):
-                    words.append({'word': word['word'], 'start': round(
-                        word['start'], 2), 'end': round(word['end'], 2), 'conf': conf})
+                    start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
+                    words.append({'word': word['word'], 'start': start, 'end': end, 'conf': conf})
                 return {
                     "text": hypothesis.text.strip(),
                     "language": hypothesis.language,
@@ -124,8 +131,8 @@ def format_nemo_response(
                 }
             else:
                 for word in hypothesis.timestamp['word']:
-                    words.append({'word': word['word'], 'start': round(
-                        word['start'], 2), 'end': round(word['end'], 2)})
+                    start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
+                    words.append({'word': word['word'], 'start': start, 'end': end})
         return {
             "text": hypothesis.text.strip(),
             "language": hypothesis.language,
