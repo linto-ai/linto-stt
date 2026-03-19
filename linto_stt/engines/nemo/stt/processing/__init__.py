@@ -93,5 +93,7 @@ try:
     if USE_GPU or os.environ.get("SERVICE_MODE", "http") == "websocket":
         warmup()
 except Exception as err:
+    import traceback
+    logger.error(traceback.format_exc())
     raise Exception(
         "Failed to load transcription model: {}".format(str(err))) from err
