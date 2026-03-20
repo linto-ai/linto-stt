@@ -22,7 +22,7 @@ __all__ = [
 def warmup():
     model.check_loaded()
     audio = load_audiofile("tests/bonjour.wav")
-    transcription = decode(audio, MODEL, False)
+    transcription = decode(audio, MODEL, True)
     logger.info(f"Warmup result: {transcription}")
 
 
