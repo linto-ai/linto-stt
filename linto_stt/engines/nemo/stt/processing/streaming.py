@@ -7,6 +7,7 @@ import asyncio
 import re
 import os
 import time
+import torch
 import nemo.collections.asr as nemo_asr
 
 from concurrent.futures import ThreadPoolExecutor
@@ -293,6 +294,8 @@ class StreamingASRProcessor:
                 chunk_silence=self.vad,
                 speech_segments=segments if self.vad else False,
             )
+        del raw_transcript
+        torch.cuda.empty_cache()
 
         logger.debug(
             f"Len of buffer now: {len(self.audio_buffer)/self.sampling_rate:2.2f}s"

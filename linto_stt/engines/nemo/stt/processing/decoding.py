@@ -41,7 +41,6 @@ def decode(
     return res
 
 
-@torch.no_grad()
 def decode_encoder(
     audio,
     model,
@@ -67,6 +66,7 @@ def decode_encoder(
         hypothesis.language = language
         return format_nemo_response(hypothesis, from_dict=False, with_word_timestamps=with_word_timestamps, conversion_function=conversion_function)
 
+@torch.no_grad()
 def nemo_transcribe(model, audios, kwargs):
     support_language = isinstance(model, nemo_asr.models.EncDecMultiTaskModel)
     # Note: nemo_asr.models.EncDecMultiTaskModel also should support the options:
