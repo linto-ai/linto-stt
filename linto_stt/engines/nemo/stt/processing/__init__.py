@@ -57,6 +57,9 @@ class LazyLoadedModel:
         self.check_num_threads()
         return self._model(*args, **kwargs)
 
+    @property
+    def __class__(self):
+        return self._model.__class__
 
 # Set informative log
 logger.setLevel(logging.INFO)

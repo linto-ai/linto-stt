@@ -57,7 +57,7 @@ def decode_encoder(
     if len(audio) > SAMPLE_RATE*LONG_FILE_THRESHOLD:
         logger.info(
             f"Audio last more than {LONG_FILE_THRESHOLD/60}min, splitting the decoding")
-        hypothesis = stream_long_file(audio, model, source_lang=language)
+        hypothesis = stream_long_file(audio, model, language=language)
         hypothesis['language'] = language
         return format_nemo_response(hypothesis, from_dict=True, with_word_timestamps=with_word_timestamps, conversion_function=conversion_function)
     else:
@@ -75,11 +75,14 @@ def nemo_transcribe(model, audios, kwargs):
     # - answer="na",
     if "language" in kwargs:
         language = kwargs.pop("language")
-        kwargs["source_lang"] = language
-        kwargs["target_lang"] = language
-    if kwargs.get("source_lang") in ("unknown", "*") or not support_language:
+        if support_language:
+            kwargs["source_lang"] = language
+            kwargs["target_lang"] = language
+        elif not support_language and language not in ("unknown", "*"):
+            logger.warning(f"Model of type {model.__class__} does not support language specification, ignoring the language argument") 
+    if kwargs.get("source_lang") in ("unknown", "*"):
         kwargs.pop("source_lang")
-    if kwargs.get("target_lang") in ("unknown", "*") or not support_language:
+    if kwargs.get("target_lang") in ("unknown", "*"):
         kwargs.pop("target_lang")
     return model.transcribe(audios, return_hypotheses=True, timestamps=True, **kwargs)
 
@@ -93,51 +96,42 @@ def _convert_timestamps(start, end, conversion_function):
 def format_nemo_response(
     hypothesis, from_dict=False, with_word_timestamps=False, conversion_function=None
 ):
-    words = []
+    words = None
     if from_dict:
+        res = {
+            "text": hypothesis['text'].strip(),
+            "language": hypothesis.get('language', None),
+        }
         if with_word_timestamps:
+            words = []
             if hypothesis.get('word_confidence', False):
                 for word, conf in zip(hypothesis['timestamp']['word'], hypothesis['word_confidence']):
                     start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
                     words.append({'word': word['word'], 'start': start, 'end': end, 'conf': conf})
-                return {
-                    "text": hypothesis['text'].strip(),
-                    "language": hypothesis.get('language', None),
-                    # need to change
-                    "confidence-score": round(np.average([i['conf'] for i in words]), 2) if len(words) > 0 else 0.0,
-                    "words": words,
-                }
+                res["confidence-score"] = round(np.average([i['conf'] for i in words]), 2) if len(words) > 0 else 0.0
             else:
                 for word in hypothesis['timestamp']['word']:
                     start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
                     words.append({'word': word['word'], 'start': start, 'end': end})
-        return {
-            "text": hypothesis['text'].strip(),
-            "language": hypothesis.get('language', None),
-            "words": words,
-        }
     else:
+        res = {
+            "text": hypothesis.text.strip(),
+            "language": getattr(hypothesis, 'language', None),
+        }
         if with_word_timestamps:
-            if hypothesis.word_confidence:
+            words = []
+            if getattr(hypothesis, 'word_confidence', False):
                 for word, conf in zip(hypothesis.timestamp['word'], hypothesis.word_confidence):
                     start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
                     words.append({'word': word['word'], 'start': start, 'end': end, 'conf': conf})
-                return {
-                    "text": hypothesis.text.strip(),
-                    "language": hypothesis.language,
-                    # need to change
-                    "confidence-score": round(np.average([i['conf'] for i in words]), 2) if len(words) > 0 else 0.0,
-                    "words": words,
-                }
+                res["confidence-score"] = round(np.average([i['conf'] for i in words]), 2) if len(words) > 0 else 0.0
             else:
                 for word in hypothesis.timestamp['word']:
                     start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
                     words.append({'word': word['word'], 'start': start, 'end': end})
-        return {
-            "text": hypothesis.text.strip(),
-            "language": hypothesis.language,
-            "words": words,
-        }
+    if with_word_timestamps:
+        res["words"] = words
+    return res
 
 
 def get_chunks(samples, frame_duration, sample_rate, context_duration=0):
