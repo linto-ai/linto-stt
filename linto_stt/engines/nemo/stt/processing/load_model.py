@@ -29,7 +29,7 @@ def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decodi
         model = nemo_asr.models.ASRModel.restore_from(
             model_type_or_file, map_location=device)
     else:
-        model = model = nemo_asr.models.ASRModel.from_pretrained(
+        model = nemo_asr.models.ASRModel.from_pretrained(
             model_type_or_file, map_location=device)
     logger.info(f"Nemo model loaded. (t={time.time() - start:.2f}s)")
     if isinstance(model, nemo_asr.models.EncDecRNNTModel):
