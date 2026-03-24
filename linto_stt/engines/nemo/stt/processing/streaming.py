@@ -64,7 +64,7 @@ def nemo_to_json(o, partial=False, punctuation_model=None):
     return json_res
 
 
-async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
+async def wssDecode(ws: WebSocketServerProtocol, model_and_punctuationmodel):
     """Async Decode function endpoint"""
     try:
         res = await ws.recv()
@@ -76,7 +76,7 @@ async def wssDecode(ws: WebSocketServerProtocol, model_and_alignementmodel):
             logger.error(f"Failed to read stream configuration {e}")
             await ws.close(reason="Failed to load configuration")
 
-        model, punctuation_model = model_and_alignementmodel
+        model, punctuation_model = model_and_punctuationmodel
         language = get_language(config.get("language"))
         streaming_processor = StreamingASRProcessor(model,
                                                     kwargs={"language": language},

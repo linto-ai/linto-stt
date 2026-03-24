@@ -23,15 +23,15 @@ default_prompt = os.environ.get("PROMPT", None)
 
 def decode(
     audio,
-    model_and_alignementmodel,  # Tuple[model, alignment_model]
+    model_and_punctuationmodel,  # Tuple[model, punctuation_model]
     with_word_timestamps: bool,
     language: str = None,
 ) -> dict:
     language = get_language(language)
     kwargs = copy.copy(locals())
-    kwargs.pop("model_and_alignementmodel")
-    kwargs["model"], kwargs["alignment_model"] = model_and_alignementmodel
-    kwargs.pop("alignment_model")
+    kwargs.pop("model_and_punctuationmodel")
+    kwargs["model"], kwargs["punctuation_model"] = model_and_punctuationmodel
+    kwargs.pop("punctuation_model")
     start_t = time.time()
 
     res = decode_encoder(**kwargs)
@@ -54,20 +54,21 @@ def decode_encoder(
         audio_speech, _, conversion_function = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION,
                                                min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, avoid_empty_speech=True)
         audio = audio_speech
+    kwargs={"language": language, "timestamps": with_word_timestamps}
     if len(audio) > SAMPLE_RATE*LONG_FILE_THRESHOLD:
         logger.info(
             f"Audio last more than {LONG_FILE_THRESHOLD/60}min, splitting the decoding")
-        hypothesis = stream_long_file(audio, model, language=language)
+        hypothesis = stream_long_file(model, audio, **kwargs)
         hypothesis['language'] = language
         return format_nemo_response(hypothesis, from_dict=True, with_word_timestamps=with_word_timestamps, conversion_function=conversion_function)
     else:
         # /!\ Will run out of memory on long audios
-        hypothesis = nemo_transcribe(model, [audio], {"language": language})[0]
+        hypothesis = nemo_transcribe(model, [audio], kwargs)[0]
         hypothesis.language = language
         return format_nemo_response(hypothesis, from_dict=False, with_word_timestamps=with_word_timestamps, conversion_function=conversion_function)
 
 @torch.no_grad()
-def nemo_transcribe(model, audios, kwargs):
+def nemo_transcribe(model, audios, kwargs={}):
     support_language = isinstance(model, nemo_asr.models.EncDecMultiTaskModel)
     # Note: nemo_asr.models.EncDecMultiTaskModel also should support the options:
     # - task="asr",
@@ -84,7 +85,9 @@ def nemo_transcribe(model, audios, kwargs):
         kwargs.pop("source_lang")
     if kwargs.get("target_lang") in ("unknown", "*"):
         kwargs.pop("target_lang")
-    return model.transcribe(audios, return_hypotheses=True, timestamps=True, **kwargs)
+    if "timestamps" not in kwargs:
+        kwargs["timestamps"] = True
+    return model.transcribe(audios, return_hypotheses=True, **kwargs)
 
 
 def _convert_timestamps(start, end, conversion_function):
@@ -199,7 +202,7 @@ class ChunkBufferDecoder:
         return result
 
 
-def stream_long_file(audio, model, **kwargs):
+def stream_long_file(model, audio, **kwargs):
     buffer_list = get_chunks(audio, LONG_FILE_CHUNK_LEN,
                              SAMPLE_RATE, LONG_FILE_CHUNK_CONTEXT_LEN)
     asr_decoder = ChunkBufferDecoder(
