@@ -1,6 +1,6 @@
 [project]
 name = "linto-stt"
-version = "2.0.0"
+version = "2.1.0"
 description = "Automatic Speech Recognition API with support for multiple STT backends"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -21,12 +21,13 @@ linto-stt = "linto_stt:main"
 
 [project.optional-dependencies]
 nemo = [
-    "auditok>=0.3.0",
-    "nemo-toolkit[asr]>=2.5.2",
+    "auditok==0.3.0",
+    "nemo-toolkit[asr]==2.7.0",
     "onnx==1.18",
     "torchaudio>=2.9.0",
     "torchcodec>=0.9.1",
     "wavio>=0.0.9",
+    "hf_xet", # to speedup downloads from HuggingFace"
 ]
 moshi = []
 

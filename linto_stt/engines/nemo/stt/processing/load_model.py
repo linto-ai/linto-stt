@@ -13,25 +13,24 @@ from nemo.collections.asr.parts.utils.asr_confidence_utils import (
 from nemo.collections.asr.parts.submodules.rnnt_decoding import RNNTDecodingConfig
 from nemo.collections.asr.parts.submodules.ctc_decoding import CTCDecodingConfig
 
-from linto_stt.engines.nemo.stt import logger
+from linto_stt.engines.nemo.stt import logger, ATT_CONTEXT_SIZE
 import logging
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("nemo_logger").setLevel(logging.ERROR)
 
 
-def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybridRNNTCTCModel, device="cpu", download_root=None, decoding_strategy_if_hybrid="ctc"):
+def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decoding_strategy_if_hybrid="ctc"):
     start = time.time()
     logger.info(f"Loading Nemo model {model_type_or_file}...")
     default_cache_root = os.path.join(os.path.expanduser("~"), ".cache")
     if download_root is None:
         download_root = default_cache_root
     if model_type_or_file.endswith(".nemo"):
-        model = model_class.restore_from(
+        model = nemo_asr.models.ASRModel.restore_from(
             model_type_or_file, map_location=device)
     else:
-        model = model_class.from_pretrained(
+        model = nemo_asr.models.ASRModel.from_pretrained(
             model_type_or_file, map_location=device)
-        # model = nemo_asr.models.ASRModel.from_pretrained(model_type_or_file, map_location=device)     # todo: make architecture optional if use remote by using this line
     logger.info(f"Nemo model loaded. (t={time.time() - start:.2f}s)")
     if isinstance(model, nemo_asr.models.EncDecRNNTModel):
         if isinstance(model, nemo_asr.models.EncDecHybridRNNTCTCModel):
@@ -46,4 +45,12 @@ def load_nemo_model(model_type_or_file, model_class: nemo_asr.models.EncDecHybri
         decode_cfg = model.cfg.decoding
         decode_cfg.beam.beam_size = 1
         model.change_decoding_strategy(decode_cfg)
+
+    if ATT_CONTEXT_SIZE > 0 and hasattr(model, 'change_attention_model'):
+        logger.info(f"Switching to local attention (att_context_size=[{ATT_CONTEXT_SIZE}, {ATT_CONTEXT_SIZE}])")
+        model.change_attention_model(
+            self_attention_model="rel_pos_local_attn",
+            att_context_size=[ATT_CONTEXT_SIZE, ATT_CONTEXT_SIZE],
+        )
+
     return model
