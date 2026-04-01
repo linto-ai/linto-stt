@@ -23,7 +23,7 @@ linto-stt = "linto_stt:main"
 nemo = [
     "auditok>=0.3.0",
     "nemo-toolkit[asr]>=2.5.2",
-    "onnx==1.18",
+    "onnx==1.21.0",
     "torchaudio>=2.9.0",
     "torchcodec>=0.9.1",
     "wavio>=0.0.9",
