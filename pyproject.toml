@@ -56,7 +56,7 @@ kyutai = [
     "msgpack>=1.1.2",
 ]
 test = [
-    "pytest>=8.0",
+    "pytest>=9.0.3",
     "pytest-timeout>=2.2",
     "requests>=2.31",
 ]
