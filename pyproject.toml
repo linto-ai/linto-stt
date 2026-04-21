@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "celery>=5.6.2",
-    "python-dotenv>=0.9.9",
+    "python-dotenv>=1.2.2",
     "fastapi>=0.121.0",
     "lockfile>=0.12.2",
     "python-multipart>=0.0.20",
