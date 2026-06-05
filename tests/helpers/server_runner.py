@@ -145,7 +145,7 @@ class UVServerRunner:
 class DockerServerRunner:
     """Build and run a linto-stt Docker container."""
 
-    _built_images: dict[str, str] = {}  # dockerfile -> image tag
+    _built_images: dict = {}  # (dockerfile, use_gpu) -> image tag
 
     def __init__(self, project_root: str, engine: str, mode: str, port: int,
                  env_dict: dict, timeout: float = 600,
@@ -169,23 +169,29 @@ class DockerServerRunner:
 
     def _build_image(self) -> str:
         """Build the Docker image if not already built. Returns image tag."""
-        if self.dockerfile in DockerServerRunner._built_images:
-            return DockerServerRunner._built_images[self.dockerfile]
+        cache_key = (self.dockerfile, self.use_gpu)
+        if cache_key in DockerServerRunner._built_images:
+            return DockerServerRunner._built_images[cache_key]
 
-        tag = f"linto-stt-test:{self.engine}"
+        # GPU and CPU builds are different images (the GPU build installs the
+        # CUDA runtime libs), so they get distinct tags / cache entries.
+        tag = f"linto-stt-test:{self.engine}{'-gpu' if self.use_gpu else ''}"
         cmd = [
             "docker", "build", ".",
             "-f", self.dockerfile,
             "--build-arg", f"STT_ENGINE={self.engine}",
-            "-t", tag,
         ]
+        if self.use_gpu:
+            # GPU=1 installs cuBLAS/cuDNN that ctranslate2 needs for CUDA.
+            cmd.extend(["--build-arg", "GPU=1"])
+        cmd.extend(["-t", tag])
         logger.info(f"Building Docker image: {' '.join(cmd)}")
         result = subprocess.run(cmd, cwd=self.project_root, capture_output=True)
         if result.returncode != 0:
             raise RuntimeError(
                 f"Docker build failed:\n{result.stderr.decode()}"
             )
-        DockerServerRunner._built_images[self.dockerfile] = tag
+        DockerServerRunner._built_images[cache_key] = tag
         return tag
 
     def start(self) -> str:

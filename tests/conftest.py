@@ -1,12 +1,30 @@
 import os
 import subprocess
 import time
+import warnings
 from pathlib import Path
 
 import pytest
 
 from helpers.env_setup import build_env_dict
 from helpers.server_runner import UVServerRunner, DockerServerRunner, find_free_port
+
+
+# Error signatures that mean "this host can't run CUDA inside a Docker container"
+# (common on Docker Desktop / WSL2, where native GPU works but container GPU
+# passthrough doesn't). When a GPU Docker test hits one of these, we skip it with
+# a clear reason instead of failing — the host driver itself is fine.
+_DOCKER_GPU_UNAVAILABLE_SIGNATURES = (
+    "CUDA driver version is insufficient",
+    "CUDA failed with error",
+    "no CUDA-capable device is detected",
+    "could not select device driver",   # `docker run --gpus all` unsupported
+    "nvidia-container-cli",             # NVIDIA Container Toolkit missing/broken
+)
+
+
+def _docker_gpu_unavailable(message: str) -> bool:
+    return any(sig in message for sig in _DOCKER_GPU_UNAVAILABLE_SIGNATURES)
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +187,21 @@ def docker_server(request, project_root, server_timeout):
         volumes=volumes,
     )
     try:
-        url = runner.start()
+        try:
+            url = runner.start()
+        except RuntimeError as exc:
+            # GPU Docker tests can't run if this host can't pass CUDA into a
+            # container — skip (not fail), since the native GPU path works.
+            # Also emit a warning so the skip is visible in the run summary
+            # (skip reasons are otherwise only shown with -rs/-ra).
+            if use_gpu and _docker_gpu_unavailable(str(exc)):
+                warnings.warn(
+                    f"GPU Docker test skipped: CUDA is not usable inside a "
+                    f"container on this host: {exc}",
+                    stacklevel=2,
+                )
+                pytest.skip(f"Docker GPU not usable in this environment: {exc}")
+            raise
         yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
     finally:
         # Stop even if start() raised (e.g. healthcheck timeout), otherwise the

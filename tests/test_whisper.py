@@ -23,7 +23,7 @@ def _whisper_configs(device, vads, model="tiny", language="fr", servings=("http"
 
 
 def _whisper_docker_configs(device, vads, dockerfile, model="tiny",
-                            language="fr", servings=("http",)):
+                            language="fr", servings=("http",), use_gpu=False):
     for vad in vads:
         for serving in servings:
             env = {"MODEL": model, "LANGUAGE": language}
@@ -33,7 +33,7 @@ def _whisper_docker_configs(device, vads, dockerfile, model="tiny",
                 env["VAD"] = vad
             yield pytest.param(
                 {"engine": "whisper", "mode": serving, "port": 0,
-                 "dockerfile": dockerfile, "env_overrides": env},
+                 "dockerfile": dockerfile, "use_gpu": use_gpu, "env_overrides": env},
                 id=f"{dockerfile.split('/')[-1]}-{'nodevice' if not device else device}-vad_{vad or 'none'}-{serving}",
             )
 
@@ -223,7 +223,7 @@ class TestWhisperDockerGPU:
 
     @pytest.mark.parametrize("docker_server",
         list(_whisper_docker_configs("cuda", [None],
-             dockerfile="Dockerfile")),
+             dockerfile="Dockerfile", use_gpu=True)),
         indirect=True)
     def test_integration_cuda(self, docker_server, test_audio_bonjour):
         result = transcribe_http(docker_server["url"], str(test_audio_bonjour))
