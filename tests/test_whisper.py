@@ -145,6 +145,35 @@ class TestWhisperLanguages:
 
 
 # ---------------------------------------------------------------------------
+# UV tests - Hotwords
+# ---------------------------------------------------------------------------
+
+@pytest.mark.whisper
+@pytest.mark.uv
+class TestWhisperHotwords:
+    """Whisper hotwords biasing (faster-whisper / CTranslate2 backend)."""
+
+    @pytest.mark.parametrize("uv_server", [
+        pytest.param(
+            {"engine": "whisper", "mode": "http", "port": 0,
+             "env_overrides": {
+                 "MODEL": "tiny",
+                 "LANGUAGE": "fr",
+                 "DEVICE": "cpu",
+                 "VAD": "false",
+                 "HOTWORDS": "BonJour AuRevoir PourquoiPas",
+             }},
+            id="hotwords-bonjour",
+        ),
+    ], indirect=True)
+    def test_hotwords_spelling(self, uv_server, test_audio_bonjour):
+        """The HOTWORDS list should bias the spelling toward 'BonJour'."""
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert "BonJour" in result, \
+            f"Expected hotword spelling 'BonJour' in transcription: {result!r}"
+
+
+# ---------------------------------------------------------------------------
 # UV tests - Model sizes
 # ---------------------------------------------------------------------------
 

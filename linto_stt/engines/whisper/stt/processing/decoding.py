@@ -23,37 +23,38 @@ if not USE_CTRANSLATE2:
     import whisper_timestamped
 
 default_prompt = os.environ.get("PROMPT", None)
+default_hotwords = os.environ.get("HOTWORDS", None)
 
 
-def sanitize_initial_prompt(prompt):
-    """Work around a faster-whisper bug triggered by single-token initial prompts.
+def sanitize_prompt(text):
+    """Sanitize an ``initial_prompt`` / ``hotwords`` string for faster-whisper.
 
-    A non-empty ``initial_prompt`` is prepended to the first 30s window as
-    "previous text", behind a ``<|startofprev|>`` token (``None`` adds nothing).
-    When it encodes to a single token — an empty/whitespace prompt ("" becomes
-    " " -> token 220), or a single short word with no trailing punctuation
-    ("a", "Conversation") — the model, conditioned on that minimal context,
-    truncates the first window's transcription to a tiny fragment. With
-    word_timestamps=True, aligning that fragment over the whole window pushes
-    the next ``seek`` to ~30s, skipping the speech in between (we saw the first
-    ~28s of audio dropped). Multi-token prompts ("a a", "a.", or a word that
-    BPE-splits like "Anticonstitutionnellement") don't trigger it, and without
-    word timestamps the model self-recovers in the next window.
+    Both are prepended to the first 30s window as "previous text", behind a
+    ``<|startofprev|>`` token (``None`` adds nothing). When that text encodes to
+    a single token — an empty/whitespace string ("" becomes " " -> token 220),
+    or a single short word with no trailing punctuation ("a", "Conversation") —
+    the model, conditioned on that minimal context, truncates the first window's
+    transcription to a tiny fragment. With word_timestamps=True, aligning that
+    fragment over the whole window pushes the next ``seek`` to ~30s, skipping the
+    speech in between (we saw the first ~28s of audio dropped). Multi-token
+    strings ("a a", "a.", or a word that BPE-splits like
+    "Anticonstitutionnellement") don't trigger it, and without word timestamps
+    the model self-recovers in the next window.
 
-    So we make the prompt span at least two tokens:
-      - empty/whitespace-only -> None (no initial_prompt, the safe default);
+    So we make the string span at least two tokens:
+      - empty/whitespace-only -> None (not passed to the model, the safe default);
       - a single word with no trailing punctuation gets a "." appended.
     """
-    if prompt is None:
+    if text is None:
         return None
-    stripped = prompt.strip()
+    stripped = text.strip()
     if not stripped:
         return None
     # Single word ending on an alphanumeric char (i.e. no trailing punctuation)
     # -> add a dot so it no longer reduces to a single token.
     if len(stripped.split()) == 1 and stripped[-1].isalnum():
         return stripped + "."
-    return prompt
+    return text
 
 
 def decode(
@@ -69,6 +70,7 @@ def decode(
     no_speech_threshold: float = 0.6,
     compression_ratio_threshold: float = 2.4,
     prompt: str = default_prompt,
+    hotwords: str = default_hotwords,
 ) -> dict:
     language = get_language(language)
     kwargs = copy.copy(locals())
@@ -103,10 +105,14 @@ def decode_ct2(
     **kwargs,
 ):
     # Rename prompt -> initial_prompt for faster-whisper API
-    # (sanitize first: see sanitize_initial_prompt for the bug this avoids)
-    prompt = sanitize_initial_prompt(kwargs.pop("prompt", None))
+    # (sanitize first: see sanitize_prompt for the bug this avoids)
+    prompt = sanitize_prompt(kwargs.pop("prompt", None))
     if prompt is not None:
         kwargs["initial_prompt"] = prompt
+    # Hotwords are injected the same way as the prompt, so sanitize them too.
+    hotwords = sanitize_prompt(kwargs.pop("hotwords", None))
+    if hotwords is not None:
+        kwargs["hotwords"] = hotwords
     kwargs["no_speech_threshold"] = 1  # To avoid empty output
     if kwargs.get("beam_size") is None:
         kwargs["beam_size"] = 1
@@ -146,8 +152,15 @@ def decode_torch(
     compression_ratio_threshold,
     normalize_text_as_words=False,
     prompt=None,
+    hotwords=None,
 ):
     """Transcribe the audio data using Whisper with the defined model."""
+
+    if hotwords:
+        logger.warning(
+            "HOTWORDS is only supported with the ctranslate2 (faster-whisper) "
+            "backend; ignoring it for the whisper_timestamped backend."
+        )
 
     fp16 = model.device != torch.device("cpu")
 
