@@ -25,6 +25,37 @@ if not USE_CTRANSLATE2:
 default_prompt = os.environ.get("PROMPT", None)
 
 
+def sanitize_initial_prompt(prompt):
+    """Work around a faster-whisper bug triggered by single-token initial prompts.
+
+    A non-empty ``initial_prompt`` is prepended to the first 30s window as
+    "previous text", behind a ``<|startofprev|>`` token (``None`` adds nothing).
+    When it encodes to a single token — an empty/whitespace prompt ("" becomes
+    " " -> token 220), or a single short word with no trailing punctuation
+    ("a", "Conversation") — the model, conditioned on that minimal context,
+    truncates the first window's transcription to a tiny fragment. With
+    word_timestamps=True, aligning that fragment over the whole window pushes
+    the next ``seek`` to ~30s, skipping the speech in between (we saw the first
+    ~28s of audio dropped). Multi-token prompts ("a a", "a.", or a word that
+    BPE-splits like "Anticonstitutionnellement") don't trigger it, and without
+    word timestamps the model self-recovers in the next window.
+
+    So we make the prompt span at least two tokens:
+      - empty/whitespace-only -> None (no initial_prompt, the safe default);
+      - a single word with no trailing punctuation gets a "." appended.
+    """
+    if prompt is None:
+        return None
+    stripped = prompt.strip()
+    if not stripped:
+        return None
+    # Single word ending on an alphanumeric char (i.e. no trailing punctuation)
+    # -> add a dot so it no longer reduces to a single token.
+    if len(stripped.split()) == 1 and stripped[-1].isalnum():
+        return stripped + "."
+    return prompt
+
+
 def decode(
     audio,
     model_and_alignementmodel,  # Tuple[model, alignment_model]
@@ -72,7 +103,8 @@ def decode_ct2(
     **kwargs,
 ):
     # Rename prompt -> initial_prompt for faster-whisper API
-    prompt = kwargs.pop("prompt", None)
+    # (sanitize first: see sanitize_initial_prompt for the bug this avoids)
+    prompt = sanitize_initial_prompt(kwargs.pop("prompt", None))
     if prompt is not None:
         kwargs["initial_prompt"] = prompt
     kwargs["no_speech_threshold"] = 1  # To avoid empty output
