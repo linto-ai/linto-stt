@@ -19,6 +19,9 @@ dependencies = [
 [project.scripts]
 linto-stt = "linto_stt:main"
 
+[tool.setuptools.packages.find]
+include = ["linto_stt*"]
+
 [project.optional-dependencies]
 nemo = [
     "auditok==0.3.0",
