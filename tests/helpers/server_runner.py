@@ -43,6 +43,32 @@ def _poll_healthcheck(url: str, timeout: float, process_or_container=None) -> No
     raise TimeoutError(f"Server at {url} not ready after {timeout}s (last error: {last_error})")
 
 
+def _wait_for_container_log(container_name: str, marker: str, timeout: float,
+                           process=None) -> None:
+    """Poll `docker logs` until `marker` appears, the process dies, or timeout.
+
+    Used for Celery task mode, which runs only a worker (no HTTP endpoint to
+    poll), so readiness is detected from the worker's startup log instead.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        logs = subprocess.run(
+            ["docker", "logs", container_name],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        ).stdout.decode(errors="replace")
+        if marker in logs:
+            logger.info(f"Worker ready in {container_name} (found {marker!r})")
+            return
+        if process is not None and process.poll() is not None:
+            raise RuntimeError(
+                f"Container process exited with code {process.returncode}\n{logs}"
+            )
+        time.sleep(1.0)
+    raise TimeoutError(
+        f"Container {container_name} did not log {marker!r} within {timeout}s"
+    )
+
+
 class UVServerRunner:
     """Launch a linto-stt server via `uv run main.py` as a subprocess."""
 
@@ -205,13 +231,16 @@ class DockerServerRunner:
                 f"Docker container exited immediately:\n{stdout}\n{stderr}"
             )
 
-        # Wait for healthcheck
-        if self.mode in ("http", "task"):
-            healthcheck_url = f"{self.base_url}/healthcheck"
+        # Wait until ready
+        if self.mode == "task":
+            # Celery worker only — no HTTP endpoint. Wait for the worker's
+            # "ready." startup log instead of polling /healthcheck (which would
+            # never respond and hang until timeout).
+            _wait_for_container_log(
+                self.container_name, "ready.", self.timeout, self._process)
         else:
-            healthcheck_url = self.base_url
-
-        _poll_healthcheck(healthcheck_url, self.timeout, self._process)
+            healthcheck_url = f"{self.base_url}/healthcheck" if self.mode == "http" else self.base_url
+            _poll_healthcheck(healthcheck_url, self.timeout, self._process)
         return self.base_url
 
     def stop(self):

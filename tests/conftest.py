@@ -118,9 +118,13 @@ def uv_server(request, project_root, server_timeout):
         env_dict=env_dict,
         timeout=server_timeout,
     )
-    url = runner.start()
-    yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
-    runner.stop()
+    try:
+        url = runner.start()
+        yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
+    finally:
+        # Stop even if start() raised (e.g. healthcheck timeout), otherwise the
+        # subprocess leaks.
+        runner.stop()
 
 
 @pytest.fixture
@@ -164,15 +168,34 @@ def docker_server(request, project_root, server_timeout):
         use_gpu=use_gpu,
         volumes=volumes,
     )
-    url = runner.start()
-    yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
-    runner.stop()
+    try:
+        url = runner.start()
+        yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
+    finally:
+        # Stop even if start() raised (e.g. healthcheck timeout), otherwise the
+        # container leaks (left running with --rm but never stopped).
+        runner.stop()
 
 
 @pytest.fixture(scope="session")
 def redis_server():
     """Launch a Redis container for Celery tests. Shared across the session."""
     container_name = "test_redis_pytest"
+    redis_image = "redis/redis-stack-server:latest"
+
+    # The image must already be pulled locally: pulling it on the fly (~1 min)
+    # takes longer than the worker container's broker wait (wait-for-it.sh,
+    # 20s), so the Celery container would time out before Redis is reachable.
+    if subprocess.run(
+        ["docker", "image", "inspect", redis_image],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    ).returncode != 0:
+        pytest.fail(
+            f"Redis image '{redis_image}' is not available locally. "
+            f"Pull it first with: docker pull {redis_image}",
+            pytrace=False,
+        )
+
     # Stop any existing instance
     subprocess.run(
         ["docker", "stop", container_name],
@@ -185,7 +208,7 @@ def redis_server():
             "docker", "run", "--rm",
             "-p", "6379:6379",
             "--name", container_name,
-            "redis/redis-stack-server:latest",
+            redis_image,
             "redis-server", "/etc/redis-stack.conf",
             "--protected-mode", "no",
             "--bind", "0.0.0.0",

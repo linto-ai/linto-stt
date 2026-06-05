@@ -98,8 +98,14 @@ def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
 
 
 def transcribe_celery(audio_filename: str, language: str = None,
-                      broker_url: str = "redis://localhost:6379") -> str:
-    """Send a Celery transcription task and wait for the result."""
+                      broker_url: str = "redis://localhost:6379",
+                      queue: str = "stt") -> str:
+    """Send a Celery transcription task and wait for the result.
+
+    `queue` must match the worker's queue (its SERVICE_NAME, default "stt").
+    Without it the task goes to the default "celery" queue, which the worker
+    does not consume, and result.get() times out.
+    """
     from celery import Celery
 
     app = Celery(
@@ -114,7 +120,7 @@ def transcribe_celery(audio_filename: str, language: str = None,
     else:
         args.append("fr")
 
-    result = app.send_task("transcribe_task", args=args)
+    result = app.send_task("transcribe_task", args=args, queue=queue)
     output = result.get(timeout=120)
 
     if isinstance(output, dict):
