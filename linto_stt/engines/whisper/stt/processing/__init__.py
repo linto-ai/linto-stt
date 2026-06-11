@@ -1,7 +1,7 @@
 import logging
 import os
 
-from lockfile import FileLock
+from filelock import FileLock
 from linto_stt.engines.whisper.stt import USE_CTRANSLATE2, USE_ACCURATE, VAD, logger, set_num_threads, NUM_THREADS
 
 from .alignment_model import get_alignment_model, load_alignment_model
@@ -36,7 +36,11 @@ class LazyLoadedModel:
 
     def check_loaded(self):
         if self._model is None:
-            lockfile = os.path.basename(self.model_type)
+            # filelock uses an OS-level flock that the kernel releases when the
+            # holder dies, so a killed/crashed load can't leave a stale lock that
+            # deadlocks every later load (the old `lockfile` package did exactly
+            # that). Lock-file name kept as "<model>.lock" for continuity.
+            lockfile = os.path.basename(self.model_type) + ".lock"
             with FileLock(lockfile):
                 self._model = load_whisper_model(
                     self.model_type, device=self.device)

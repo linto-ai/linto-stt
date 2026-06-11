@@ -1,7 +1,7 @@
 import logging
 import os
 
-from lockfile import FileLock
+from filelock import FileLock
 from linto_stt.engines.nemo.stt import logger, set_num_threads, NUM_THREADS, VAD
 from linto_stt.punctuation.recasepunc import load_recasepunc_model
 
@@ -37,7 +37,11 @@ class LazyLoadedModel:
 
     def check_loaded(self):
         if self._model is None:
-            lockfile = os.path.basename(self.model_type)
+            # filelock uses an OS-level flock that the kernel releases when the
+            # holder dies, so a killed/crashed load can't leave a stale lock that
+            # deadlocks every later load (the old `lockfile` package did exactly
+            # that). Lock-file name kept as "<model>.lock" for continuity.
+            lockfile = os.path.basename(self.model_type) + ".lock"
             with FileLock(lockfile):
                 self._model = load_nemo_model(self.model_type, device=self.device,
                                               decoding_strategy_if_hybrid=self.decoding_strategy_if_hybrid)
