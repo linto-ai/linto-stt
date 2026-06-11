@@ -42,8 +42,9 @@ def pytest_addoption(parser):
                      help="Only run Docker-based tests")
     parser.addoption("--uv-only", action="store_true", default=False,
                      help="Only run UV-based tests")
-    parser.addoption("--server-timeout", action="store", type=int, default=600,
-                     help="Timeout in seconds for server startup")
+    parser.addoption("--server-timeout", action="store", type=int, default=300,
+                     help="Timeout in seconds for server startup (failures usually "
+                          "surface much sooner via process-exit / fatal-log checks)")
     parser.addoption("--kaldi-am-path", action="store", default=None,
                      help="Path to Kaldi acoustic model")
     parser.addoption("--kaldi-lm-path", action="store", default=None,
@@ -138,7 +139,8 @@ def uv_server(request, project_root, server_timeout):
     )
     try:
         url = runner.start()
-        yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
+        yield {"url": url, "runner": runner, "engine": engine, "mode": mode,
+               "timeout": server_timeout}
     finally:
         # Stop even if start() raised (e.g. healthcheck timeout), otherwise the
         # subprocess leaks.
@@ -202,7 +204,8 @@ def docker_server(request, project_root, server_timeout):
                 )
                 pytest.skip(f"Docker GPU not usable in this environment: {exc}")
             raise
-        yield {"url": url, "runner": runner, "engine": engine, "mode": mode}
+        yield {"url": url, "runner": runner, "engine": engine, "mode": mode,
+               "timeout": server_timeout}
     finally:
         # Stop even if start() raised (e.g. healthcheck timeout), otherwise the
         # container leaks (left running with --rm but never stopped).

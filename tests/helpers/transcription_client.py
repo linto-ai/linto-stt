@@ -6,8 +6,15 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-def transcribe_http(base_url: str, audio_path: str, language: str = None) -> str:
-    """POST an audio file to /transcribe and return the transcription text."""
+def transcribe_http(base_url: str, audio_path: str, language: str = None,
+                    timeout: float = 300) -> str:
+    """POST an audio file to /transcribe and return the transcription text.
+
+    The first request can be slow: with lazy-loaded engines (e.g. NeMo on
+    http+cpu, which skips startup warmup) it triggers the model load + first
+    decode on CPU. The default read timeout therefore matches the server
+    startup budget (--server-timeout, default 600s) rather than a short value.
+    """
     url = f"{base_url}/transcribe"
     params = {}
     if language:
@@ -20,7 +27,7 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None) -> str
             files=files,
             headers={"accept": "application/json"},
             params=params,
-            timeout=120,
+            timeout=timeout,
         )
 
     if resp.status_code != 200:
