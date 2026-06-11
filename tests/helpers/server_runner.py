@@ -223,7 +223,7 @@ class UVServerRunner:
 class DockerServerRunner:
     """Build and run a linto-stt Docker container."""
 
-    _built_images: dict = {}  # (dockerfile, use_gpu) -> image tag
+    _built_images: dict = {}  # (engine, dockerfile, use_gpu) -> image tag
 
     def __init__(self, project_root: str, engine: str, mode: str, port: int,
                  env_dict: dict, timeout: float = 600,
@@ -260,7 +260,10 @@ class DockerServerRunner:
 
     def _build_image(self) -> str:
         """Build the Docker image if not already built. Returns image tag."""
-        cache_key = (self.dockerfile, self.use_gpu)
+        # Engine is part of the key: all engines build from the same Dockerfile
+        # (selected via --build-arg STT_ENGINE), so keying on dockerfile alone
+        # would make one engine's test reuse another engine's image.
+        cache_key = (self.engine, self.dockerfile, self.use_gpu)
         if cache_key in DockerServerRunner._built_images:
             return DockerServerRunner._built_images[cache_key]
 
