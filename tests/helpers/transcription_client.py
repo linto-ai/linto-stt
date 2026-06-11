@@ -112,12 +112,16 @@ def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
 
 def transcribe_celery(audio_filename: str, language: str = None,
                       broker_url: str = "redis://localhost:6379",
-                      queue: str = "stt") -> str:
+                      queue: str = "stt", timeout: float = 300) -> str:
     """Send a Celery transcription task and wait for the result.
 
     `queue` must match the worker's queue (its SERVICE_NAME, default "stt").
     Without it the task goes to the default "celery" queue, which the worker
     does not consume, and result.get() times out.
+
+    `timeout` must cover the worker's lazy model load on the first task (NeMo
+    loads on first use, not at startup), so it matches the server budget rather
+    than a short value.
     """
     from celery import Celery
 
@@ -134,7 +138,7 @@ def transcribe_celery(audio_filename: str, language: str = None,
         args.append("fr")
 
     result = app.send_task("transcribe_task", args=args, queue=queue)
-    output = result.get(timeout=120)
+    output = result.get(timeout=timeout)
 
     if isinstance(output, dict):
         return output.get("text", str(output))

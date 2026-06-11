@@ -162,6 +162,23 @@ def docker_server(request, project_root, server_timeout):
     use_gpu = params.get("use_gpu", False)
     volumes = params.get("volumes", {})
 
+    # Reuse the host's HuggingFace cache so the container doesn't re-download
+    # the model (e.g. NeMo's 2.4 GB parakeet) on every run — that download is
+    # what makes uncached Docker model tests blow past the timeouts.
+    hf_cache = os.path.expanduser(
+        os.environ.get("HF_HOME", "~/.cache/huggingface"))
+    if os.path.isdir(hf_cache):
+        # Mount *outside* the runtime user's home: the entrypoint does a
+        # `chown -R` on the home, and recursing into a multi-GB bind mount would
+        # be painfully slow. HF_HOME points the cache at this mount instead.
+        volumes.setdefault(hf_cache, "/opt/hf_cache")
+        env_overrides.setdefault("HF_HOME", "/opt/hf_cache")
+        # Run the container as the host user. The entrypoint defaults to
+        # uid 33 (www-data) otherwise, which can't read the mounted cache (owned
+        # by the host user) — so it would re-download despite the mount.
+        env_overrides.setdefault("USER_ID", str(os.getuid()))
+        env_overrides.setdefault("GROUP_ID", str(os.getgid()))
+
     # For task mode, mount test dir as /opt/audio
     if mode == "task":
         test_dir = str(Path(__file__).resolve().parent)

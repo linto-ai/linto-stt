@@ -107,7 +107,8 @@ class TestNemoDocker:
     ], indirect=True)
     def test_transcription_task(self, docker_server, test_audio_bonjour, redis_server):
         from helpers.transcription_client import transcribe_celery
-        result = transcribe_celery("bonjour.wav", language="fr", broker_url=redis_server)
+        result = transcribe_celery("bonjour.wav", language="fr", broker_url=redis_server,
+                                   timeout=docker_server["timeout"])
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), \
             f"Unexpected transcription: {result}"
 
