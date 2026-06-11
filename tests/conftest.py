@@ -235,18 +235,27 @@ def redis_server():
     container_name = "test_redis_pytest"
     redis_image = "redis/redis-stack-server:latest"
 
-    # The image must already be pulled locally: pulling it on the fly (~1 min)
-    # takes longer than the worker container's broker wait (wait-for-it.sh,
-    # 20s), so the Celery container would time out before Redis is reachable.
+    # Make sure the image is present, pulling it up-front (blocking) if needed.
+    # We pull here rather than relying on an on-the-fly pull during `docker run`:
+    # that pull (~1 min) could still be running when the Celery worker's broker
+    # wait (wait-for-it.sh, 20s) starts, so Redis wouldn't be reachable in time.
+    # Pulling before anything starts guarantees the image is ready.
     if subprocess.run(
         ["docker", "image", "inspect", redis_image],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     ).returncode != 0:
-        pytest.fail(
-            f"Redis image '{redis_image}' is not available locally. "
-            f"Pull it first with: docker pull {redis_image}",
-            pytrace=False,
+        print(f"Pulling {redis_image} (one-time, may take ~1 min)...")
+        pull = subprocess.run(
+            ["docker", "pull", redis_image],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
+        if pull.returncode != 0:
+            pytest.fail(
+                f"Could not pull Redis image '{redis_image}' "
+                f"(pull it manually with: docker pull {redis_image}):\n"
+                f"{pull.stdout.decode(errors='replace')}",
+                pytrace=False,
+            )
 
     # Stop any existing instance
     subprocess.run(
