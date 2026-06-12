@@ -522,22 +522,20 @@ class FasterWhisperASR(ASRBase):
             False if condition_on_previous_text is None else condition_on_previous_text
         )
         # HOTWORDS env var, sanitized like the prompt (see sanitize_prompt).
-        self.hotwords = sanitize_prompt(default_hotwords)
+        # None is faster-whisper's default for this kwarg, so passing it is a no-op.
+        self.transcribe_kargs["hotwords"] = sanitize_prompt(default_hotwords)
 
     def transcribe(self, audio, init_prompt=""):
         # Sanitize the rolling prompt: at stream start it is "" (no committed
         # text yet), which faster-whisper turns into a single-token <|startofprev|>
         # context that truncates the first window and drops audio. Hotwords go
         # through the same path, so they are sanitized too (see sanitize_prompt).
-        kwargs = dict(self.transcribe_kargs)
-        if self.hotwords is not None:
-            kwargs["hotwords"] = self.hotwords
         segments, info = self.model.transcribe(
             audio,
             language=self.original_language,
             initial_prompt=sanitize_prompt(init_prompt),
             word_timestamps=True,
-            **kwargs,
+            **self.transcribe_kargs,
         )
         return list(segments)
 
