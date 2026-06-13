@@ -11,15 +11,34 @@ def notifyLintoDeploy(service_name, tag, commit_sha) {
 }
 
 // Best-effort deploy of a freshly built image to the staging cluster (full CI/CD).
-// Needs a Jenkins SSH credential 'staging-deploy-ssh' (key for ubuntu@bm2-3s);
-// if absent the build still succeeds (push-only).
+// SSH host + key come from Jenkins credentials (nothing host-specific in the repo);
+// no-op if those credentials are absent.
 def stagingDeploy(image_name, tag) {
     try {
-        withCredentials([sshUserPrivateKey(credentialsId: 'staging-deploy-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-            sh "ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@163.114.159.33 'staging-deploy ${image_name} ${tag}'"
+        withCredentials([
+            sshUserPrivateKey(credentialsId: 'staging-deploy-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER'),
+            string(credentialsId: 'staging-deploy-host', variable: 'DEPLOY_HOST')
+        ]) {
+            sh "ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@\$DEPLOY_HOST 'staging-deploy ${image_name} ${tag}'"
         }
     } catch (err) {
-        echo "Staging auto-deploy skipped for ${image_name}:${tag} (add the 'staging-deploy-ssh' credential to enable): ${err}"
+        echo "Staging auto-deploy skipped for ${image_name} (deploy credentials absent): ${err}"
+    }
+}
+
+// Best-effort redeploy of preprod after a latest-unstable push (full CI/CD).
+// SSH host + key come from Jenkins credentials (nothing host-specific in the repo);
+// no-op if those credentials are absent.
+def preprodDeploy(image_name) {
+    try {
+        withCredentials([
+            sshUserPrivateKey(credentialsId: 'preprod-deploy-ssh', keyFileVariable: 'PP_SSH_KEY', usernameVariable: 'PP_SSH_USER'),
+            string(credentialsId: 'preprod-deploy-host', variable: 'PP_DEPLOY_HOST')
+        ]) {
+            sh "ssh -i \$PP_SSH_KEY -o StrictHostKeyChecking=no \$PP_SSH_USER@\$PP_DEPLOY_HOST 'preprod-deploy ${image_name}'"
+        }
+    } catch (err) {
+        echo "Preprod auto-deploy skipped for ${image_name} (deploy credentials absent): ${err}"
     }
 }
 
@@ -58,6 +77,10 @@ def buildDockerImage(service_type, image_name, version, changedFiles, commit_sha
                     image.push('latest')
                 }
             }
+        }
+
+        if (version.contains('latest-unstable')) {
+            preprodDeploy(image_name.replace('lintoai/', ''))
         }
 
         if (!version.contains('latest-unstable')) {
