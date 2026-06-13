@@ -10,6 +10,19 @@ def notifyLintoDeploy(service_name, tag, commit_sha) {
     }
 }
 
+// Best-effort deploy of a freshly built image to the staging cluster (full CI/CD).
+// Needs a Jenkins SSH credential 'staging-deploy-ssh' (key for ubuntu@bm2-3s);
+// if absent the build still succeeds (push-only).
+def stagingDeploy(image_name, tag) {
+    try {
+        withCredentials([sshUserPrivateKey(credentialsId: 'staging-deploy-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+            sh "ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@163.114.159.33 'staging-deploy ${image_name} ${tag}'"
+        }
+    } catch (err) {
+        echo "Staging auto-deploy skipped for ${image_name}:${tag} (add the 'staging-deploy-ssh' credential to enable): ${err}"
+    }
+}
+
 def buildDockerImage(service_type, image_name, version, changedFiles, commit_sha, extraDeps = '', gpu = false) {
     boolean has_changed = changedFiles.contains("linto_stt/engines/${service_type}/")
 
@@ -111,6 +124,26 @@ pipeline {
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI,   version, changedFiles, commit_sha)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, 'recasepunc')
                     // buildDockerImage('kyutai',  env.DOCKER_HUB_REPO_KYUTAI,  version, changedFiles, commit_sha)
+                }
+            }
+        }
+
+        // Staging builds the whisper (GPU) engine — the only STT worker running on
+        // the staging cluster — and points linto-stt-whisper at it.
+        stage('Docker build for staging branches') {
+            when {
+                branch 'staging/*'
+            }
+            steps {
+                echo 'Building staging feature-branch image (whisper GPU, private registry, never Docker Hub)'
+                script {
+                    def slug = env.BRANCH_NAME.replaceFirst('^staging/', '').replaceAll('[^a-zA-Z0-9]+', '-').toLowerCase()
+                    def tag = "dev-${slug}"
+                    def image = docker.build("registry.staging.linto.ai/lintoai/linto-stt-whisper", "--build-arg STT_ENGINE=whisper --build-arg GPU=1 -f Dockerfile .")
+                    docker.withRegistry('https://registry.staging.linto.ai', 'staging-registry-credentials') {
+                        image.push(tag)
+                    }
+                    stagingDeploy('linto-stt-whisper', tag)
                 }
             }
         }
