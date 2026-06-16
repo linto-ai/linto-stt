@@ -8,7 +8,7 @@ dependencies = [
     "celery>=5.6.2",
     "python-dotenv>=0.9.9",
     "fastapi>=0.121.0",
-    "lockfile>=0.12.2",
+    "filelock>=3.12.0",
     "python-multipart>=0.0.20",
     "redis>=7.1.0",
     "regex>=2025.11.3",
@@ -18,6 +18,9 @@ dependencies = [
 
 [project.scripts]
 linto-stt = "linto_stt:main"
+
+[tool.setuptools.packages.find]
+include = ["linto_stt*"]
 
 [project.optional-dependencies]
 nemo = [

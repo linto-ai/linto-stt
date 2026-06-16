@@ -4,6 +4,9 @@
     - Fix timestamps when VAD is enabled
     - Add support for specified (source and target) language
     - Add local attention support
+- Whisper engine updates:
+    - Fix issue #128 (speech dropped with empty or very short initial prompt)
+    - Implement hotwords feature (environment variable HOTWORDS)
 
 # 2.0.0
 - Project restructuring: all engines (whisper, nemo, kaldi, kyutai) unified under a single `linto_stt` Python package

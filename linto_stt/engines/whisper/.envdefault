@@ -28,8 +28,12 @@ MODEL=large-v3
 # If not set or set to "*", the language will be detected automatically.
 LANGUAGE=*
 
-# Prompt to use for the model. This can be used to provide context to the model, to encourage disfluencies or a special behaviour regarding punctuation and capitalization.
+# Initial prompt for the model (faster-whisper's initial_prompt): free text prepended as previous context, to encourage disfluencies or a special behaviour regarding punctuation and capitalization.
 PROMPT=
+
+# Hotwords: free-text hint phrases/words to bias the transcription toward a given spelling (e.g. proper nouns, jargon).
+# Only supported with the ctranslate2 (faster-whisper) backend.
+HOTWORDS=
 
 # An alignment wav2vec model can be used to get word timestamps.
 # It can be a path to a model, a language code (fr, en, ...), or "wav2vec" to automatically chose a model for the language

@@ -18,7 +18,11 @@ def build_env_dict(project_root: str, engine: str, overrides: dict = None) -> di
     env = read_envdefault(project_root, engine)
     env.pop("SERVICE_MODE", None)
     if overrides:
-        env.update(overrides)
+        # Drop None-valued overrides: a None means "leave unset, use the engine
+        # default" (e.g. VAD=None in the config generators). Keeping it would
+        # both shadow the .envdefault value and crash subprocess.Popen, which
+        # cannot encode a None env value.
+        env.update({k: v for k, v in overrides.items() if v is not None})
     return env
 
 

@@ -62,6 +62,8 @@ def get_language(language=None):
     # "*" means "all languages"
     if language == "*":
         language = None
+    if isinstance(language, str):
+        language = language.lower()
     # Convert French -> fr
     if isinstance(language, str) and language not in LANGUAGES:
         candidate_language = {v: k for k,

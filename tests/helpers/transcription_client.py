@@ -6,8 +6,15 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-def transcribe_http(base_url: str, audio_path: str, language: str = None) -> str:
-    """POST an audio file to /transcribe and return the transcription text."""
+def transcribe_http(base_url: str, audio_path: str, language: str = None,
+                    timeout: float = 300) -> str:
+    """POST an audio file to /transcribe and return the transcription text.
+
+    The first request can be slow: with lazy-loaded engines (e.g. NeMo on
+    http+cpu, which skips startup warmup) it triggers the model load + first
+    decode on CPU. The default read timeout therefore matches the server
+    startup budget (--server-timeout, default 600s) rather than a short value.
+    """
     url = f"{base_url}/transcribe"
     params = {}
     if language:
@@ -20,7 +27,7 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None) -> str
             files=files,
             headers={"accept": "application/json"},
             params=params,
-            timeout=120,
+            timeout=timeout,
         )
 
     if resp.status_code != 200:
@@ -44,62 +51,78 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None) -> str
 
 
 def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
-                         sample_rate: int = 16000, chunk_duration: float = 1.0) -> str:
-    """Send audio over WebSocket and return the final transcription."""
-    import websockets.sync.client as ws_client
+                         sample_rate: int = 16000, chunk_duration: float = 1.0,
+                         timeout: float = 60) -> str:
+    """Stream a WAV file over the WebSocket protocol and return the final text.
 
-    # Build config message
+    Protocol (see linto_stt/.../streaming.py): send a `{"config": ...}` message,
+    then raw 16-bit PCM audio chunks, then `{"eof": 1}` to flush. The server
+    replies with `{"partial": "..."}` updates and `{"text": "..."}` finals; on
+    `eof` it sends the assembled final and closes the connection.
+    """
+    import time
+    import wave
+    import websockets.sync.client as ws_client
+    from websockets.exceptions import ConnectionClosed
+
     config = {"config": {"sample_rate": sample_rate}}
     if language:
         config["config"]["language"] = language
 
-    with open(audio_path, "rb") as f:
-        audio_data = f.read()
+    # Read raw PCM frames (skip the WAV header) so we send only audio samples.
+    with wave.open(audio_path, "rb") as w:
+        audio_data = w.readframes(w.getnframes())
 
-    # Calculate chunk size in bytes (16-bit PCM = 2 bytes per sample)
+    # Chunk size in bytes (16-bit PCM = 2 bytes per sample).
     chunk_size = int(sample_rate * chunk_duration * 2)
     final_text = ""
 
-    with ws_client.connect(ws_url) as conn:
-        # Send config
+    def _absorb(msg):
+        nonlocal final_text
+        data = json.loads(msg)
+        if data.get("text"):
+            final_text = data["text"]
+
+    with ws_client.connect(ws_url, open_timeout=timeout) as conn:
         conn.send(json.dumps(config))
 
-        # Send audio in chunks
         offset = 0
         while offset < len(audio_data):
-            chunk = audio_data[offset:offset + chunk_size]
-            conn.send(chunk)
+            conn.send(audio_data[offset:offset + chunk_size])
             offset += chunk_size
-
-            # Check for responses
             try:
-                msg = conn.recv(timeout=0.1)
-                data = json.loads(msg)
-                if "text" in data:
-                    final_text = data["text"]
+                _absorb(conn.recv(timeout=0.1))
             except TimeoutError:
                 pass
 
-        # Send empty bytes to signal end of stream
-        conn.send(b"")
+        # Signal end of stream so the server flushes the final and closes.
+        conn.send(json.dumps({"eof": 1}))
 
-        # Collect remaining responses
-        deadline = __import__("time").time() + 30
-        while __import__("time").time() < deadline:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
             try:
-                msg = conn.recv(timeout=2.0)
-                data = json.loads(msg)
-                if "text" in data:
-                    final_text = data["text"]
-            except (TimeoutError, Exception):
+                _absorb(conn.recv(timeout=2.0))
+            except TimeoutError:
+                continue
+            except ConnectionClosed:
                 break
 
     return final_text
 
 
 def transcribe_celery(audio_filename: str, language: str = None,
-                      broker_url: str = "redis://localhost:6379") -> str:
-    """Send a Celery transcription task and wait for the result."""
+                      broker_url: str = "redis://localhost:6379",
+                      queue: str = "stt", timeout: float = 300) -> str:
+    """Send a Celery transcription task and wait for the result.
+
+    `queue` must match the worker's queue (its SERVICE_NAME, default "stt").
+    Without it the task goes to the default "celery" queue, which the worker
+    does not consume, and result.get() times out.
+
+    `timeout` must cover the worker's lazy model load on the first task (NeMo
+    loads on first use, not at startup), so it matches the server budget rather
+    than a short value.
+    """
     from celery import Celery
 
     app = Celery(
@@ -114,8 +137,8 @@ def transcribe_celery(audio_filename: str, language: str = None,
     else:
         args.append("fr")
 
-    result = app.send_task("transcribe_task", args=args)
-    output = result.get(timeout=120)
+    result = app.send_task("transcribe_task", args=args, queue=queue)
+    output = result.get(timeout=timeout)
 
     if isinstance(output, dict):
         return output.get("text", str(output))
