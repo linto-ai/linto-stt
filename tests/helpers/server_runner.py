@@ -41,20 +41,45 @@ def _format_logs(get_logs, max_chars: int = 4000) -> str:
     return f"\n--- server logs ---\n{logs}"
 
 
+def _tee_new_logs(logs: str, shown: int, label: str) -> int:
+    """Stream server output that appeared since `shown` to the test log (each
+    line prefixed with `label`), so model-load phases/timings are visible live.
+    Returns the new `shown` offset (len of `logs`)."""
+    if len(logs) > shown:
+        for line in logs[shown:].splitlines():
+            line = line.rstrip()
+            if line:
+                logger.info(f"[{label}] {line}")
+        shown = len(logs)
+    return shown
+
+
 def _poll_healthcheck(url, timeout, process_or_container=None, get_logs=None,
                       fatal_markers=(), label="server") -> None:
     """Poll a URL until it returns 2xx/4xx; fail fast if the server exits or logs
-    a fatal error; otherwise time out. Server logs are attached to all errors."""
+    a fatal error; otherwise time out. Server logs are attached to all errors.
+
+    While waiting, the server's own stdout/stderr is streamed to the test log
+    (prefixed with the label) so model-load phases and timings are visible live.
+    """
     start = time.monotonic()
     deadline = start + timeout
     interval = 1.0
     next_progress = 10.0  # log "still waiting" every 10s so long loads show life
+    shown = 0  # chars of server log already surfaced
     last_error = None
     logger.info(
         f"Waiting for {label} to become ready at {url} — the model loads "
         f"lazily on first use, so this can take a while (up to {timeout:.0f}s)..."
     )
     while time.monotonic() < deadline:
+        logs = get_logs() if get_logs else ""
+        if logs:
+            before = shown
+            shown = _tee_new_logs(logs, shown, label)
+            if shown != before:
+                # Real output is flowing; defer the generic heartbeat.
+                next_progress = (time.monotonic() - start) + 10.0
         try:
             resp = requests.get(url, timeout=5)
             if resp.status_code in (200, 400, 426):
@@ -70,13 +95,11 @@ def _poll_healthcheck(url, timeout, process_or_container=None, get_logs=None,
                     f"before becoming ready.{_format_logs(get_logs)}"
                 )
         # Fast-fail if the server logged a fatal error (don't wait out the timeout).
-        if get_logs and fatal_markers:
-            logs = get_logs()
-            if any(m in logs for m in fatal_markers):
-                raise RuntimeError(
-                    f"Server failed during startup (matched a fatal log marker)."
-                    f"{_format_logs(get_logs)}"
-                )
+        if fatal_markers and any(m in logs for m in fatal_markers):
+            raise RuntimeError(
+                f"Server failed during startup (matched a fatal log marker)."
+                f"{_format_logs(get_logs)}"
+            )
         elapsed = time.monotonic() - start
         if elapsed >= next_progress:
             logger.info(
@@ -101,6 +124,7 @@ def _wait_for_container_log(container_name: str, marker: str, timeout: float,
     start = time.monotonic()
     deadline = start + timeout
     next_progress = 10.0
+    shown = 0  # chars of container log already surfaced
     logger.info(
         f"Waiting for the Celery worker in {container_name} to log {marker!r} "
         f"(the model loads lazily, so this can take a while, up to {timeout:.0f}s)..."
@@ -110,6 +134,11 @@ def _wait_for_container_log(container_name: str, marker: str, timeout: float,
             ["docker", "logs", container_name],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         ).stdout.decode(errors="replace")
+        # Stream new container output so worker/model-load progress is visible.
+        before = shown
+        shown = _tee_new_logs(logs, shown, container_name)
+        if shown != before:
+            next_progress = (time.monotonic() - start) + 10.0
         if marker in logs:
             logger.info(
                 f"Worker ready in {container_name} after "
@@ -166,6 +195,9 @@ class UVServerRunner:
         env = os.environ.copy()
         env.update(self.env_dict)
         env["STT_ENGINE"] = self.engine
+        # Unbuffered stdout so the model-load logs reach our log file (and the
+        # live tee in _poll_healthcheck) promptly instead of in big blocks.
+        env.setdefault("PYTHONUNBUFFERED", "1")
 
         cmd = [
             "uv", "run", "main.py",
@@ -345,6 +377,8 @@ class DockerServerRunner:
         env_with_mode = dict(self.env_dict)
         env_with_mode["SERVICE_MODE"] = self.mode
         env_with_mode["STT_ENGINE"] = self.engine
+        # Unbuffered stdout so model-load logs surface promptly (live tee).
+        env_with_mode.setdefault("PYTHONUNBUFFERED", "1")
         for k, v in env_with_mode.items():
             self._env_file.write(f"{k}={v}\n")
         self._env_file.close()
