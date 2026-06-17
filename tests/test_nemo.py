@@ -31,6 +31,27 @@ def _nemo_configs(device, vads, servings=("http",),
 
 
 # ---------------------------------------------------------------------------
+# Hotel20sec.wav reference (shared by the streaming and offline tests below)
+# ---------------------------------------------------------------------------
+
+# Reference transcription of Hotel20sec.wav (French):
+#   "Bonjour Madame. Bonjour Monsieur. En quoi peux-je vous aider aujourd'hui ?
+#    Euh j'aimerais avoir une chambre pour deux personnes. Deux personnes,
+#    chambre double, d'accord. Euh deux lits. Deux lits d'accord. Et puis ce
+#    serait pour deux nuits. Deux nuits"
+# Tests check only the start and end, since the middle varies by model/decoding.
+HOTEL_EXPECTED_START = "bonjour madame bonjour monsieur"
+HOTEL_EXPECTED_END = "deux nuits deux nuits"
+
+
+def _normalize_loose(text):
+    """Lower-case, replace punctuation between words with spaces, and collapse
+    whitespace — for case- and punctuation-insensitive comparison."""
+    text = re.sub(rf"[{re.escape(string.punctuation)}]", " ", text.lower())
+    return re.sub(r"\s+", " ", text).strip()
+
+
+# ---------------------------------------------------------------------------
 # UV tests
 # ---------------------------------------------------------------------------
 
@@ -87,35 +108,59 @@ class TestNemoCTC:
 class TestNemoStreaming:
     """NeMo streaming over the WebSocket serving mode."""
 
-    # Reference transcription of Hotel20sec.wav (LinTO French FastConformer PC
-    # model, CTC decoding). Kept for documentation; the test only checks the
-    # start and end (see below), since streaming output varies in the middle:
-    #   "Bonjour Madame. Bonjour Monsieur. En quoi peux-je vous aider
-    #    aujourd'hui ? Euh j'aimerais avoir une chambre pour deux personnes.
-    #    Deux personnes, chambre double, d'accord. Euh deux lits. Deux lits
-    #    d'accord. Et puis ce serait pour deux nuits. Deux nuits"
-    EXPECTED_START = "bonjour madame bonjour monsieur"
-    EXPECTED_END = "deux nuits deux nuits"
-
-    @pytest.mark.parametrize("uv_server",
-        list(_nemo_configs(None, ["false"], servings=("websocket",),
-             model="linagora/linto_stt_fr_fastconformer_pc",
-             architecture="hybrid_bpe_ctc")),
-        indirect=True)
+    # DEVICE is left unset so it follows the --device CLI option (default cpu).
+    @pytest.mark.parametrize("uv_server", [
+        pytest.param(
+            {"engine": "nemo", "mode": "websocket", "port": 0,
+             "env_overrides": {
+                 "MODEL": "linagora/linto_stt_fr_fastconformer_pc",
+                 "ARCHITECTURE": "hybrid_bpe_ctc", "VAD": "false"}},
+            id="fastconformer_pc",
+        ),
+        pytest.param(
+            {"engine": "nemo", "mode": "websocket", "port": 0,
+             "env_overrides": {
+                 "MODEL": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+                 "ARCHITECTURE": "rnnt_bpe", "VAD": "false"}},
+            id="nemotron",
+        ),
+    ], indirect=True)
     def test_streaming(self, uv_server, test_audio_hotel):
         """Stream Hotel20sec.wav over WebSocket and check the transcription."""
         ws_url = uv_server["url"].replace("http://", "ws://", 1)
         result = transcribe_websocket(ws_url, str(test_audio_hotel),
                                       timeout=uv_server["timeout"])
-        # Compare case- and punctuation-insensitively: lower-case and replace
-        # any punctuation between words with a space, then collapse whitespace.
-        normalized = re.sub(
-            rf"[{re.escape(string.punctuation)}]", " ", result.lower())
-        normalized = re.sub(r"\s+", " ", normalized).strip()
-        assert normalized.startswith(self.EXPECTED_START), \
-            f"Transcription should start with {self.EXPECTED_START!r}: {result!r}"
-        assert normalized.endswith(self.EXPECTED_END), \
-            f"Transcription should end with {self.EXPECTED_END!r}: {result!r}"
+        normalized = _normalize_loose(result)
+        assert normalized.startswith(HOTEL_EXPECTED_START), \
+            f"Transcription should start with {HOTEL_EXPECTED_START!r}: {result!r}"
+        assert normalized.endswith(HOTEL_EXPECTED_END), \
+            f"Transcription should end with {HOTEL_EXPECTED_END!r}: {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# UV tests - Offline decoding (HTTP whole-file)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.nemo
+@pytest.mark.uv
+class TestNemoOffline:
+    """NeMo offline (whole-file) decoding over the HTTP serving mode."""
+
+    # DEVICE is left unset so it follows the --device CLI option (default cpu).
+    @pytest.mark.parametrize("uv_server", [
+        pytest.param(
+            {"engine": "nemo", "mode": "http", "port": 0,
+             "env_overrides": {
+                 "MODEL": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+                 "ARCHITECTURE": "rnnt_bpe", "VAD": "false"}},
+            id="nemotron",
+        ),
+    ], indirect=True)
+    def test_offline(self, uv_server, test_audio_bonjour):
+        """Decode bonjour.wav in one shot over HTTP and check the transcription."""
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), \
+            f"Unexpected transcription: {result}"
 
 
 # ---------------------------------------------------------------------------
