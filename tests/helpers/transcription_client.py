@@ -20,6 +20,10 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None,
     if language:
         params["language"] = language
 
+    logger.info(
+        f"Transcribing {audio_path.split('/')[-1]} via HTTP POST {url} "
+        f"(the first request triggers the lazy model load, so it may be slow)..."
+    )
     with open(audio_path, "rb") as f:
         files = {"file": (audio_path.split("/")[-1], f, "audio/wav")}
         resp = requests.post(
@@ -29,6 +33,7 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None,
             params=params,
             timeout=timeout,
         )
+    logger.info(f"HTTP transcription response received ({resp.status_code})")
 
     if resp.status_code != 200:
         raise RuntimeError(f"Transcription failed ({resp.status_code}): {resp.text}")
@@ -59,7 +64,12 @@ def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
     then raw 16-bit PCM audio chunks, then `{"eof": 1}` to flush. The server
     replies with `{"partial": "..."}` updates and `{"text": "..."}` finals; on
     `eof` it sends the assembled final and closes the connection.
+
+    The server emits one `{"text": ...}` per committed segment (not a single
+    cumulative one), so we accumulate every final and join them to reconstruct
+    the whole transcription. Returned text has its whitespace collapsed.
     """
+    import re
     import time
     import wave
     import websockets.sync.client as ws_client
@@ -75,14 +85,18 @@ def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
 
     # Chunk size in bytes (16-bit PCM = 2 bytes per sample).
     chunk_size = int(sample_rate * chunk_duration * 2)
-    final_text = ""
+    finals = []
 
     def _absorb(msg):
-        nonlocal final_text
         data = json.loads(msg)
         if data.get("text"):
-            final_text = data["text"]
+            logger.info(f"Streaming final segment: {data['text']!r}")
+            finals.append(data["text"])
 
+    logger.info(
+        f"Streaming {audio_path.split('/')[-1]} to {ws_url} "
+        f"(first audio triggers the lazy model load, so it may be slow)..."
+    )
     with ws_client.connect(ws_url, open_timeout=timeout) as conn:
         conn.send(json.dumps(config))
 
@@ -107,7 +121,8 @@ def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
             except ConnectionClosed:
                 break
 
-    return final_text
+    logger.info(f"Streaming finished ({len(finals)} final segment(s) received)")
+    return re.sub(r"\s+", " ", " ".join(finals)).strip()
 
 
 def transcribe_celery(audio_filename: str, language: str = None,
@@ -137,8 +152,13 @@ def transcribe_celery(audio_filename: str, language: str = None,
     else:
         args.append("fr")
 
+    logger.info(
+        f"Sending Celery 'transcribe_task' for {audio_filename} to {broker_url} "
+        f"(first task triggers the lazy model load, so it may be slow)..."
+    )
     result = app.send_task("transcribe_task", args=args, queue=queue)
     output = result.get(timeout=timeout)
+    logger.info("Celery task result received")
 
     if isinstance(output, dict):
         return output.get("text", str(output))

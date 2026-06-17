@@ -8,6 +8,10 @@ from helpers.transcription_client import transcribe_http, transcribe_websocket
 # Config generators
 # ---------------------------------------------------------------------------
 
+# A falsy `device` (None/"") leaves DEVICE unset, so the server fixture fills it
+# from the --device CLI option (default cpu) — i.e. the test "follows --device".
+# Pass an explicit "cpu"/"cuda" only to pin a test to one device regardless of
+# the CLI (used by the CPU-/GPU-named classes below).
 def _whisper_configs(device, vads, model="tiny", language="fr", servings=("http",)):
     for vad in vads:
         for serving in servings:
@@ -18,12 +22,13 @@ def _whisper_configs(device, vads, model="tiny", language="fr", servings=("http"
                 env["VAD"] = vad
             yield pytest.param(
                 {"engine": "whisper", "mode": serving, "port": 0, "env_overrides": env},
-                id=f"{'nodevice' if not device else device}-vad_{vad or 'none'}-{serving}",
+                id=f"{device or 'auto'}-vad_{vad or 'none'}-{serving}",
             )
 
 
 def _whisper_docker_configs(device, vads, dockerfile, model="tiny",
                             language="fr", servings=("http",), use_gpu=False):
+    # Same device convention as _whisper_configs.
     for vad in vads:
         for serving in servings:
             env = {"MODEL": model, "LANGUAGE": language}
@@ -34,7 +39,7 @@ def _whisper_docker_configs(device, vads, dockerfile, model="tiny",
             yield pytest.param(
                 {"engine": "whisper", "mode": serving, "port": 0,
                  "dockerfile": dockerfile, "use_gpu": use_gpu, "env_overrides": env},
-                id=f"{dockerfile.split('/')[-1]}-{'nodevice' if not device else device}-vad_{vad or 'none'}-{serving}",
+                id=f"{dockerfile.split('/')[-1]}-{device or 'auto'}-vad_{vad or 'none'}-{serving}",
             )
 
 
@@ -74,7 +79,8 @@ class TestWhisperGPU:
 @pytest.mark.whisper
 @pytest.mark.uv
 class TestWhisperNoDevice:
-    """Whisper engine with no explicit device."""
+    """Whisper engine without an explicit device pin: the test sets no DEVICE,
+    so it runs on whatever --device selects (default cpu)."""
 
     @pytest.mark.parametrize("uv_server",
         list(_whisper_configs(None, [None])),
@@ -159,7 +165,6 @@ class TestWhisperHotwords:
              "env_overrides": {
                  "MODEL": "tiny",
                  "LANGUAGE": "fr",
-                 "DEVICE": "cpu",
                  "VAD": "false",
                  "HOTWORDS": "BonJour AuRevoir PourquoiPas",
              }},
@@ -185,7 +190,7 @@ class TestWhisperStreaming:
     @pytest.mark.parametrize("uv_server", [
         pytest.param(
             {"engine": "whisper", "mode": "websocket", "port": 0,
-             "env_overrides": {"MODEL": "tiny", "LANGUAGE": "fr", "DEVICE": "cpu"}},
+             "env_overrides": {"MODEL": "tiny", "LANGUAGE": "fr"}},
             id="streaming-bonjour",
         ),
     ], indirect=True)

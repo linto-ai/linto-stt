@@ -109,6 +109,14 @@ def test_audio_bonjour():
 
 
 @pytest.fixture(scope="session")
+def test_audio_hotel():
+    """Return path to the Hotel20sec.wav test file (longer French sample)."""
+    path = Path(__file__).resolve().parent / "Hotel20sec.wav"
+    assert path.exists(), f"Test audio not found: {path}"
+    return path
+
+
+@pytest.fixture(scope="session")
 def server_timeout(request):
     return request.config.getoption("--server-timeout")
 
@@ -127,6 +135,11 @@ def uv_server(request, project_root, server_timeout):
     mode = params.get("mode", "http")
     port = params.get("port", 0)
     env_overrides = params.get("env_overrides", {})
+
+    # If the test didn't pin a device, follow the --device CLI option.
+    if "DEVICE" not in env_overrides:
+        env_overrides = {**env_overrides,
+                         "DEVICE": request.config.getoption("--device")}
 
     env_dict = build_env_dict(project_root, engine, env_overrides)
     runner = UVServerRunner(
@@ -159,8 +172,18 @@ def docker_server(request, project_root, server_timeout):
     port = params.get("port", 0)
     env_overrides = params.get("env_overrides", {})
     dockerfile = params.get("dockerfile", "Dockerfile")
-    use_gpu = params.get("use_gpu", False)
+    # use_gpu defaults to "follow the device": GPU passthrough (docker --gpus)
+    # is enabled iff the resolved DEVICE is CUDA. A test can still force it by
+    # setting "use_gpu" explicitly in its param.
+    use_gpu = params.get("use_gpu")
     volumes = params.get("volumes", {})
+
+    # If the test didn't pin a device, follow the --device CLI option.
+    if "DEVICE" not in env_overrides:
+        env_overrides = {**env_overrides,
+                         "DEVICE": request.config.getoption("--device")}
+    if use_gpu is None:
+        use_gpu = "cuda" in env_overrides.get("DEVICE", "")
 
     # Reuse the host's HuggingFace cache so the container doesn't re-download
     # the model (e.g. NeMo's 2.4 GB parakeet) on every run — that download is

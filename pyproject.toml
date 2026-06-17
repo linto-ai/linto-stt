@@ -78,3 +78,9 @@ markers = [
 ]
 addopts = "-v --tb=short"
 timeout = 900
+# Stream log messages live so long waits (Docker build, model load, transcribe)
+# show progress as they happen, instead of only on failure.
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s %(levelname)s %(message)s"
+log_cli_date_format = "%H:%M:%S"

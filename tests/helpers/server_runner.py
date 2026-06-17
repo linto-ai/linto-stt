@@ -42,17 +42,23 @@ def _format_logs(get_logs, max_chars: int = 4000) -> str:
 
 
 def _poll_healthcheck(url, timeout, process_or_container=None, get_logs=None,
-                      fatal_markers=()) -> None:
+                      fatal_markers=(), label="server") -> None:
     """Poll a URL until it returns 2xx/4xx; fail fast if the server exits or logs
     a fatal error; otherwise time out. Server logs are attached to all errors."""
-    deadline = time.monotonic() + timeout
+    start = time.monotonic()
+    deadline = start + timeout
     interval = 1.0
+    next_progress = 10.0  # log "still waiting" every 10s so long loads show life
     last_error = None
+    logger.info(
+        f"Waiting for {label} to become ready at {url} — the model loads "
+        f"lazily on first use, so this can take a while (up to {timeout:.0f}s)..."
+    )
     while time.monotonic() < deadline:
         try:
             resp = requests.get(url, timeout=5)
             if resp.status_code in (200, 400, 426):
-                logger.info(f"Server ready at {url}")
+                logger.info(f"{label} ready at {url} after {time.monotonic() - start:.0f}s")
                 return
         except requests.ConnectionError as e:
             last_error = e
@@ -71,6 +77,13 @@ def _poll_healthcheck(url, timeout, process_or_container=None, get_logs=None,
                     f"Server failed during startup (matched a fatal log marker)."
                     f"{_format_logs(get_logs)}"
                 )
+        elapsed = time.monotonic() - start
+        if elapsed >= next_progress:
+            logger.info(
+                f"... still waiting for {label} ({elapsed:.0f}s elapsed; "
+                f"model loading / warmup in progress)"
+            )
+            next_progress += 10.0
         time.sleep(interval)
     raise TimeoutError(
         f"Server at {url} not ready after {timeout}s (last error: {last_error})."
@@ -85,19 +98,35 @@ def _wait_for_container_log(container_name: str, marker: str, timeout: float,
     Used for Celery task mode, which runs only a worker (no HTTP endpoint to
     poll), so readiness is detected from the worker's startup log instead.
     """
-    deadline = time.monotonic() + timeout
+    start = time.monotonic()
+    deadline = start + timeout
+    next_progress = 10.0
+    logger.info(
+        f"Waiting for the Celery worker in {container_name} to log {marker!r} "
+        f"(the model loads lazily, so this can take a while, up to {timeout:.0f}s)..."
+    )
     while time.monotonic() < deadline:
         logs = subprocess.run(
             ["docker", "logs", container_name],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         ).stdout.decode(errors="replace")
         if marker in logs:
-            logger.info(f"Worker ready in {container_name} (found {marker!r})")
+            logger.info(
+                f"Worker ready in {container_name} after "
+                f"{time.monotonic() - start:.0f}s (found {marker!r})"
+            )
             return
         if process is not None and process.poll() is not None:
             raise RuntimeError(
                 f"Container process exited with code {process.returncode}\n{logs}"
             )
+        elapsed = time.monotonic() - start
+        if elapsed >= next_progress:
+            logger.info(
+                f"... still waiting for the worker in {container_name} "
+                f"({elapsed:.0f}s elapsed; model loading in progress)"
+            )
+            next_progress += 10.0
         time.sleep(1.0)
     raise TimeoutError(
         f"Container {container_name} did not log {marker!r} within {timeout}s"
@@ -145,7 +174,12 @@ class UVServerRunner:
             "-p", str(self.port),
             "-i", "127.0.0.1",
         ]
-        logger.info(f"Starting UV server: {' '.join(cmd)}")
+        logger.info(
+            f"Launching UV {self.mode} server for engine '{self.engine}' on port "
+            f"{self.port} (device={self.env_dict.get('DEVICE', 'cpu')}, "
+            f"model={self.env_dict.get('MODEL', '?')})..."
+        )
+        logger.info(f"  command: {' '.join(cmd)}")
         self._log_file = tempfile.NamedTemporaryFile(
             mode="w", suffix=".log", delete=False, prefix="linto_uv_"
         )
@@ -171,6 +205,7 @@ class UVServerRunner:
             healthcheck_url = self.base_url
         else:
             # task mode (Celery) - no HTTP endpoint to poll
+            logger.info("Celery worker launched; giving it 5s to connect to the broker...")
             time.sleep(5)
             if self.process.poll() is not None:
                 raise RuntimeError(
@@ -180,7 +215,8 @@ class UVServerRunner:
             return self.base_url
 
         _poll_healthcheck(healthcheck_url, self.timeout, self.process,
-                          get_logs=self._read_logs, fatal_markers=_FATAL_LOG_MARKERS)
+                          get_logs=self._read_logs, fatal_markers=_FATAL_LOG_MARKERS,
+                          label=f"UV {self.mode} server")
         return self.base_url
 
     def stop(self):
@@ -265,7 +301,9 @@ class DockerServerRunner:
         # would make one engine's test reuse another engine's image.
         cache_key = (self.engine, self.dockerfile, self.use_gpu)
         if cache_key in DockerServerRunner._built_images:
-            return DockerServerRunner._built_images[cache_key]
+            tag = DockerServerRunner._built_images[cache_key]
+            logger.info(f"Reusing already-built Docker image '{tag}'")
+            return tag
 
         # GPU and CPU builds are different images (the GPU build installs the
         # CUDA runtime libs), so they get distinct tags / cache entries.
@@ -279,12 +317,20 @@ class DockerServerRunner:
             # GPU=1 installs cuBLAS/cuDNN that ctranslate2 needs for CUDA.
             cmd.extend(["--build-arg", "GPU=1"])
         cmd.extend(["-t", tag])
-        logger.info(f"Building Docker image: {' '.join(cmd)}")
+        logger.info(
+            f"Building Docker image '{tag}' from {self.dockerfile} for engine "
+            f"'{self.engine}' — the first build can take several minutes "
+            f"(output is captured)..."
+        )
+        build_start = time.monotonic()
         result = subprocess.run(cmd, cwd=self.project_root, capture_output=True)
         if result.returncode != 0:
             raise RuntimeError(
                 f"Docker build failed:\n{result.stderr.decode()}"
             )
+        logger.info(
+            f"Docker image '{tag}' built in {time.monotonic() - build_start:.0f}s"
+        )
         DockerServerRunner._built_images[cache_key] = tag
         return tag
 
@@ -318,7 +364,13 @@ class DockerServerRunner:
 
         cmd.append(image_tag)
 
-        logger.info(f"Starting Docker container: {' '.join(cmd)}")
+        logger.info(
+            f"Launching Docker container '{self.container_name}' "
+            f"(mode={self.mode}, gpu={self.use_gpu}, "
+            f"device={self.env_dict.get('DEVICE', 'cpu')}, "
+            f"model={self.env_dict.get('MODEL', '?')})..."
+        )
+        logger.info(f"  command: {' '.join(cmd)}")
         # Log to a file, NOT a PIPE: an undrained PIPE buffer fills up during the
         # verbose container startup and blocks it. The file captures both the
         # docker CLI's own errors (e.g. "could not select device driver") and the
@@ -347,7 +399,8 @@ class DockerServerRunner:
         else:
             healthcheck_url = f"{self.base_url}/healthcheck" if self.mode == "http" else self.base_url
             _poll_healthcheck(healthcheck_url, self.timeout, self._process,
-                              get_logs=self._read_logs, fatal_markers=_FATAL_LOG_MARKERS)
+                              get_logs=self._read_logs, fatal_markers=_FATAL_LOG_MARKERS,
+                              label=f"Docker {self.mode} container")
         return self.base_url
 
     def stop(self):
