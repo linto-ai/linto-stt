@@ -1,5 +1,6 @@
 import json
 import sys
+import copy
 import string
 import numpy as np
 import logging
@@ -12,7 +13,10 @@ import nemo.collections.asr as nemo_asr
 
 from concurrent.futures import ThreadPoolExecutor
 from .vad import remove_non_speech
-from .utils import get_language
+from .utils import (
+    get_language, supports_cache_aware_streaming, strip_language_markers,
+    SAMPLE_RATE,
+)
 from .decoding import nemo_transcribe
 from linto_stt.punctuation.recasepunc import apply_recasepunc
 from linto_stt.engines.nemo.stt import (
@@ -64,8 +68,291 @@ def nemo_to_json(o, partial=False, punctuation_model=None):
     return json_res
 
 
+# ---------------------------------------------------------------------------
+# Native cache-aware streaming (models that support streaming natively)
+# ---------------------------------------------------------------------------
+
+# Cadence, in seconds of *received* audio, at which a `partial` is emitted while
+# streaming. Each partial re-runs the native streaming decode over the audio
+# received so far (see _streaming_transcribe), so a larger value trades partial
+# responsiveness for less compute.
+NATIVE_PARTIAL_INTERVAL = float(
+    os.environ.get("STREAMING_NATIVE_PARTIAL_INTERVAL", "2.0"))
+
+
+def _hypothesis_text(transcribed_texts):
+    """Extract the (cumulative) transcription string from conformer_stream_step's
+    `transcribed_texts` return value, which may hold strings or Hypotheses.
+    Inline language-id markers (e.g. "<fr-FR>") are stripped (see
+    strip_language_markers), as they also appear in the offline output."""
+    if not transcribed_texts:
+        return ""
+    item = transcribed_texts[0]
+    if isinstance(item, str):
+        return strip_language_markers(item)
+    text = getattr(item, "text", None)
+    if text is None and isinstance(item, (list, tuple)) and item:
+        text = getattr(item[0], "text", None)
+    return strip_language_markers(text or "")
+
+
+def _apply_punct(text, punctuation_model):
+    if text and punctuation_model is not None:
+        return apply_recasepunc(punctuation_model, text)
+    return text
+
+
+def _configure_streaming_decoding(model):
+    """Reconfigure an RNNT model's decoding for native streaming (idempotent).
+
+    Mirrors NeMo's cache-aware streaming example, which calls
+    change_decoding_strategy with fused_batch_size = -1 before streaming. We also
+    turn OFF timestamps/alignments: our native path returns only text, and with
+    them on the per-chunk hypothesis merge in streaming RNNT greedy decode hits
+    `Hypothesis.merge_` doing `self.timestamp.extend(other.timestamp)` with
+    mismatched list/tensor types — which raises mid-stream (empty result / 1011).
+    Disabling them keeps `timestamp` a consistent empty list, so the merge is a
+    harmless no-op.
+    """
+    if getattr(model, "_linto_streaming_decoding_ready", False):
+        return
+    model._linto_streaming_decoding_ready = True  # set first: never retry on error
+    if not hasattr(model, "joint"):
+        return  # not an RNNT model; this reconfiguration doesn't apply
+    try:
+        from omegaconf import open_dict
+        decoding_cfg = copy.deepcopy(model.cfg.decoding)
+        with open_dict(decoding_cfg):
+            decoding_cfg.fused_batch_size = -1
+            decoding_cfg.compute_timestamps = False
+            decoding_cfg.preserve_alignments = False
+        model.change_decoding_strategy(decoding_cfg)
+        logger.info("Configured RNNT decoding for native streaming "
+                    "(fused_batch_size=-1, timestamps/alignments off).")
+    except Exception:
+        logger.warning("Could not reconfigure decoding for streaming; using the "
+                       "model's default (streaming may fail).", exc_info=True)
+
+
+def _configure_streaming_prompt(model, language):
+    """Prompt-conditioned streaming models (PromptStreamingMixin) only condition
+    the encoder if `set_inference_prompt(target_lang)` has been called — otherwise
+    `_apply_prompt_to_encoded` passes the encoder output through unconditioned and
+    the decoder emits only blanks (empty transcription). The offline `transcribe`
+    path resolves this from `target_lang` (default 'auto'); the low-level
+    streaming API does not, so we replicate it here.
+
+    No-op for non-prompt models (no `set_inference_prompt`). Called per stream so
+    the per-request language is honoured.
+    """
+    if not hasattr(model, "set_inference_prompt"):
+        return
+    # Try, in order: the requested language as given (e.g. "fr-FR"), its base
+    # code ("fr"), then "auto". The model's prompt_dictionary may key on any of
+    # these; set_inference_prompt raises on an unknown key, so we fall through.
+    candidates = []
+    if language and language not in ("unknown", "*"):
+        candidates.append(language)
+        if "-" in language:
+            candidates.append(language.split("-")[0])
+    candidates.append("auto")
+    for lang in candidates:
+        try:
+            model.set_inference_prompt(lang)
+            logger.info(f"Set streaming language prompt: target_lang={lang!r}")
+            return
+        except Exception:
+            continue
+    logger.warning(
+        "Could not set the streaming language prompt (tried %s); the model may "
+        "transcribe blanks.", candidates, exc_info=True)
+
+
+def _streaming_transcribe(model, audio):
+    """Transcribe `audio` (1-D float32 @ 16 kHz) with the model's NATIVE
+    cache-aware streaming path, following NeMo's
+    speech_to_text_cache_aware_streaming_infer.py example: feed the whole signal
+    through a CacheAwareStreamingAudioBuffer and step the encoder chunk by chunk
+    with a fresh cache. Returns the final (cumulative) transcription text.
+    """
+    from nemo.collections.asr.parts.utils.streaming_utils import (
+        CacheAwareStreamingAudioBuffer,
+    )
+
+    # online_normalization=False: normalize over the WHOLE signal (we feed it all
+    # at once, not truly incrementally). This matches NeMo's streaming example,
+    # whose default is False. Forcing per-chunk (online) normalization here
+    # corrupts the mel features and the RNNT emits only blanks (empty text).
+    buffer = CacheAwareStreamingAudioBuffer(
+        model=model,
+        online_normalization=False,
+        pad_and_drop_preencoded=False,
+    )
+    buffer.append_audio(audio, stream_id=-1)
+
+    cache_last_channel, cache_last_time, cache_last_channel_len = \
+        model.encoder.get_initial_cache_state(batch_size=1)
+    previous_hypotheses = None
+    pred_out_stream = None
+    text = ""
+    n_chunks = 0
+    with torch.inference_mode():
+        for step_num, (chunk_audio, chunk_lengths) in enumerate(buffer):
+            n_chunks += 1
+            # The first chunk carries no pre-encode cache to drop; later chunks
+            # drop the encoder's configured pre-encode overlap.
+            drop_extra_pre_encoded = (
+                0 if step_num == 0
+                else model.encoder.streaming_cfg.drop_extra_pre_encoded
+            )
+            (
+                pred_out_stream,
+                transcribed_texts,
+                cache_last_channel,
+                cache_last_time,
+                cache_last_channel_len,
+                previous_hypotheses,
+            ) = model.conformer_stream_step(
+                processed_signal=chunk_audio,
+                processed_signal_length=chunk_lengths,
+                cache_last_channel=cache_last_channel,
+                cache_last_time=cache_last_time,
+                cache_last_channel_len=cache_last_channel_len,
+                keep_all_outputs=buffer.is_buffer_empty(),
+                previous_hypotheses=previous_hypotheses,
+                previous_pred_out=pred_out_stream,
+                drop_extra_pre_encoded=drop_extra_pre_encoded,
+                return_transcription=True,
+            )
+            # transcribed_texts is cumulative across chunks; keep the latest
+            # non-empty so a (rare) empty final step doesn't drop a good result.
+            t = _hypothesis_text(transcribed_texts)
+            if t:
+                text = t
+    logger.debug(
+        f"Native streaming: {n_chunks} chunk(s), final text={text!r}")
+    return text
+
+
+async def _wss_decode_cache_aware(ws, model, punctuation_model):
+    """WebSocket streaming for models that natively support cache-aware
+    streaming. Far simpler than the buffered LocalAgreement path: the model
+    decodes natively, so we accumulate incoming PCM, emit a `partial` every
+    NATIVE_PARTIAL_INTERVAL seconds (re-decoding the audio so far), and a final
+    `text` on EOF.
+
+    Note: each partial/final re-runs the streaming decode from scratch over the
+    accumulated audio. That is O(n) per emission (so O(n^2) over a long stream) —
+    fine for short utterances; for very long streams raise
+    STREAMING_NATIVE_PARTIAL_INTERVAL (or disable partials by setting it high).
+    """
+    # Unwrap the lazy-loading proxy to the underlying NeMo model.
+    if getattr(model, "_model", None) is None and hasattr(model, "check_loaded"):
+        model.check_loaded()
+    underlying = getattr(model, "_model", None) or model
+    underlying.eval()
+    _configure_streaming_decoding(underlying)
+
+    res = await ws.recv()
+    try:
+        config = json.loads(res)["config"]
+        sample_rate = int(config["sample_rate"])
+        logger.info(f"Received config: {config}")
+    except Exception as e:
+        logger.error(f"Failed to read stream configuration {e}")
+        await ws.close(reason="Failed to load configuration")
+        return
+    if sample_rate != SAMPLE_RATE:
+        logger.warning(
+            f"Stream sample_rate={sample_rate} but cache-aware streaming expects "
+            f"{SAMPLE_RATE} Hz; audio is interpreted as {SAMPLE_RATE} Hz."
+        )
+    # Prompt-conditioned models need their language prompt set, else they decode
+    # blanks (see _configure_streaming_prompt). Use the raw requested language
+    # (config "language", else the LANGUAGE env) so a region code like "fr-FR" is
+    # tried before being reduced to "fr".
+    requested_language = config.get("language") or os.environ.get("LANGUAGE")
+    _configure_streaming_prompt(underlying, requested_language)
+
+    executor = ThreadPoolExecutor(max_workers=1)
+    loop = asyncio.get_event_loop()
+    audio = np.array([], dtype=np.float32)
+    last_partial_at = 0
+    partial_every = max(1, int(NATIVE_PARTIAL_INTERVAL * SAMPLE_RATE))
+
+    try:
+        logger.info("Starting native cache-aware streaming transcription ...")
+        while True:
+            message = await ws.recv()
+            if isinstance(message, str) and re.match(EOF_REGEX, message):
+                text = ""
+                if len(audio):
+                    text = await loop.run_in_executor(
+                        executor, _streaming_transcribe, underlying, audio)
+                logger.info(f"Sending final '{text}'")
+                await ws.send(json.dumps(
+                    {"text": _apply_punct(text, punctuation_model)}))
+                await ws.close()
+                logger.info("Closing connection")
+                break
+            if isinstance(message, str):
+                continue  # ignore other control messages
+            audio = np.concatenate([audio, bytes_to_array(message)])
+            if len(audio) - last_partial_at >= partial_every:
+                last_partial_at = len(audio)
+                # Partials are best-effort: a transient decode error on a partial
+                # must not tear down the stream (the final still runs on EOF).
+                try:
+                    text = await loop.run_in_executor(
+                        executor, _streaming_transcribe, underlying, audio)
+                except Exception:
+                    logger.warning("Partial decode failed; skipping this partial.",
+                                   exc_info=True)
+                    continue
+                if text:
+                    logger.debug(f"Sending partial '{text}'")
+                    await ws.send(json.dumps(
+                        {"partial": _apply_punct(text, punctuation_model)}))
+    except ConnectionClosed as e:
+        logger.info(f"Connection closed {e}")
+    except Exception:
+        # Surface the real error: an unhandled exception here closes the socket
+        # with an opaque 1011, and the server's call-phase logs aren't teed by
+        # the test harness — so without this the traceback is lost.
+        logger.error("Error during native cache-aware streaming:", exc_info=True)
+        raise
+    finally:
+        executor.shutdown(wait=False)
+
+
 async def wssDecode(ws: WebSocketServerProtocol, model_and_punctuationmodel):
-    """Async Decode function endpoint"""
+    """Async decode endpoint. Robustly discriminates the model type *before*
+    choosing a serving path: models that natively support cache-aware streaming
+    go through the native NeMo streaming API; every other (offline) model keeps
+    the buffered LocalAgreement path that simulates streaming."""
+    model, punctuation_model = model_and_punctuationmodel
+    try:
+        native = supports_cache_aware_streaming(model)
+    except Exception as e:
+        logger.warning(
+            f"Could not probe cache-aware streaming support ({e}); falling back "
+            f"to the buffered streaming path.")
+        native = False
+    if native:
+        logger.info("Model natively supports cache-aware streaming; using the "
+                    "native NeMo streaming path.")
+        await _wss_decode_cache_aware(ws, model, punctuation_model)
+    else:
+        logger.info("Model does not natively support streaming; using the "
+                    "buffered (simulated) streaming path.")
+        await _wss_decode_buffered(ws, model_and_punctuationmodel)
+
+
+async def _wss_decode_buffered(ws: WebSocketServerProtocol, model_and_punctuationmodel):
+    """Buffered streaming for offline models: simulates streaming by repeatedly
+    re-transcribing a sliding audio buffer and committing stable words
+    (LocalAgreement via HypothesisBuffer), with VAD, buffer trimming and
+    punctuation/silence/max-duration finals."""
     try:
         res = await ws.recv()
         try:

@@ -1,5 +1,6 @@
 import io
 import os
+import re
 
 import numpy as np
 import wavio
@@ -9,6 +10,23 @@ SAMPLE_RATE = 16000  # whisper.audio.SAMPLE_RATE
 import torch
 import nemo.collections.asr as nemo_asr
 import torchaudio
+
+
+# Prompt-conditioned NeMo models (e.g. nvidia/nemotron-3.5-asr-streaming) emit
+# inline language-id markers like "<fr-FR>" in BOTH offline and streaming output.
+# These are special tokens, not real transcription, so we strip them. The region
+# part covers ISO 3166 alpha-2/alpha-3 (2-4 uppercase, also an uppercased script
+# code) and numeric-3 (e.g. "<es-419>"); the strict shape leaves ordinary
+# angle-bracketed text untouched.
+_LANGUAGE_MARKER_RE = re.compile(r"<[a-z]{2,3}-(?:[A-Z]{2,4}|[0-9]{3})>")
+
+
+def strip_language_markers(text):
+    """Remove inline language-id markers from `text` and tidy the whitespace."""
+    if not text:
+        return text
+    text = _LANGUAGE_MARKER_RE.sub(" ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def has_cuda():
@@ -48,6 +66,30 @@ def get_decoding_method(architecture):
         return "ctc" if "ctc" in architecture else "rnnt"
     else:
         return None
+
+
+def supports_cache_aware_streaming(model):
+    """Return True iff the model's encoder was trained for cache-aware streaming.
+
+    The robust, trained-in signal is the Conformer encoder's ``att_context_style``:
+    cache-aware streaming models use ``"chunked_limited"`` /
+    ``"chunked_limited_with_rc"`` (limited, chunked attention with inter-chunk
+    caching), whereas offline models use ``"regular"`` (full attention). Note that
+    ``encoder.streaming_cfg`` is *always* set — even for offline models, where it
+    computes a full-model lookahead — so it is NOT a valid discriminator; only
+    ``att_context_style`` is.
+
+    Such models expose the native streaming API used by NeMo's
+    ``speech_to_text_cache_aware_streaming_infer.py`` example
+    (``encoder.get_initial_cache_state`` + ``conformer_stream_step``), so we can
+    serve them through that path instead of simulating streaming over an offline
+    model.
+    """
+    encoder = getattr(model, "encoder", None)
+    return getattr(encoder, "att_context_style", None) in (
+        "chunked_limited",
+        "chunked_limited_with_rc",
+    )
 
 def conform_audio(audio, sample_rate=16_000):
     if sample_rate != SAMPLE_RATE:

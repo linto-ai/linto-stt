@@ -14,6 +14,7 @@ from nemo.collections.asr.parts.submodules.rnnt_decoding import RNNTDecodingConf
 from nemo.collections.asr.parts.submodules.ctc_decoding import CTCDecodingConfig
 
 from linto_stt.engines.nemo.stt import logger, ATT_CONTEXT_SIZE
+from .utils import supports_cache_aware_streaming
 import logging
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("nemo_logger").setLevel(logging.ERROR)
@@ -47,10 +48,21 @@ def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decodi
         model.change_decoding_strategy(decode_cfg)
 
     if ATT_CONTEXT_SIZE > 0 and hasattr(model, 'change_attention_model'):
-        logger.info(f"Switching to local attention (att_context_size=[{ATT_CONTEXT_SIZE}, {ATT_CONTEXT_SIZE}])")
-        model.change_attention_model(
-            self_attention_model="rel_pos_local_attn",
-            att_context_size=[ATT_CONTEXT_SIZE, ATT_CONTEXT_SIZE],
-        )
+        if supports_cache_aware_streaming(model):
+            # This model was trained for cache-aware streaming (chunked-limited
+            # attention) and is served through the native streaming path. Forcing
+            # `rel_pos_local_attn` here would replace its trained attention and
+            # corrupt the streaming_cfg / cache shapes that conformer_stream_step
+            # relies on (manifests as an internal error mid-stream). Leave it as-is.
+            logger.info(
+                "Model natively supports cache-aware streaming; keeping its "
+                "trained attention (skipping the ATT_CONTEXT_SIZE local-attention "
+                "conversion).")
+        else:
+            logger.info(f"Switching to local attention (att_context_size=[{ATT_CONTEXT_SIZE}, {ATT_CONTEXT_SIZE}])")
+            model.change_attention_model(
+                self_attention_model="rel_pos_local_attn",
+                att_context_size=[ATT_CONTEXT_SIZE, ATT_CONTEXT_SIZE],
+            )
 
     return model
