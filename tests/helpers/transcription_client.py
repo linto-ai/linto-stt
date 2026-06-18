@@ -37,22 +37,15 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None,
 
     if resp.status_code != 200:
         raise RuntimeError(f"Transcription failed ({resp.status_code}): {resp.text}")
-
-    # FastAPI returns (json_string, status_code) as a JSON array,
-    # or sometimes a raw JSON string.
-    try:
-        data = json.loads(resp.text)
-        # Unwrap [body, status_code] tuple from FastAPI
-        if isinstance(data, list) and len(data) == 2:
-            data = data[0]
-        # Body might be a JSON-encoded string
-        if isinstance(data, str):
-            data = json.loads(data)
-        if isinstance(data, dict):
-            return data.get("text", str(data))
-        return str(data)
-    except (json.JSONDecodeError, TypeError):
-        return resp.text
+    
+    data = json.loads(resp.text)
+    # Unwrap [body, status_code] tuple from FastAPI
+    if isinstance(data, list) and len(data) == 2:
+        data = data[0]
+    # Body might be a JSON-encoded string
+    if isinstance(data, str):
+        data = json.loads(data)
+    return sanity_check_and_get_text(data)
 
 
 def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
@@ -160,6 +153,24 @@ def transcribe_celery(audio_filename: str, language: str = None,
     output = result.get(timeout=timeout)
     logger.info("Celery task result received")
 
-    if isinstance(output, dict):
-        return output.get("text", str(output))
-    return str(output)
+    return sanity_check_and_get_text(output)
+
+def sanity_check_and_get_text(output):
+    assert isinstance(output, dict), f"Unexpected transcription output: {output} (type {type(output)})"
+    logger.info("Model output:\n%s", json.dumps(output, indent=2, ensure_ascii=False))
+    assert "text" in output, f"Unexpected transcription output: {output} (missing 'text' key)"
+    assert "words" in output, f"Unexpected transcription output: {output} (missing 'words' key)"
+    text = output["text"]
+    words = output["words"]
+    text_from_words = " ".join(w["word"] for w in words)
+    for w in words:
+        assert "start" in w and "end" in w, f"Unexpected word entry: {w} (missing 'start' or 'end' key)"
+        assert isinstance(w["start"], (float, int)) and isinstance(w["end"], (float, int)), \
+            f"Unexpected word entry: {w} (start/end are not numbers)"
+        assert w["start"] <= w["end"], f"Word start > end: {w}"
+        if "conf" in w:
+            assert isinstance(w["conf"], (float, int)), f"Unexpected word entry: {w} (conf is not a number)"
+            assert 0 <= w["conf"] <= 1, f"Unexpected word entry: {w} (conf is not in [0, 1])"
+    assert text.replace(" ", "") == text_from_words.replace(" ", ""), \
+        f"Text mismatch: {text!r} vs {text_from_words!r}"
+    return text
