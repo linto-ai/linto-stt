@@ -14,7 +14,7 @@ import nemo.collections.asr as nemo_asr
 from concurrent.futures import ThreadPoolExecutor
 from .vad import remove_non_speech
 from .utils import (
-    get_language, supports_cache_aware_streaming, strip_language_markers,
+    get_language, supports_cache_aware_streaming, enable_strip_lang_tags,
     SAMPLE_RATE,
 )
 from .decoding import nemo_transcribe
@@ -82,18 +82,18 @@ NATIVE_PARTIAL_INTERVAL = float(
 
 def _hypothesis_text(transcribed_texts):
     """Extract the (cumulative) transcription string from conformer_stream_step's
-    `transcribed_texts` return value, which may hold strings or Hypotheses.
-    Inline language-id markers (e.g. "<fr-FR>") are stripped (see
-    strip_language_markers), as they also appear in the offline output."""
+    `transcribed_texts` return value, which may hold strings or Hypotheses. Inline
+    language-id markers ("<fr-FR>") are stripped natively by the decoder, which we
+    configure via enable_strip_lang_tags (see _configure_streaming_decoding)."""
     if not transcribed_texts:
         return ""
     item = transcribed_texts[0]
     if isinstance(item, str):
-        return strip_language_markers(item)
+        return item.strip()
     text = getattr(item, "text", None)
     if text is None and isinstance(item, (list, tuple)) and item:
         text = getattr(item[0], "text", None)
-    return strip_language_markers(text or "")
+    return (text or "").strip()
 
 
 def _apply_punct(text, punctuation_model):
@@ -129,6 +129,10 @@ def _configure_streaming_decoding(model):
         model.change_decoding_strategy(decoding_cfg)
         logger.info("Configured RNNT decoding for native streaming "
                     "(fused_batch_size=-1, timestamps/alignments off).")
+        # change_decoding_strategy rebuilt the decoder, so re-enable native
+        # language-tag stripping on the new one (no-op for non-prompt models).
+        if enable_strip_lang_tags(model):
+            logger.info("Enabled native language-tag stripping for streaming.")
     except Exception:
         logger.warning("Could not reconfigure decoding for streaming; using the "
                        "model's default (streaming may fail).", exc_info=True)

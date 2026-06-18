@@ -13,20 +13,48 @@ import torchaudio
 
 
 # Prompt-conditioned NeMo models (e.g. nvidia/nemotron-3.5-asr-streaming) emit
-# inline language-id markers like "<fr-FR>" in BOTH offline and streaming output.
-# These are special tokens, not real transcription, so we strip them. The region
-# part covers ISO 3166 alpha-2/alpha-3 (2-4 uppercase, also an uppercased script
-# code) and numeric-3 (e.g. "<es-419>"); the strict shape leaves ordinary
-# angle-bracketed text untouched.
+# inline language-id markers like "<fr-FR>" in their output. Such models expose a
+# native stripping switch (decoding.set_strip_lang_tags), which we enable at load
+# (see enable_strip_lang_tags). We pass this pattern so coverage matches ISO 3166
+# alpha-2/alpha-3 (2-4 uppercase, also an uppercased script code) and numeric-3
+# (e.g. "<es-419>") — broader than NeMo's default "<[a-z]{2}-[A-Z]{2}>". The
+# leading \s* also consumes the space before the tag.
+LANG_TAG_PATTERN = r"\s*<[a-z]{2,3}-(?:[A-Z]{2,4}|[0-9]{3})>"
+
+# Same tag shape, anchored, to recognise a standalone marker token: the native
+# switch strips the joined text only, NOT the word-level list, so we drop such
+# word entries ourselves (see is_language_marker).
 _LANGUAGE_MARKER_RE = re.compile(r"<[a-z]{2,3}-(?:[A-Z]{2,4}|[0-9]{3})>")
 
 
-def strip_language_markers(text):
-    """Remove inline language-id markers from `text` and tidy the whitespace."""
-    if not text:
-        return text
-    text = _LANGUAGE_MARKER_RE.sub(" ", text)
-    return re.sub(r"\s+", " ", text).strip()
+def is_language_marker(word):
+    """True if `word` is only a language-id marker (or empty) — not a real word."""
+    w = (word or "").strip()
+    return not w or _LANGUAGE_MARKER_RE.fullmatch(w) is not None
+
+
+def enable_strip_lang_tags(model):
+    """Enable the model's NATIVE language-tag stripping, when supported (only
+    prompt-conditioned models expose `decoding.set_strip_lang_tags`). Returns True
+    if enabled. Applied to the live decoder AND persisted in the decoding config,
+    so it survives a later change_decoding_strategy / transcribe rebuild.
+
+    Note: this strips the joined TEXT only; word-level entries must be cleaned
+    separately (see is_language_marker)."""
+    decoding = getattr(model, "decoding", None)
+    if decoding is None or not hasattr(decoding, "set_strip_lang_tags"):
+        return False
+    decoding.set_strip_lang_tags(True, lang_tag_pattern=LANG_TAG_PATTERN)
+    try:
+        from omegaconf import open_dict
+        cfg = getattr(model, "cfg", None)
+        if cfg is not None and "decoding" in cfg:
+            with open_dict(cfg.decoding):
+                cfg.decoding.strip_lang_tags = True
+                cfg.decoding.lang_tag_pattern = LANG_TAG_PATTERN
+    except Exception:
+        pass
+    return True
 
 
 def has_cuda():

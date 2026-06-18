@@ -14,7 +14,7 @@ from nemo.collections.asr.parts.submodules.rnnt_decoding import RNNTDecodingConf
 from nemo.collections.asr.parts.submodules.ctc_decoding import CTCDecodingConfig
 
 from linto_stt.engines.nemo.stt import logger, ATT_CONTEXT_SIZE
-from .utils import supports_cache_aware_streaming
+from .utils import supports_cache_aware_streaming, enable_strip_lang_tags
 import logging
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("nemo_logger").setLevel(logging.ERROR)
@@ -64,5 +64,12 @@ def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decodi
                 self_attention_model="rel_pos_local_attn",
                 att_context_size=[ATT_CONTEXT_SIZE, ATT_CONTEXT_SIZE],
             )
+
+    # Prompt-conditioned models emit inline language tags ("<fr-FR>"); enable the
+    # model's native stripping (no-op for models that don't support it). Covers
+    # the offline path; the streaming path re-applies it after it rebuilds the
+    # decoding (see _configure_streaming_decoding).
+    if enable_strip_lang_tags(model):
+        logger.info("Enabled native language-tag stripping (strip_lang_tags).")
 
     return model
