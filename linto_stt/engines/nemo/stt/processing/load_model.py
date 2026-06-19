@@ -13,7 +13,7 @@ from nemo.collections.asr.parts.utils.asr_confidence_utils import (
 from nemo.collections.asr.parts.submodules.rnnt_decoding import RNNTDecodingConfig
 from nemo.collections.asr.parts.submodules.ctc_decoding import CTCDecodingConfig
 
-from linto_stt.engines.nemo.stt import logger, ATT_CONTEXT_SIZE
+from linto_stt.engines.nemo.stt import logger, ATT_CONTEXT_SIZE, ATT_CONTEXT_SIZE_RIGHT
 from .utils import supports_cache_aware_streaming, enable_strip_lang_tags
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -47,23 +47,7 @@ def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decodi
         decode_cfg.beam.beam_size = 1
         model.change_decoding_strategy(decode_cfg)
 
-    if ATT_CONTEXT_SIZE > 0 and hasattr(model, 'change_attention_model'):
-        if supports_cache_aware_streaming(model):
-            # This model was trained for cache-aware streaming (chunked-limited
-            # attention) and is served through the native streaming path. Forcing
-            # `rel_pos_local_attn` here would replace its trained attention and
-            # corrupt the streaming_cfg / cache shapes that conformer_stream_step
-            # relies on (manifests as an internal error mid-stream). Leave it as-is.
-            logger.info(
-                "Model natively supports cache-aware streaming; keeping its "
-                "trained attention (skipping the ATT_CONTEXT_SIZE local-attention "
-                "conversion).")
-        else:
-            logger.info(f"Switching to local attention (att_context_size=[{ATT_CONTEXT_SIZE}, {ATT_CONTEXT_SIZE}])")
-            model.change_attention_model(
-                self_attention_model="rel_pos_local_attn",
-                att_context_size=[ATT_CONTEXT_SIZE, ATT_CONTEXT_SIZE],
-            )
+    _configure_attention_context(model)
 
     # Prompt-conditioned models emit inline language tags ("<fr-FR>"); enable the
     # model's native stripping (no-op for models that don't support it). Covers
@@ -73,3 +57,56 @@ def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decodi
         logger.info("Enabled native language-tag stripping (strip_lang_tags).")
 
     return model
+
+
+def _configure_attention_context(model):
+    """Set the encoder's attention context [left, right] (encoder frames, ~80ms
+    each), with model-dependent defaults.
+
+    - Cache-aware streaming models: keep their TRAINED attention and only adjust
+      the look-ahead via ``encoder.set_default_att_context_size``. Using
+      ``rel_pos_local_attn`` here would REPLACE the trained attention and corrupt
+      the streaming cache (it is meant to convert *offline* models). Default left
+      is the model's own (ATT_CONTEXT_SIZE unset => unchanged); default right is 0
+      (lowest latency, but worst boundary accuracy — raise it, e.g. to 13, for
+      better start/end recognition).
+    - Other (offline) models: bound the context by switching to local attention
+      (``rel_pos_local_attn``). Default left 128; default right same as left.
+    """
+    encoder = getattr(model, "encoder", None)
+    if encoder is None:
+        return
+
+    if supports_cache_aware_streaming(model):
+        if ATT_CONTEXT_SIZE is None and ATT_CONTEXT_SIZE_RIGHT is None:
+            # Neither set: keep the model's TRAINED attention/look-ahead. Forcing a
+            # value here (especially right=0) badly degrades quality, so we only
+            # touch it when the user explicitly asks.
+            logger.info(
+                "Cache-aware streaming model: keeping trained att_context_size "
+                f"({list(encoder.att_context_size)}).")
+            return
+        if not hasattr(encoder, "set_default_att_context_size"):
+            logger.warning(
+                "Cache-aware streaming model exposes no set_default_att_context_size; "
+                "cannot set the look-ahead context.")
+            return
+        current = encoder.att_context_size
+        default_left = current[0] if isinstance(current[0], int) else current[0][0]
+        left = ATT_CONTEXT_SIZE if ATT_CONTEXT_SIZE is not None else default_left
+        right = ATT_CONTEXT_SIZE_RIGHT if ATT_CONTEXT_SIZE_RIGHT is not None else 0
+        logger.info(
+            f"Cache-aware streaming model: setting att_context_size=[{left}, {right}]")
+        encoder.set_default_att_context_size(att_context_size=[left, right])
+    else:
+        left = ATT_CONTEXT_SIZE if ATT_CONTEXT_SIZE is not None else 128
+        right = ATT_CONTEXT_SIZE_RIGHT if ATT_CONTEXT_SIZE_RIGHT is not None else left
+        if left <= 0 or not hasattr(model, "change_attention_model"):
+            return
+        logger.info(
+            f"Offline model: switching to local attention "
+            f"(att_context_size=[{left}, {right}]).")
+        model.change_attention_model(
+            self_attention_model="rel_pos_local_attn",
+            att_context_size=[left, right],
+        )
