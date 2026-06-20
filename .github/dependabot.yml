@@ -1,0 +1,18 @@
+version: 2
+
+# Dependabot is left running ONLY for security fixes.
+# - open-pull-requests-limit: 0 disables routine version-update PRs
+#   (security updates are NOT affected by this limit and keep running).
+# - the group below collapses all security fixes into a single PR
+#   instead of one PR per package.
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
