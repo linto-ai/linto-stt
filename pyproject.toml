@@ -53,7 +53,7 @@ recasepunc = [
     "transformers>=4.30.0",
 ]
 kyutai = [
-    "msgpack>=1.1.2",
+    "msgpack>=1.2.1",
 ]
 test = [
     "pytest>=8.0",
