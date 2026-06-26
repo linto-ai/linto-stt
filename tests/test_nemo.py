@@ -9,7 +9,7 @@ from helpers.transcription_client import transcribe_http, transcribe_websocket
 # ---------------------------------------------------------------------------
 
 def _nemo_configs(device, vads, servings=("http",),
-                  model="nvidia/parakeet-tdt-0.6b-v2", architecture="rnnt_bpe"):
+                  model="nvidia/stt_fr_conformer_ctc_large", architecture="rnnt_bpe"):
     for vad in vads:
         for serving in servings:
             env = {
@@ -49,7 +49,7 @@ class TestNemoGPU:
     """NeMo engine on CUDA via UV subprocess."""
 
     @pytest.mark.parametrize("uv_server",
-        list(_nemo_configs("cuda", [None, "false", "auditok", "silero"])),
+        list(_nemo_configs("cuda", [None, "auditok", "silero"])),
         indirect=True)
     def test_transcription_http(self, uv_server, test_audio_bonjour):
         result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
@@ -73,6 +73,28 @@ class TestNemoCTC:
 
 
 # ---------------------------------------------------------------------------
+# UV tests - Streaming (WebSocket)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.nemo
+@pytest.mark.uv
+class TestNemoStreaming:
+    """NeMo streaming over the WebSocket serving mode."""
+
+    @pytest.mark.parametrize("uv_server",
+        list(_nemo_configs("cpu", ["false"], servings=("websocket",),
+             model="nvidia/stt_fr_conformer_ctc_large", architecture="ctc_bpe")),
+        indirect=True)
+    def test_streaming(self, uv_server, test_audio_bonjour):
+        """Stream bonjour.wav over WebSocket and check the transcription."""
+        ws_url = uv_server["url"].replace("http://", "ws://", 1)
+        result = transcribe_websocket(ws_url, str(test_audio_bonjour),
+                                      timeout=uv_server["timeout"])
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), \
+            f"Unexpected streaming transcription: {result!r}"
+
+
+# ---------------------------------------------------------------------------
 # Docker tests
 # ---------------------------------------------------------------------------
 
@@ -84,7 +106,7 @@ class TestNemoDocker:
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
             {"engine": "nemo", "mode": "http", "port": 0,
-             "env_overrides": {"MODEL": "nvidia/parakeet-tdt-0.6b-v2",
+             "env_overrides": {"MODEL": "nvidia/stt_fr_conformer_ctc_large",
                                "ARCHITECTURE": "rnnt_bpe",
                                "DEVICE": "cpu", "VAD": "false"}},
             id="cpu-vad_false-http",
@@ -98,7 +120,7 @@ class TestNemoDocker:
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
             {"engine": "nemo", "mode": "task", "port": 0,
-             "env_overrides": {"MODEL": "nvidia/parakeet-tdt-0.6b-v2",
+             "env_overrides": {"MODEL": "nvidia/stt_fr_conformer_ctc_large",
                                "ARCHITECTURE": "rnnt_bpe",
                                "DEVICE": "cpu", "VAD": "false",
                                "SERVICES_BROKER": "redis://172.17.0.1:6379"}},
@@ -107,7 +129,8 @@ class TestNemoDocker:
     ], indirect=True)
     def test_transcription_task(self, docker_server, test_audio_bonjour, redis_server):
         from helpers.transcription_client import transcribe_celery
-        result = transcribe_celery("bonjour.wav", language="fr", broker_url=redis_server)
+        result = transcribe_celery("bonjour.wav", language="fr", broker_url=redis_server,
+                                   timeout=docker_server["timeout"])
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), \
             f"Unexpected transcription: {result}"
 
@@ -115,7 +138,7 @@ class TestNemoDocker:
     @pytest.mark.parametrize("docker_server", [
         pytest.param(
             {"engine": "nemo", "mode": "http", "port": 0, "use_gpu": True,
-             "env_overrides": {"MODEL": "nvidia/parakeet-tdt-0.6b-v2",
+             "env_overrides": {"MODEL": "nvidia/stt_fr_conformer_ctc_large",
                                "ARCHITECTURE": "rnnt_bpe",
                                "DEVICE": "cuda", "VAD": "false"}},
             id="cuda-vad_false-http",

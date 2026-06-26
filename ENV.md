@@ -72,7 +72,8 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MODEL` | `large-v3` | Path to a Whisper model, type of Whisper model used, or HuggingFace identifier |
-| `PROMPT` | _(none)_ | Prompt to use for the Whisper model (free text to encourage a certain transcription style) |
+| `PROMPT` | _(none)_ | Initial prompt for the Whisper model (faster-whisper's `initial_prompt`): free text prepended as previous context to encourage a certain transcription style |
+| `HOTWORDS` | _(none)_ | Free-text hint phrases/words to bias the transcription toward a given spelling (e.g. proper nouns, jargon). Only supported with the CTranslate2/faster-whisper backend; ignored by the `whisper_timestamped` backend |
 | `ALIGNMENT_MODEL` | _(none)_ | (Deprecated) Path to a wav2vec model for word alignment, or HuggingFace repository name or torchaudio pipeline |
 | `USE_ACCURATE` | `true` | Use more expensive parameters for better transcriptions (but slower). Uses beam_size=5 |
 | `ENABLE_STREAMING` | `false` | (Legacy) For the HTTP mode, redirects to websocket mode if enabled |

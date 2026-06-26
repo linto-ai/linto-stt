@@ -27,26 +27,20 @@ def get_device():
 
 def get_language(language = None):
     """
-    Get the language from the environment variable LANGUAGE, and format as expected by Whisper.
+    Get the language from the environment variable LANGUAGE, and format as expected by NeMo (if supported).
     """
     if language is None:
-        language = os.environ.get("LANGUAGE", None)
+        language = os.environ.get("LANGUAGE", "*")
+    # "fr-FR" -> "fr" (language-country code to ISO 639-1 code)
+    language_fields = language.split("-")
+    if len(language_fields) == 2:
+        language = language_fields[0]
+    # "*" means "all languages"
+    if language == "*":
+        language = None
     if language is None:
         language = "unknown"
     return language
-
-def get_model_class(architecture):
-    architecture = architecture.lower()
-    model_class = nemo_asr.models.EncDecCTCModelBPE
-    if architecture=="ctc" or architecture=="ctc_bpe":
-        model_class = nemo_asr.models.EncDecCTCModel
-    elif architecture.startswith("hybrid"):
-        model_class = nemo_asr.models.EncDecHybridRNNTCTCBPEModel
-    elif architecture=="rnnt" or architecture=="rnnt_bpe":
-        model_class = nemo_asr.models.EncDecRNNTBPEModel
-    elif architecture=="enc_dec" or architecture=="canary" or architecture=="multi_task":
-        model_class = nemo_asr.models.EncDecMultiTaskModel
-    return model_class
         
 def get_decoding_method(architecture):
     architecture = architecture.lower()

@@ -1,7 +1,7 @@
 import pytest
 
 from helpers.env_setup import get_expected_regex
-from helpers.transcription_client import transcribe_http
+from helpers.transcription_client import transcribe_http, transcribe_websocket
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ def _whisper_configs(device, vads, model="tiny", language="fr", servings=("http"
 
 
 def _whisper_docker_configs(device, vads, dockerfile, model="tiny",
-                            language="fr", servings=("http",)):
+                            language="fr", servings=("http",), use_gpu=False):
     for vad in vads:
         for serving in servings:
             env = {"MODEL": model, "LANGUAGE": language}
@@ -33,7 +33,7 @@ def _whisper_docker_configs(device, vads, dockerfile, model="tiny",
                 env["VAD"] = vad
             yield pytest.param(
                 {"engine": "whisper", "mode": serving, "port": 0,
-                 "dockerfile": dockerfile, "env_overrides": env},
+                 "dockerfile": dockerfile, "use_gpu": use_gpu, "env_overrides": env},
                 id=f"{dockerfile.split('/')[-1]}-{'nodevice' if not device else device}-vad_{vad or 'none'}-{serving}",
             )
 
@@ -145,6 +145,60 @@ class TestWhisperLanguages:
 
 
 # ---------------------------------------------------------------------------
+# UV tests - Hotwords
+# ---------------------------------------------------------------------------
+
+@pytest.mark.whisper
+@pytest.mark.uv
+class TestWhisperHotwords:
+    """Whisper hotwords biasing (faster-whisper / CTranslate2 backend)."""
+
+    @pytest.mark.parametrize("uv_server", [
+        pytest.param(
+            {"engine": "whisper", "mode": "http", "port": 0,
+             "env_overrides": {
+                 "MODEL": "tiny",
+                 "LANGUAGE": "fr",
+                 "DEVICE": "cpu",
+                 "VAD": "false",
+                 "HOTWORDS": "BonJour AuRevoir PourquoiPas",
+             }},
+            id="hotwords-bonjour",
+        ),
+    ], indirect=True)
+    def test_hotwords_spelling(self, uv_server, test_audio_bonjour):
+        """The HOTWORDS list should bias the spelling toward 'BonJour'."""
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert "BonJour" in result, \
+            f"Expected hotword spelling 'BonJour' in transcription: {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# UV tests - Streaming (WebSocket)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.whisper
+@pytest.mark.uv
+class TestWhisperStreaming:
+    """Whisper streaming over the WebSocket serving mode."""
+
+    @pytest.mark.parametrize("uv_server", [
+        pytest.param(
+            {"engine": "whisper", "mode": "websocket", "port": 0,
+             "env_overrides": {"MODEL": "tiny", "LANGUAGE": "fr", "DEVICE": "cpu"}},
+            id="streaming-bonjour",
+        ),
+    ], indirect=True)
+    def test_streaming(self, uv_server, test_audio_bonjour):
+        """Stream bonjour.wav over WebSocket and check the transcription."""
+        ws_url = uv_server["url"].replace("http://", "ws://", 1)
+        result = transcribe_websocket(ws_url, str(test_audio_bonjour),
+                                      timeout=uv_server["timeout"])
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), \
+            f"Unexpected streaming transcription: {result!r}"
+
+
+# ---------------------------------------------------------------------------
 # UV tests - Model sizes
 # ---------------------------------------------------------------------------
 
@@ -194,7 +248,7 @@ class TestWhisperDockerGPU:
 
     @pytest.mark.parametrize("docker_server",
         list(_whisper_docker_configs("cuda", [None],
-             dockerfile="Dockerfile")),
+             dockerfile="Dockerfile", use_gpu=True)),
         indirect=True)
     def test_integration_cuda(self, docker_server, test_audio_bonjour):
         result = transcribe_http(docker_server["url"], str(test_audio_bonjour))

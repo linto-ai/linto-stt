@@ -70,7 +70,7 @@ def normalize_text(text: str, lang: str) -> str:
     """Transform digits into characters..."""
 
     # Reorder currencies (1,20€ -> 1 € 20)
-    coma = "," if lang in ["fr"] else "\."
+    coma = "," if lang in ["fr"] else "."
     for c in _currencies:
         if c in text:
             text = re.sub(r"\b(\d+)" + coma + r"(\d+)\s*" +
@@ -341,10 +341,10 @@ _symbol_to_word = {
     "fr": {
         "%": "pour cents",
         "÷": "divisé par",
-        "\*": "fois",  # ?
+        "*": "fois",  # ?
         "×": "fois",
         "±": "plus ou moins",
-        "\+": "plus",
+        "+": "plus",
         "&": "et",
         "@": "arobase",
         "m²": "mètres carrés",
@@ -361,7 +361,7 @@ _symbol_to_word = {
         "°": "degrés",
         "€": "euros",
         "¢": "cents",
-        "\$": "dollars",
+        "$": "dollars",
         "£": "livres",
         "¥": "yens",
         # Below: not in Whisper tokens
@@ -382,10 +382,10 @@ _symbol_to_word = {
     "en": {
         "%": "percent",
         "÷": "divided by",
-        "\*": "times",  # ?
+        "*": "times",  # ?
         "×": "times",
         "±": "plus or minus",
-        "\+": "plus",
+        "+": "plus",
         "&": "and",
         "@": "at",
         "m²": "square meters",
@@ -402,7 +402,7 @@ _symbol_to_word = {
         "°": "degrees",
         "€": "euros",
         "¢": "cents",
-        "\$": "dollars",
+        "$": "dollars",
         "£": "pounds",
         "¥": "yens",
     },

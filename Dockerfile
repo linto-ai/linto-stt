@@ -42,11 +42,6 @@ RUN if [ -n "$GPU" ]; then \
             "nvidia-cudnn-cu12>=9,<10"; \
     fi
 
-# Copy source and install the project itself (no deps, fast)
-COPY linto_stt ./linto_stt
-COPY tests/bonjour.wav ./tests/bonjour.wav
-RUN uv pip install --system --no-cache --no-deps .
-
 ################################################################################
 # Runtime stage — minimal image with only runtime dependencies
 ################################################################################

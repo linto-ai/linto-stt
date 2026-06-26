@@ -14,17 +14,19 @@ logger = logging.getLogger("__stt__")
 # see https://github.com/guillaumekln/faster-whisper/issues/150
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # GPU in the right order
 
-vad = os.environ.get("VAD","auditok").lower()
+vad = os.environ.get("VAD","false").lower()
 if vad in ["true", "1"]:
     VAD = "auditok"
 elif vad in ["false", "0"]:
     VAD = False
 else:
-    VAD = os.environ.get("VAD","auditok")
+    VAD = vad
 
 VAD_DILATATION = float(os.environ.get("VAD_DILATATION", 0.5))
 VAD_MIN_SPEECH_DURATION = float(os.environ.get("VAD_MIN_SPEECH_DURATION", 0.1))
 VAD_MIN_SILENCE_DURATION = float(os.environ.get("VAD_MIN_SILENCE_DURATION", 0.1))
+
+ATT_CONTEXT_SIZE = int(os.environ.get("ATT_CONTEXT_SIZE", 128))  # Local attention window in encoder frames (~80ms each). 128 frames ≈ 10s context per side. Set to -1 for full attention.
 
 STREAMING_MIN_CHUNK_SIZE=float(os.environ.get("STREAMING_MIN_CHUNK_SIZE", 0.5))
 STREAMING_BUFFER_TRIMMING_SEC=float(os.environ.get("STREAMING_BUFFER_TRIMMING_SEC", 10.0))
