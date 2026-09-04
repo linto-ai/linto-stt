@@ -40,7 +40,7 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `VAD` | `auditok` | Voice Activity Detection method. VAD detects human speech in an audio stream. Use `false` to disable. Values: `auditok`, `silero`, `false` |
 | `VAD_DILATATION` | `0.5` | How much (in seconds) to enlarge each speech segment detected by the VAD |
 | `VAD_MIN_SPEECH_DURATION` | `0.1` | Minimum duration (in seconds) of a speech segment |
-| `VAD_MAX_SILENCE_DURATION` | `0.1` | Minimum duration (in seconds) of a silence segment. **Note:** .envdefault files define `VAD_MIN_SILENCE_DURATION` but the code reads `VAD_MAX_SILENCE_DURATION` |
+| `VAD_MIN_SILENCE_DURATION` | `0.1` | Minimum duration (in seconds) of a silence segment |
 
 ## Streaming / WebSocket (NeMo, Whisper)
 
