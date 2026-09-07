@@ -1,13 +1,17 @@
+# 2.1.1
+- NeMo engine updates:
+    - Add asymmetric local attention support. Configurable attention context via `ATT_CONTEXT_SIZE` (left) and the new `ATT_CONTEXT_SIZE_RIGHT` (right/look-ahead), with model-dependent defaults
+    - Update NeMo toolkit to 3.x (pinned to a frozen `main` commit), required by newer models
+    - Native cache-aware streaming for models that support it (e.g. `nvidia/nemotron-3.5-asr-streaming-0.6b`), automatically discriminated from offline models (which keep the buffered/simulated streaming path)
+    - Support prompt-conditioned models (automatic language prompt, e.g. Nemotron ASR)
+    - More robust model loading (OS-level `filelock` instead of the deprecated `lockfile`)
+
 # 2.1.0
 - NeMo engine updates:
     - Fix memory leak
     - Fix timestamps when VAD is enabled
     - Add support for specified (source and target) language
-    - Add local attention support. Configurable attention context via `ATT_CONTEXT_SIZE` (left) and the new `ATT_CONTEXT_SIZE_RIGHT` (right/look-ahead), with model-dependent defaults
-    - Update NeMo toolkit to 3.x (pinned to a frozen `main` commit), required by newer models
-    - Native cache-aware streaming for models that support it (e.g. `nvidia/nemotron-3.5-asr-streaming-0.6b`), automatically discriminated from offline models (which keep the buffered/simulated streaming path)
-    - Support prompt-conditioned models (automatic language prompt, e.g. Nemotron ASR)
-    - More robust model loading (OS-level `filelock` instead of the deprecated `lockfile`)
+    - Add local attention support
 - Whisper engine updates:
     - Fix issue #128 (speech dropped with empty or very short initial prompt)
     - Implement hotwords feature (environment variable HOTWORDS)
