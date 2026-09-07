@@ -150,10 +150,20 @@ def transcribe_celery(audio_filename: str, language: str = None,
         f"(first task triggers the lazy model load, so it may be slow)..."
     )
     result = app.send_task("transcribe_task", args=args, queue=queue)
-    output = result.get(timeout=timeout)
-    logger.info("Celery task result received")
-
-    return sanity_check_and_get_text(output)
+    try:
+        output = result.get(timeout=timeout)
+        logger.info("Celery task result received")
+        return sanity_check_and_get_text(output)
+    finally:
+        # Drop the pending result and close connections while redis is still up,
+        # so nothing lingers for GC to finalize later against a torn-down redis
+        # (which otherwise surfaces as a PytestUnraisableExceptionWarning at
+        # session teardown). Best-effort: cleanup must never fail the test.
+        try:
+            result.forget()
+            app.close()
+        except Exception:
+            pass
 
 def sanity_check_and_get_text(output):
     assert isinstance(output, dict), f"Unexpected transcription output: {output} (type {type(output)})"
