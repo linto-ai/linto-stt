@@ -1,3 +1,14 @@
+# 2.1.1
+- NeMo engine updates:
+    - Add asymmetric local attention support. Configurable attention context via `ATT_CONTEXT_SIZE` (left) and the new `ATT_CONTEXT_SIZE_RIGHT` (right/look-ahead), with model-dependent defaults
+    - Update NeMo toolkit to 3.x (pinned to a frozen `main` commit), required by newer models
+    - Native cache-aware streaming for models that support it (e.g. `nvidia/nemotron-3.5-asr-streaming-0.6b`), automatically discriminated from offline models (which keep the buffered/simulated streaming path)
+    - Support prompt-conditioned models (automatic language prompt, e.g. Nemotron ASR)
+    - More robust model loading (OS-level `filelock` instead of the deprecated `lockfile`)
+- Whisper engine updates:
+    - Fix VAD option (silero was run when VAD was enabled, even if auditok -the default- was specified)
+    - Use of LinTO faster-whisper fork, to support more whisper models (French finetuned & distilled model)
+
 # 2.1.0
 - NeMo engine updates:
     - Fix memory leak

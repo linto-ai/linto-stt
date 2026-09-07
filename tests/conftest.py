@@ -18,8 +18,8 @@ _DOCKER_GPU_UNAVAILABLE_SIGNATURES = (
     "CUDA driver version is insufficient",
     "CUDA failed with error",
     "no CUDA-capable device is detected",
-    "could not select device driver",   # `docker run --gpus all` unsupported
-    "nvidia-container-cli",             # NVIDIA Container Toolkit missing/broken
+    "could not select device driver",  # `docker run --gpus all` unsupported
+    "nvidia-container-cli",  # NVIDIA Container Toolkit missing/broken
 )
 
 
@@ -31,29 +31,57 @@ def _docker_gpu_unavailable(message: str) -> bool:
 # CLI options
 # ---------------------------------------------------------------------------
 
+
 def pytest_addoption(parser):
-    parser.addoption("--engine", action="store", default=None,
-                     choices=["nemo", "whisper", "kaldi"],
-                     help="Only run tests for this engine")
-    parser.addoption("--device", action="store", default="cpu",
-                     choices=["cpu", "cuda"],
-                     help="Target device (skip GPU tests when cpu)")
-    parser.addoption("--docker-only", action="store_true", default=False,
-                     help="Only run Docker-based tests")
-    parser.addoption("--uv-only", action="store_true", default=False,
-                     help="Only run UV-based tests")
-    parser.addoption("--server-timeout", action="store", type=int, default=300,
-                     help="Timeout in seconds for server startup (failures usually "
-                          "surface much sooner via process-exit / fatal-log checks)")
-    parser.addoption("--kaldi-am-path", action="store", default=None,
-                     help="Path to Kaldi acoustic model")
-    parser.addoption("--kaldi-lm-path", action="store", default=None,
-                     help="Path to Kaldi language model")
+    parser.addoption(
+        "--engine",
+        action="store",
+        default=None,
+        choices=["nemo", "whisper", "kaldi"],
+        help="Only run tests for this engine",
+    )
+    parser.addoption(
+        "--device",
+        action="store",
+        default="cpu",
+        choices=["cpu", "cuda"],
+        help="Target device (skip GPU tests when cpu)",
+    )
+    parser.addoption(
+        "--docker-only",
+        action="store_true",
+        default=False,
+        help="Only run Docker-based tests",
+    )
+    parser.addoption(
+        "--uv-only", action="store_true", default=False, help="Only run UV-based tests"
+    )
+    parser.addoption(
+        "--server-timeout",
+        action="store",
+        type=int,
+        default=300,
+        help="Timeout in seconds for server startup (failures usually "
+        "surface much sooner via process-exit / fatal-log checks)",
+    )
+    parser.addoption(
+        "--kaldi-am-path",
+        action="store",
+        default=None,
+        help="Path to Kaldi acoustic model",
+    )
+    parser.addoption(
+        "--kaldi-lm-path",
+        action="store",
+        default=None,
+        help="Path to Kaldi language model",
+    )
 
 
 # ---------------------------------------------------------------------------
 # Collection filtering
 # ---------------------------------------------------------------------------
+
 
 def pytest_collection_modifyitems(config, items):
     engine_filter = config.getoption("--engine")
@@ -94,6 +122,7 @@ def pytest_collection_modifyitems(config, items):
 # Session-scoped fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="session")
 def project_root():
     """Return the project root directory."""
@@ -109,6 +138,14 @@ def test_audio_bonjour():
 
 
 @pytest.fixture(scope="session")
+def test_audio_hotel():
+    """Return path to the Hotel20sec.wav test file (longer French sample)."""
+    path = Path(__file__).resolve().parent / "Hotel20sec.wav"
+    assert path.exists(), f"Test audio not found: {path}"
+    return path
+
+
+@pytest.fixture(scope="session")
 def server_timeout(request):
     return request.config.getoption("--server-timeout")
 
@@ -116,6 +153,7 @@ def server_timeout(request):
 # ---------------------------------------------------------------------------
 # Indirect server fixtures (parametrized per-test)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def uv_server(request, project_root, server_timeout):
@@ -128,6 +166,13 @@ def uv_server(request, project_root, server_timeout):
     port = params.get("port", 0)
     env_overrides = params.get("env_overrides", {})
 
+    # If the test didn't pin a device, follow the --device CLI option.
+    if "DEVICE" not in env_overrides:
+        env_overrides = {
+            **env_overrides,
+            "DEVICE": request.config.getoption("--device"),
+        }
+
     env_dict = build_env_dict(project_root, engine, env_overrides)
     runner = UVServerRunner(
         project_root=project_root,
@@ -139,8 +184,13 @@ def uv_server(request, project_root, server_timeout):
     )
     try:
         url = runner.start()
-        yield {"url": url, "runner": runner, "engine": engine, "mode": mode,
-               "timeout": server_timeout}
+        yield {
+            "url": url,
+            "runner": runner,
+            "engine": engine,
+            "mode": mode,
+            "timeout": server_timeout,
+        }
     finally:
         # Stop even if start() raised (e.g. healthcheck timeout), otherwise the
         # subprocess leaks.
@@ -159,14 +209,25 @@ def docker_server(request, project_root, server_timeout):
     port = params.get("port", 0)
     env_overrides = params.get("env_overrides", {})
     dockerfile = params.get("dockerfile", "Dockerfile")
-    use_gpu = params.get("use_gpu", False)
+    # use_gpu defaults to "follow the device": GPU passthrough (docker --gpus)
+    # is enabled iff the resolved DEVICE is CUDA. A test can still force it by
+    # setting "use_gpu" explicitly in its param.
+    use_gpu = params.get("use_gpu")
     volumes = params.get("volumes", {})
+
+    # If the test didn't pin a device, follow the --device CLI option.
+    if "DEVICE" not in env_overrides:
+        env_overrides = {
+            **env_overrides,
+            "DEVICE": request.config.getoption("--device"),
+        }
+    if use_gpu is None:
+        use_gpu = "cuda" in env_overrides.get("DEVICE", "")
 
     # Reuse the host's HuggingFace cache so the container doesn't re-download
     # the model (e.g. NeMo's 2.4 GB parakeet) on every run — that download is
     # what makes uncached Docker model tests blow past the timeouts.
-    hf_cache = os.path.expanduser(
-        os.environ.get("HF_HOME", "~/.cache/huggingface"))
+    hf_cache = os.path.expanduser(os.environ.get("HF_HOME", "~/.cache/huggingface"))
     if os.path.isdir(hf_cache):
         # Mount *outside* the runtime user's home: the entrypoint does a
         # `chown -R` on the home, and recursing into a multi-GB bind mount would
@@ -221,8 +282,13 @@ def docker_server(request, project_root, server_timeout):
                 )
                 pytest.skip(f"Docker GPU not usable in this environment: {exc}")
             raise
-        yield {"url": url, "runner": runner, "engine": engine, "mode": mode,
-               "timeout": server_timeout}
+        yield {
+            "url": url,
+            "runner": runner,
+            "engine": engine,
+            "mode": mode,
+            "timeout": server_timeout,
+        }
     finally:
         # Stop even if start() raised (e.g. healthcheck timeout), otherwise the
         # container leaks (left running with --rm but never stopped).
@@ -240,14 +306,19 @@ def redis_server():
     # that pull (~1 min) could still be running when the Celery worker's broker
     # wait (wait-for-it.sh, 20s) starts, so Redis wouldn't be reachable in time.
     # Pulling before anything starts guarantees the image is ready.
-    if subprocess.run(
-        ["docker", "image", "inspect", redis_image],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    ).returncode != 0:
+    if (
+        subprocess.run(
+            ["docker", "image", "inspect", redis_image],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        != 0
+    ):
         print(f"Pulling {redis_image} (one-time, may take ~1 min)...")
         pull = subprocess.run(
             ["docker", "pull", redis_image],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
         if pull.returncode != 0:
             pytest.fail(
@@ -260,20 +331,29 @@ def redis_server():
     # Stop any existing instance
     subprocess.run(
         ["docker", "stop", container_name],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     time.sleep(1)
 
     proc = subprocess.Popen(
         [
-            "docker", "run", "--rm",
-            "-p", "6379:6379",
-            "--name", container_name,
+            "docker",
+            "run",
+            "--rm",
+            "-p",
+            "6379:6379",
+            "--name",
+            container_name,
             redis_image,
-            "redis-server", "/etc/redis-stack.conf",
-            "--protected-mode", "no",
-            "--bind", "0.0.0.0",
-            "--loglevel", "debug",
+            "redis-server",
+            "/etc/redis-stack.conf",
+            "--protected-mode",
+            "no",
+            "--bind",
+            "0.0.0.0",
+            "--loglevel",
+            "debug",
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -286,5 +366,6 @@ def redis_server():
 
     subprocess.run(
         ["docker", "stop", container_name],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )

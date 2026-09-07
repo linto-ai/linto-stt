@@ -20,6 +20,10 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None,
     if language:
         params["language"] = language
 
+    logger.info(
+        f"Transcribing {audio_path.split('/')[-1]} via HTTP POST {url} "
+        f"(the first request triggers the lazy model load, so it may be slow)..."
+    )
     with open(audio_path, "rb") as f:
         files = {"file": (audio_path.split("/")[-1], f, "audio/wav")}
         resp = requests.post(
@@ -29,25 +33,19 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None,
             params=params,
             timeout=timeout,
         )
+    logger.info(f"HTTP transcription response received ({resp.status_code})")
 
     if resp.status_code != 200:
         raise RuntimeError(f"Transcription failed ({resp.status_code}): {resp.text}")
-
-    # FastAPI returns (json_string, status_code) as a JSON array,
-    # or sometimes a raw JSON string.
-    try:
-        data = json.loads(resp.text)
-        # Unwrap [body, status_code] tuple from FastAPI
-        if isinstance(data, list) and len(data) == 2:
-            data = data[0]
-        # Body might be a JSON-encoded string
-        if isinstance(data, str):
-            data = json.loads(data)
-        if isinstance(data, dict):
-            return data.get("text", str(data))
-        return str(data)
-    except (json.JSONDecodeError, TypeError):
-        return resp.text
+    
+    data = json.loads(resp.text)
+    # Unwrap [body, status_code] tuple from FastAPI
+    if isinstance(data, list) and len(data) == 2:
+        data = data[0]
+    # Body might be a JSON-encoded string
+    if isinstance(data, str):
+        data = json.loads(data)
+    return sanity_check_and_get_text(data)
 
 
 def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
@@ -59,7 +57,12 @@ def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
     then raw 16-bit PCM audio chunks, then `{"eof": 1}` to flush. The server
     replies with `{"partial": "..."}` updates and `{"text": "..."}` finals; on
     `eof` it sends the assembled final and closes the connection.
+
+    The server emits one `{"text": ...}` per committed segment (not a single
+    cumulative one), so we accumulate every final and join them to reconstruct
+    the whole transcription. Returned text has its whitespace collapsed.
     """
+    import re
     import time
     import wave
     import websockets.sync.client as ws_client
@@ -75,14 +78,18 @@ def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
 
     # Chunk size in bytes (16-bit PCM = 2 bytes per sample).
     chunk_size = int(sample_rate * chunk_duration * 2)
-    final_text = ""
+    finals = []
 
     def _absorb(msg):
-        nonlocal final_text
         data = json.loads(msg)
         if data.get("text"):
-            final_text = data["text"]
+            logger.info(f"Streaming final segment: {data['text']!r}")
+            finals.append(data["text"])
 
+    logger.info(
+        f"Streaming {audio_path.split('/')[-1]} to {ws_url} "
+        f"(first audio triggers the lazy model load, so it may be slow)..."
+    )
     with ws_client.connect(ws_url, open_timeout=timeout) as conn:
         conn.send(json.dumps(config))
 
@@ -107,7 +114,8 @@ def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,
             except ConnectionClosed:
                 break
 
-    return final_text
+    logger.info(f"Streaming finished ({len(finals)} final segment(s) received)")
+    return re.sub(r"\s+", " ", " ".join(finals)).strip()
 
 
 def transcribe_celery(audio_filename: str, language: str = None,
@@ -137,9 +145,42 @@ def transcribe_celery(audio_filename: str, language: str = None,
     else:
         args.append("fr")
 
+    logger.info(
+        f"Sending Celery 'transcribe_task' for {audio_filename} to {broker_url} "
+        f"(first task triggers the lazy model load, so it may be slow)..."
+    )
     result = app.send_task("transcribe_task", args=args, queue=queue)
-    output = result.get(timeout=timeout)
+    try:
+        output = result.get(timeout=timeout)
+        logger.info("Celery task result received")
+        return sanity_check_and_get_text(output)
+    finally:
+        # Drop the pending result and close connections while redis is still up,
+        # so nothing lingers for GC to finalize later against a torn-down redis
+        # (which otherwise surfaces as a PytestUnraisableExceptionWarning at
+        # session teardown). Best-effort: cleanup must never fail the test.
+        try:
+            result.forget()
+            app.close()
+        except Exception:
+            pass
 
-    if isinstance(output, dict):
-        return output.get("text", str(output))
-    return str(output)
+def sanity_check_and_get_text(output):
+    assert isinstance(output, dict), f"Unexpected transcription output: {output} (type {type(output)})"
+    logger.info("Model output:\n%s", json.dumps(output, indent=2, ensure_ascii=False))
+    assert "text" in output, f"Unexpected transcription output: {output} (missing 'text' key)"
+    assert "words" in output, f"Unexpected transcription output: {output} (missing 'words' key)"
+    text = output["text"]
+    words = output["words"]
+    text_from_words = " ".join(w["word"] for w in words)
+    for w in words:
+        assert "start" in w and "end" in w, f"Unexpected word entry: {w} (missing 'start' or 'end' key)"
+        assert isinstance(w["start"], (float, int)) and isinstance(w["end"], (float, int)), \
+            f"Unexpected word entry: {w} (start/end are not numbers)"
+        assert w["start"] <= w["end"], f"Word start > end: {w}"
+        if "conf" in w:
+            assert isinstance(w["conf"], (float, int)), f"Unexpected word entry: {w} (conf is not a number)"
+            assert 0 <= w["conf"] <= 1, f"Unexpected word entry: {w} (conf is not in [0, 1])"
+    assert text.replace(" ", "") == text_from_words.replace(" ", ""), \
+        f"Text mismatch: {text!r} vs {text_from_words!r}"
+    return text

@@ -40,7 +40,7 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `VAD` | `auditok` | Voice Activity Detection method. VAD detects human speech in an audio stream. Use `false` to disable. Values: `auditok`, `silero`, `false` |
 | `VAD_DILATATION` | `0.5` | How much (in seconds) to enlarge each speech segment detected by the VAD |
 | `VAD_MIN_SPEECH_DURATION` | `0.1` | Minimum duration (in seconds) of a speech segment |
-| `VAD_MAX_SILENCE_DURATION` | `0.1` | Minimum duration (in seconds) of a silence segment. **Note:** .envdefault files define `VAD_MIN_SILENCE_DURATION` but the code reads `VAD_MAX_SILENCE_DURATION` |
+| `VAD_MIN_SILENCE_DURATION` | `0.1` | Minimum duration (in seconds) of a silence segment |
 
 ## Streaming / WebSocket (NeMo, Whisper)
 
@@ -54,6 +54,7 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `STREAMING_FINAL_MAX_DURATION` | `20.0` | Maximum duration of a final result (seconds). Fallback when no punctuation or silence triggers a final |
 | `STREAMING_MAX_WORDS_IN_BUFFER` | `5` | How many words can stay in the buffer (i.e. how many words can be changed). Default is 4 in NeMo README |
 | `STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND` | `4` | Maximum number of messages the server can send to the client per second. Set to 0 to deactivate |
+| `STREAMING_NATIVE_PARTIAL_INTERVAL` | `2.0` | (NeMo, native cache-aware streaming only) Cadence, in seconds of received audio, between partial results. Larger = fewer partials, less compute. Does not apply to the buffered streaming path used for offline models (the `STREAMING_*` settings above) |
 
 ## NeMo-specific
 
@@ -61,6 +62,8 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 |----------|---------|-------------|
 | `MODEL` | `nvidia/parakeet-tdt-0.6b-v2` | Path to a NeMo model or HuggingFace identifier |
 | `ARCHITECTURE` | `rnnt_bpe` | Architecture of the model. Supported: `ctc_bpe`, `rnnt_bpe`, `hybrid_bpe`. Hybrid models can use `hybrid_bpe_ctc` or `hybrid_bpe_rnnt` variants |
+| `ATT_CONTEXT_SIZE` | _(model-dependent)_ | Left attention context, in encoder frames (~80 ms each). Resolved at load time: offline models default to `128` (local attention via `rel_pos_local_attn`); cache-aware streaming models keep their trained context unless this is set |
+| `ATT_CONTEXT_SIZE_RIGHT` | _(model-dependent)_ | Right (look-ahead) attention context, in encoder frames. Larger = better accuracy but higher latency. Defaults: offline models use the same value as `ATT_CONTEXT_SIZE`; cache-aware streaming models use `0`. For cache-aware models only specific values are valid (model-specific, e.g. `nvidia/nemotron-3.5-asr-streaming-0.6b` supports `0, 3, 6, 13`) |
 | `PROMPT` | _(none)_ | Context prompt for the model |
 | `LONG_FILE_THRESHOLD` | `540` | A file longer than this (in seconds) will be split into smaller chunks to avoid Out of Memory issues. Depends on VRAM/RAM |
 | `LONG_FILE_CHUNK_LEN` | `360` | For long file transcription, size of the chunks (in seconds) into which the audio is split. Depends on VRAM/RAM |

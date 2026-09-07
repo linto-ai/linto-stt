@@ -75,10 +75,20 @@ docker run -p 8080:80 -it --name linto-stt-nemo \
   lintoai/linto-stt-nemo
 ```
 
+Multilingual, native cache-aware streaming:
+
+```sh
+docker run -p 8080:80 -it --name linto-stt-nemo \
+  -e SERVICE_MODE=websocket \
+  -e MODEL=nvidia/nemotron-3.5-asr-streaming-0.6b \
+  -e ARCHITECTURE=rnnt_bpe \
+  lintoai/linto-stt-nemo
+```
+
 Add `-e DEVICE=cuda --gpus all` for GPU. Test with:
 
 ```sh
-python test/test_streaming.py -v --audio_file tests/bonjour.wav
+python test/test_streaming.py -v --audio_file tests/Hotel20sec.wav
 ```
 
 ### Run Celery Task
@@ -109,10 +119,17 @@ The model is downloaded from HuggingFace to the cache folder and loaded at start
 | [NVIDIA English Fast Conformer](https://huggingface.co/nvidia/stt_en_fastconformer_transducer_large) | `nvidia/stt_en_fastconformer_transducer_large` | en   | No          | `rnnt_bpe`        | 7.5                | 367                 | 48                    | 0.8           |
 | [NVIDIA Parakeet TDT 0.6b](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)                       | `nvidia/parakeet-tdt-0.6b-v2`                  | en   | Yes         | `rnnt_bpe`        | Best EN            | 252                 | 16                    | 2.7           |
 | [NVIDIA Parakeet CTC 1.1b](https://huggingface.co/nvidia/parakeet-ctc-1.1b)                          | `nvidia/parakeet-ctc-1.1b`                     | en   | No          | `ctc_bpe`         | 6.53               | 180                 | 12                    | 4.4           |
+| [NVIDIA Nemotron ASR Streaming 0.6b](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b)  | `nvidia/nemotron-3.5-asr-streaming-0.6b`       | multi | Yes        | `rnnt_bpe`        | —                  | —                   | —                     | ~2.5          |
+| [NVIDIA Parakeet TDT 0.6b v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)                    | `nvidia/parakeet-tdt-0.6b-v3`                  | multi (25 EU) | Yes | `rnnt_bpe`        | —                  | —                   | —                     | ~2.7          |
+| [NVIDIA Canary 1b Flash](https://huggingface.co/nvidia/canary-1b-flash)                              | `nvidia/canary-1b-flash`                       | en/de/es/fr | Yes   | multitask¹        | —                  | —                   | —                     | ~4.5          |
+
+¹ Canary is an encoder-decoder multitask model (ASR + speech translation, `EncDecMultiTaskModel`). `ARCHITECTURE` is ignored for it; pick the spoken language with `LANGUAGE` (e.g. `LANGUAGE=fr`). `—` = not benchmarked here (see the model card).
 
 More models available on [NVIDIA HuggingFace](https://huggingface.co/nvidia).
 
 Hybrid models can do both CTC and RNNT decoding. Add `_ctc` or `_rnnt` to `hybrid_bpe` to choose. CTC is less accurate but faster (see table above).
+
+**Streaming-capable models.** Models trained for cache-aware streaming — e.g. `nvidia/nemotron-3.5-asr-streaming-0.6b` and the `nvidia/stt_*_fastconformer_*_streaming_*` family — are served in `websocket` mode through NeMo's **native** cache-aware decoding (low latency, accurate). Every other (offline) model can still be served in `websocket` mode through a **buffered/simulated** streaming path. The engine detects which to use automatically from the model's attention type (see [Streaming Tuning](#streaming-tuning)).
 
 ## NeMo-Specific Configuration
 
@@ -144,7 +161,31 @@ Example with 16GB VRAM GPU and `linagora/linto_stt_fr_fastconformer`:
 - `LONG_FILE_CHUNK_LEN=360` (6 minutes)
 - `LONG_FILE_CHUNK_CONTEXT_LEN=5` (5s overlap at each boundary)
 
+### Attention Context (ATT_CONTEXT_SIZE / ATT_CONTEXT_SIZE_RIGHT)
+
+The encoder's attention context, as `[left, right]` in encoder frames (~80 ms each).
+`ATT_CONTEXT_SIZE` is the left context, `ATT_CONTEXT_SIZE_RIGHT` the right (look-ahead).
+A larger right context means **more accuracy but more latency**. Defaults are
+model-dependent (resolved at load time):
+
+- **Offline models**: `ATT_CONTEXT_SIZE` defaults to `128` (the model is converted to
+  local attention via `rel_pos_local_attn`), `ATT_CONTEXT_SIZE_RIGHT` to the same value.
+- **Cache-aware streaming models**: the model keeps its **trained** attention when
+  neither is set. Set `ATT_CONTEXT_SIZE_RIGHT` to trade latency for accuracy — but
+  only specific values are valid (model-specific). For example,
+  `nvidia/nemotron-3.5-asr-streaming-0.6b` supports `0, 3, 6, 13`
+  (80 ms → 1.12 s look-ahead); `13` is the most accurate.
+
 ## Streaming Tuning
+
+In `websocket` mode the engine uses one of two paths, chosen automatically:
+
+- **Native cache-aware streaming** for models trained for it (see *Streaming-capable
+  models* above). The model decodes natively; latency/accuracy is governed by
+  `ATT_CONTEXT_SIZE_RIGHT`, and `STREAMING_NATIVE_PARTIAL_INTERVAL` sets how often
+  partial results are emitted. The `STREAMING_*` knobs below do **not** apply.
+- **Buffered (simulated) streaming** for offline models, re-transcribing a sliding
+  buffer and committing stable words. The `STREAMING_*` knobs below tune it.
 
 `STREAMING_PAUSE_FOR_FINAL` controls silence duration before a final result. If the model emits punctuation, finals are primarily triggered by punctuation; otherwise this is the main trigger. Adjust based on speech type.
 
