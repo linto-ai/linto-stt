@@ -2,30 +2,13 @@ version = 1
 revision = 2
 requires-python = ">=3.12"
 resolution-markers = [
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version >= '3.13' and sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version >= '3.13' and sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
+    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
+    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
+    "python_full_version >= '3.13' and sys_platform == 'darwin'",
+    "python_full_version < '3.13' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and sys_platform == 'linux'",
+    "python_full_version < '3.13' and sys_platform == 'linux'",
 ]
-conflicts = [[
-    { package = "linto-stt", extra = "kaldi" },
-    { package = "linto-stt", extra = "kyutai" },
-    { package = "linto-stt", extra = "nemo" },
-    { package = "linto-stt", extra = "whisper" },
-    { package = "linto-stt", extra = "whisper-torch" },
-]]
 
 [[package]]
 name = "absl-py"
@@ -885,7 +868,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dill" },
     { name = "filelock" },
-    { name = "fsspec", extra = ["http"], marker = "extra == 'extra-9-linto-stt-nemo' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "fsspec", extra = ["http"] },
     { name = "httpx" },
     { name = "huggingface-hub" },
     { name = "multiprocess" },
@@ -968,13 +951,13 @@ wheels = [
 [[package]]
 name = "faster-whisper"
 version = "1.2.1+linto"
-source = { git = "https://github.com/linto-ai/faster-whisper.git?tag=1.2.1%2Blinto#11088647a14532547e73f584a29aa9dda519e05c" }
+source = { git = "https://github.com/linto-ai/faster-whisper.git?tag=1.2.1%2Blinto#1e390d567ee5efc94b518625266cc33d7c5b7676" }
 dependencies = [
     { name = "av" },
     { name = "ctranslate2" },
     { name = "huggingface-hub" },
     { name = "onnxruntime" },
-    { name = "tokenizers", version = "0.20.3", source = { registry = "https://pypi.org/simple" } },
+    { name = "tokenizers" },
     { name = "tqdm" },
 ]
 
@@ -1508,8 +1491,8 @@ dependencies = [
     { name = "pyyaml" },
     { name = "soundfile" },
     { name = "tabulate" },
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
     { name = "tqdm" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9d/5a/b606c87b0a50322200aafb0f0682e719890bf0f045152b53e161090a6e8f/lhotse-1.33.0.tar.gz", hash = "sha256:3e91fca8531fc4c1798d0a6de1b3c7ea6bf2e181df70e5985927a131761c67f5", size = 686482, upload-time = "2026-04-20T13:11:08.579Z" }
@@ -1548,13 +1531,13 @@ name = "lightning"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fsspec", extra = ["http"], marker = "extra == 'extra-9-linto-stt-nemo' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "fsspec", extra = ["http"] },
     { name = "lightning-utilities" },
     { name = "packaging" },
     { name = "pytorch-lightning" },
     { name = "pyyaml" },
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
     { name = "torchmetrics" },
     { name = "tqdm" },
     { name = "typing-extensions" },
@@ -1606,17 +1589,16 @@ kyutai = [
 nemo = [
     { name = "auditok" },
     { name = "hf-xet" },
-    { name = "nemo-toolkit", extra = ["asr"], marker = "extra == 'extra-9-linto-stt-nemo' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "nemo-toolkit", extra = ["asr"] },
     { name = "onnx" },
     { name = "torchaudio" },
     { name = "torchcodec" },
     { name = "wavio" },
 ]
 recasepunc = [
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "transformers", version = "4.46.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "transformers", version = "4.57.6", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-linto-stt-kaldi' or extra == 'extra-9-linto-stt-kyutai' or extra == 'extra-9-linto-stt-nemo' or extra != 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "transformers" },
 ]
 test = [
     { name = "pytest" },
@@ -2134,8 +2116,8 @@ dependencies = [
     { name = "smart-open" },
     { name = "tensorboard" },
     { name = "text-unidecode" },
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
     { name = "tqdm" },
     { name = "wrapt" },
 ]
@@ -2161,7 +2143,7 @@ asr = [
     { name = "sentencepiece" },
     { name = "soundfile" },
     { name = "torchmetrics" },
-    { name = "transformers", version = "4.57.6", source = { registry = "https://pypi.org/simple" } },
+    { name = "transformers" },
     { name = "wandb" },
     { name = "webdataset" },
     { name = "whisper-normalizer" },
@@ -2265,9 +2247,7 @@ name = "nvidia-cublas-cu12"
 version = "12.8.4.1"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/99/db44d685f0e257ff0e213ade1964fc459b4a690a73293220e98feb3307cf/nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:b86f6dd8935884615a0683b663891d43781b819ac4f2ba2b0c9604676af346d0", size = 590537124, upload-time = "2025-03-07T01:43:53.556Z" },
     { url = "https://files.pythonhosted.org/packages/dc/61/e24b560ab2e2eaeb3c839129175fb330dfcfc29e5203196e5541a4c44682/nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:8ac4e771d5a348c551b2a426eda6193c19aa630236b418086020df5ba9667142", size = 594346921, upload-time = "2025-03-07T01:44:31.254Z" },
-    { url = "https://files.pythonhosted.org/packages/70/61/7d7b3c70186fb651d0fbd35b01dbfc8e755f69fd58f817f3d0f642df20c3/nvidia_cublas_cu12-12.8.4.1-py3-none-win_amd64.whl", hash = "sha256:47e9b82132fa8d2b4944e708049229601448aaad7e6f296f630f2d1a32de35af", size = 567544208, upload-time = "2025-03-07T01:53:30.535Z" },
 ]
 
 [[package]]
@@ -2275,9 +2255,7 @@ name = "nvidia-cuda-cupti-cu12"
 version = "12.8.90"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/1f/b3bd73445e5cb342727fd24fe1f7b748f690b460acadc27ea22f904502c8/nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:4412396548808ddfed3f17a467b104ba7751e6b58678a4b840675c56d21cf7ed", size = 9533318, upload-time = "2025-03-07T01:40:10.421Z" },
     { url = "https://files.pythonhosted.org/packages/f8/02/2adcaa145158bf1a8295d83591d22e4103dbfd821bcaf6f3f53151ca4ffa/nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:ea0cb07ebda26bb9b29ba82cda34849e73c166c18162d3913575b0c9db9a6182", size = 10248621, upload-time = "2025-03-07T01:40:21.213Z" },
-    { url = "https://files.pythonhosted.org/packages/41/bc/83f5426095d93694ae39fe1311431b5d5a9bb82e48bf0dd8e19be2765942/nvidia_cuda_cupti_cu12-12.8.90-py3-none-win_amd64.whl", hash = "sha256:bb479dcdf7e6d4f8b0b01b115260399bf34154a1a2e9fe11c85c517d87efd98e", size = 7015759, upload-time = "2025-03-07T01:51:11.355Z" },
 ]
 
 [[package]]
@@ -2286,8 +2264,6 @@ version = "12.8.93"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/05/6b/32f747947df2da6994e999492ab306a903659555dddc0fbdeb9d71f75e52/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:a7756528852ef889772a84c6cd89d41dfa74667e24cca16bb31f8f061e3e9994", size = 88040029, upload-time = "2025-03-07T01:42:13.562Z" },
-    { url = "https://files.pythonhosted.org/packages/eb/d1/e50d0acaab360482034b84b6e27ee83c6738f7d32182b987f9c7a4e32962/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:fc1fec1e1637854b4c0a65fb9a8346b51dd9ee69e61ebaccc82058441f15bce8", size = 43106076, upload-time = "2025-03-07T01:41:59.817Z" },
-    { url = "https://files.pythonhosted.org/packages/45/51/52a3d84baa2136cc8df15500ad731d74d3a1114d4c123e043cb608d4a32b/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-win_amd64.whl", hash = "sha256:7a4b6b2904850fe78e0bd179c4b655c404d4bb799ef03ddc60804247099ae909", size = 73586838, upload-time = "2025-03-07T01:52:13.483Z" },
 ]
 
 [[package]]
@@ -2295,9 +2271,7 @@ name = "nvidia-cuda-runtime-cu12"
 version = "12.8.90"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/75/f865a3b236e4647605ea34cc450900854ba123834a5f1598e160b9530c3a/nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:52bf7bbee900262ffefe5e9d5a2a69a30d97e2bc5bb6cc866688caa976966e3d", size = 965265, upload-time = "2025-03-07T01:39:43.533Z" },
     { url = "https://files.pythonhosted.org/packages/0d/9b/a997b638fcd068ad6e4d53b8551a7d30fe8b404d6f1804abf1df69838932/nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:adade8dcbd0edf427b7204d480d6066d33902cab2a4707dcfc48a2d0fd44ab90", size = 954765, upload-time = "2025-03-07T01:40:01.615Z" },
-    { url = "https://files.pythonhosted.org/packages/30/a5/a515b7600ad361ea14bfa13fb4d6687abf500adc270f19e89849c0590492/nvidia_cuda_runtime_cu12-12.8.90-py3-none-win_amd64.whl", hash = "sha256:c0c6027f01505bfed6c3b21ec546f69c687689aad5f1a377554bc6ca4aa993a8", size = 944318, upload-time = "2025-03-07T01:51:01.794Z" },
 ]
 
 [[package]]
@@ -2305,12 +2279,10 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fa/41/e79269ce215c857c935fd86bcfe91a451a584dfc27f1e068f568b9ad1ab7/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8", size = 705026878, upload-time = "2025-06-06T21:52:51.348Z" },
     { url = "https://files.pythonhosted.org/packages/ba/51/e123d997aa098c61d029f76663dedbfb9bc8dcf8c60cbd6adbe42f76d049/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:949452be657fa16687d0930933f032835951ef0892b37d2d53824d1a84dc97a8", size = 706758467, upload-time = "2025-06-06T21:54:08.597Z" },
-    { url = "https://files.pythonhosted.org/packages/3d/90/0bd6e586701b3a890fd38aa71c387dab4883d619d6e5ad912ccbd05bfd67/nvidia_cudnn_cu12-9.10.2.21-py3-none-win_amd64.whl", hash = "sha256:c6288de7d63e6cf62988f0923f96dc339cea362decb1bf5b3141883392a7d65e", size = 692992268, upload-time = "2025-06-06T21:55:18.114Z" },
 ]
 
 [[package]]
@@ -2318,12 +2290,10 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/bc/7771846d3a0272026c416fbb7e5f4c1f146d6d80704534d0b187dd6f4800/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a", size = 193109211, upload-time = "2025-03-07T01:44:56.873Z" },
     { url = "https://files.pythonhosted.org/packages/1f/13/ee4e00f30e676b66ae65b4f08cb5bcbb8392c03f54f2d5413ea99a5d1c80/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:4d2dd21ec0b88cf61b62e6b43564355e5222e4a3fb394cac0db101f2dd0d4f74", size = 193118695, upload-time = "2025-03-07T01:45:27.821Z" },
-    { url = "https://files.pythonhosted.org/packages/7d/ec/ce1629f1e478bb5ccd208986b5f9e0316a78538dd6ab1d0484f012f8e2a1/nvidia_cufft_cu12-11.3.3.83-py3-none-win_amd64.whl", hash = "sha256:7a64a98ef2a7c47f905aaf8931b69a3a43f27c55530c698bb2ed7c75c0b42cb7", size = 192216559, upload-time = "2025-03-07T01:53:57.106Z" },
 ]
 
 [[package]]
@@ -2332,7 +2302,6 @@ version = "1.13.1.3"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/fe/1bcba1dfbfb8d01be8d93f07bfc502c93fa23afa6fd5ab3fc7c1df71038a/nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1d069003be650e131b21c932ec3d8969c1715379251f8d23a1860554b1cb24fc", size = 1197834, upload-time = "2025-03-07T01:45:50.723Z" },
-    { url = "https://files.pythonhosted.org/packages/1e/f5/5607710447a6fe9fd9b3283956fceeee8a06cda1d2f56ce31371f595db2a/nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:4beb6d4cce47c1a0f1013d72e02b0994730359e17801d395bdcbf20cfb3bb00a", size = 1120705, upload-time = "2025-03-07T01:45:41.434Z" },
 ]
 
 [[package]]
@@ -2340,9 +2309,7 @@ name = "nvidia-curand-cu12"
 version = "10.3.9.90"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/45/5e/92aa15eca622a388b80fbf8375d4760738df6285b1e92c43d37390a33a9a/nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:dfab99248034673b779bc6decafdc3404a8a6f502462201f2f31f11354204acd", size = 63625754, upload-time = "2025-03-07T01:46:10.735Z" },
     { url = "https://files.pythonhosted.org/packages/fb/aa/6584b56dc84ebe9cf93226a5cde4d99080c8e90ab40f0c27bda7a0f29aa1/nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:b32331d4f4df5d6eefa0554c565b626c7216f87a06a4f56fab27c3b68a830ec9", size = 63619976, upload-time = "2025-03-07T01:46:23.323Z" },
-    { url = "https://files.pythonhosted.org/packages/b9/75/70c05b2f3ed5be3bb30b7102b6eb78e100da4bbf6944fd6725c012831cab/nvidia_curand_cu12-10.3.9.90-py3-none-win_amd64.whl", hash = "sha256:f149a8ca457277da854f89cf282d6ef43176861926c7ac85b2a0fbd237c587ec", size = 62765309, upload-time = "2025-03-07T01:54:20.478Z" },
 ]
 
 [[package]]
@@ -2350,14 +2317,12 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "nvidia-cusparse-cu12", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cusparse-cu12", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/32/f7cd6ce8a7690544d084ea21c26e910a97e077c9b7f07bf5de623ee19981/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0", size = 267229841, upload-time = "2025-03-07T01:46:54.356Z" },
     { url = "https://files.pythonhosted.org/packages/85/48/9a13d2975803e8cf2777d5ed57b87a0b6ca2cc795f9a4f59796a910bfb80/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:4376c11ad263152bd50ea295c05370360776f8c3427b30991df774f9fb26c450", size = 267506905, upload-time = "2025-03-07T01:47:16.273Z" },
-    { url = "https://files.pythonhosted.org/packages/13/c0/76ca8551b8a84146ffa189fec81c26d04adba4bc0dbe09cd6e6fd9b7de04/nvidia_cusolver_cu12-11.7.3.90-py3-none-win_amd64.whl", hash = "sha256:4a550db115fcabc4d495eb7d39ac8b58d4ab5d8e63274d3754df1c0ad6a22d34", size = 256720438, upload-time = "2025-03-07T01:54:39.898Z" },
 ]
 
 [[package]]
@@ -2365,12 +2330,10 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/f7/cd777c4109681367721b00a106f491e0d0d15cfa1fd59672ce580ce42a97/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc", size = 288117129, upload-time = "2025-03-07T01:47:40.407Z" },
     { url = "https://files.pythonhosted.org/packages/c2/f5/e1854cb2f2bcd4280c44736c93550cc300ff4b8c95ebe370d0aa7d2b473d/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1ec05d76bbbd8b61b06a80e1eaf8cf4959c3d4ce8e711b65ebd0443bb0ebb13b", size = 288216466, upload-time = "2025-03-07T01:48:13.779Z" },
-    { url = "https://files.pythonhosted.org/packages/62/07/f3b2ad63f8e3d257a599f422ae34eb565e70c41031aecefa3d18b62cabd1/nvidia_cusparse_cu12-12.5.8.93-py3-none-win_amd64.whl", hash = "sha256:9a33604331cb2cac199f2e7f5104dfbb8a5a898c367a53dfda9ff2acb6b6b4dd", size = 284937404, upload-time = "2025-03-07T01:55:07.742Z" },
 ]
 
 [[package]]
@@ -2378,9 +2341,7 @@ name = "nvidia-cusparselt-cu12"
 version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/b9/598f6ff36faaece4b3c50d26f50e38661499ff34346f00e057760b35cc9d/nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_aarch64.whl", hash = "sha256:8878dce784d0fac90131b6817b607e803c36e629ba34dc5b433471382196b6a5", size = 283835557, upload-time = "2025-02-26T00:16:54.265Z" },
     { url = "https://files.pythonhosted.org/packages/56/79/12978b96bd44274fe38b5dde5cfb660b1d114f70a65ef962bcbbed99b549/nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl", hash = "sha256:f1bb701d6b930d5a7cea44c19ceb973311500847f81b634d802b7b539dc55623", size = 287193691, upload-time = "2025-02-26T00:15:44.104Z" },
-    { url = "https://files.pythonhosted.org/packages/2f/d8/a6b0d0d0c2435e9310f3e2bb0d9c9dd4c33daef86aa5f30b3681defd37ea/nvidia_cusparselt_cu12-0.7.1-py3-none-win_amd64.whl", hash = "sha256:f67fbb5831940ec829c9117b7f33807db9f9678dc2a617fbe781cac17b4e1075", size = 271020911, upload-time = "2025-02-26T00:14:47.204Z" },
 ]
 
 [[package]]
@@ -2388,7 +2349,6 @@ name = "nvidia-nccl-cu12"
 version = "2.27.5"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/1c/857979db0ef194ca5e21478a0612bcdbbe59458d7694361882279947b349/nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:31432ad4d1fb1004eb0c56203dc9bc2178a1ba69d1d9e02d64a6938ab5e40e7a", size = 322400625, upload-time = "2025-06-26T04:11:04.496Z" },
     { url = "https://files.pythonhosted.org/packages/6e/89/f7a07dc961b60645dbbf42e80f2bc85ade7feb9a491b11a1e973aa00071f/nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:ad730cf15cb5d25fe849c6e6ca9eb5b76db16a80f13f425ac68d8e2e55624457", size = 322348229, upload-time = "2025-06-26T04:11:28.385Z" },
 ]
 
@@ -2398,8 +2358,6 @@ version = "12.8.93"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f6/74/86a07f1d0f42998ca31312f998bd3b9a7eff7f52378f4f270c8679c77fb9/nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:81ff63371a7ebd6e6451970684f916be2eab07321b73c9d244dc2b4da7f73b88", size = 39254836, upload-time = "2025-03-07T01:49:55.661Z" },
-    { url = "https://files.pythonhosted.org/packages/2a/a2/8cee5da30d13430e87bf99bb33455d2724d0a4a9cb5d7926d80ccb96d008/nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:adccd7161ace7261e01bb91e44e88da350895c270d23f744f0820c818b7229e7", size = 38386204, upload-time = "2025-03-07T01:49:43.612Z" },
-    { url = "https://files.pythonhosted.org/packages/ed/d7/34f02dad2e30c31b10a51f6b04e025e5dd60e5f936af9045a9b858a05383/nvidia_nvjitlink_cu12-12.8.93-py3-none-win_amd64.whl", hash = "sha256:bd93fbeeee850917903583587f4fc3a4eafa022e34572251368238ab5e6bd67f", size = 268553710, upload-time = "2025-03-07T01:56:24.13Z" },
 ]
 
 [[package]]
@@ -2407,7 +2365,6 @@ name = "nvidia-nvshmem-cu12"
 version = "3.3.20"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/9d/3dd98852568fb845ec1f7902c90a22b240fe1cbabda411ccedf2fd737b7b/nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:0b0b960da3842212758e4fa4696b94f129090b30e5122fea3c5345916545cff0", size = 124484616, upload-time = "2025-08-04T20:24:59.172Z" },
     { url = "https://files.pythonhosted.org/packages/3b/6c/99acb2f9eb85c29fc6f3a7ac4dccfd992e22666dd08a642b303311326a97/nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:d00f26d3f9b2e3c3065be895e3059d6479ea5c638a3f38c9fec49b1b9dd7c1e5", size = 124657145, upload-time = "2025-08-04T20:25:19.995Z" },
 ]
 
@@ -2416,9 +2373,7 @@ name = "nvidia-nvtx-cu12"
 version = "12.8.90"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/10/c0/1b303feea90d296f6176f32a2a70b5ef230f9bdeb3a72bddb0dc922dc137/nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d7ad891da111ebafbf7e015d34879f7112832fc239ff0d7d776b6cb685274615", size = 91161, upload-time = "2025-03-07T01:42:23.922Z" },
     { url = "https://files.pythonhosted.org/packages/a2/eb/86626c1bbc2edb86323022371c39aa48df6fd8b0a1647bc274577f72e90b/nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:5b17e2001cc0d751a5bc2c6ec6d26ad95913324a4adb86788c944f8ce9ba441f", size = 89954, upload-time = "2025-03-07T01:42:44.131Z" },
-    { url = "https://files.pythonhosted.org/packages/9f/99/4c9c0c329bf9fc125008c3b54c7c94c0023518d06fc025ae36431375e1fe/nvidia_nvtx_cu12-12.8.90-py3-none-win_amd64.whl", hash = "sha256:619c8304aedc69f02ea82dd244541a83c3d9d40993381b3b590f1adaed3db41e", size = 56492, upload-time = "2025-03-07T01:52:24.69Z" },
 ]
 
 [[package]]
@@ -2497,8 +2452,8 @@ dependencies = [
     { name = "numba" },
     { name = "numpy" },
     { name = "tiktoken" },
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
     { name = "tqdm" },
     { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or sys_platform == 'linux2'" },
 ]
@@ -2979,7 +2934,7 @@ name = "pytest"
 version = "9.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -3037,12 +2992,12 @@ name = "pytorch-lightning"
 version = "2.5.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fsspec", extra = ["http"], marker = "extra == 'extra-9-linto-stt-nemo' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "fsspec", extra = ["http"] },
     { name = "lightning-utilities" },
     { name = "packaging" },
     { name = "pyyaml" },
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
     { name = "torchmetrics" },
     { name = "tqdm" },
     { name = "typing-extensions" },
@@ -3575,7 +3530,7 @@ version = "0.49.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/1a/608df0b10b53b0beb96a37854ee05864d182ddd4b1156a22f1ad3860425a/starlette-0.49.3.tar.gz", hash = "sha256:1c14546f299b5901a1ea0e34410575bc33bbd741377a10484a54445588d00284", size = 2655031, upload-time = "2025-11-01T15:12:26.13Z" }
 wheels = [
@@ -3718,63 +3673,8 @@ wheels = [
 
 [[package]]
 name = "tokenizers"
-version = "0.20.3"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "sys_platform != 'darwin' and sys_platform != 'linux'",
-    "sys_platform == 'darwin' or sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "huggingface-hub", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/da/25/b1681c1c30ea3ea6e584ae3fffd552430b12faa599b558c4c4783f56d7ff/tokenizers-0.20.3.tar.gz", hash = "sha256:2278b34c5d0dd78e087e1ca7f9b1dcbf129d80211afa645f214bd6e051037539", size = 340513, upload-time = "2024-11-05T17:34:10.403Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/00/92a08af2a6b0c88c50f1ab47d7189e695722ad9714b0ee78ea5e1e2e1def/tokenizers-0.20.3-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:49d12a32e190fad0e79e5bdb788d05da2f20d8e006b13a70859ac47fecf6ab2f", size = 2667951, upload-time = "2024-11-05T17:31:12.356Z" },
-    { url = "https://files.pythonhosted.org/packages/ec/9a/e17a352f0bffbf415cf7d73756f5c73a3219225fc5957bc2f39d52c61684/tokenizers-0.20.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:282848cacfb9c06d5e51489f38ec5aa0b3cd1e247a023061945f71f41d949d73", size = 2555167, upload-time = "2024-11-05T17:31:13.839Z" },
-    { url = "https://files.pythonhosted.org/packages/27/37/d108df55daf4f0fcf1f58554692ff71687c273d870a34693066f0847be96/tokenizers-0.20.3-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:abe4e08c7d0cd6154c795deb5bf81d2122f36daf075e0c12a8b050d824ef0a64", size = 2898389, upload-time = "2024-11-05T17:31:15.12Z" },
-    { url = "https://files.pythonhosted.org/packages/b2/27/32f29da16d28f59472fa7fb38e7782069748c7e9ab9854522db20341624c/tokenizers-0.20.3-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:ca94fc1b73b3883c98f0c88c77700b13d55b49f1071dfd57df2b06f3ff7afd64", size = 2795866, upload-time = "2024-11-05T17:31:16.857Z" },
-    { url = "https://files.pythonhosted.org/packages/29/4e/8a9a3c89e128c4a40f247b501c10279d2d7ade685953407c4d94c8c0f7a7/tokenizers-0.20.3-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ef279c7e239f95c8bdd6ff319d9870f30f0d24915b04895f55b1adcf96d6c60d", size = 3085446, upload-time = "2024-11-05T17:31:18.392Z" },
-    { url = "https://files.pythonhosted.org/packages/b4/3b/a2a7962c496ebcd95860ca99e423254f760f382cd4bd376f8895783afaf5/tokenizers-0.20.3-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:16384073973f6ccbde9852157a4fdfe632bb65208139c9d0c0bd0176a71fd67f", size = 3094378, upload-time = "2024-11-05T17:31:20.329Z" },
-    { url = "https://files.pythonhosted.org/packages/1f/f4/a8a33f0192a1629a3bd0afcad17d4d221bbf9276da4b95d226364208d5eb/tokenizers-0.20.3-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:312d522caeb8a1a42ebdec87118d99b22667782b67898a76c963c058a7e41d4f", size = 3385755, upload-time = "2024-11-05T17:31:21.778Z" },
-    { url = "https://files.pythonhosted.org/packages/9e/65/c83cb3545a65a9eaa2e13b22c93d5e00bd7624b354a44adbdc93d5d9bd91/tokenizers-0.20.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f2b7cb962564785a83dafbba0144ecb7f579f1d57d8c406cdaa7f32fe32f18ad", size = 2997679, upload-time = "2024-11-05T17:31:23.134Z" },
-    { url = "https://files.pythonhosted.org/packages/55/e9/a80d4e592307688a67c7c59ab77e03687b6a8bd92eb5db763a2c80f93f57/tokenizers-0.20.3-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:124c5882ebb88dadae1fc788a582299fcd3a8bd84fc3e260b9918cf28b8751f5", size = 8989296, upload-time = "2024-11-05T17:31:24.953Z" },
-    { url = "https://files.pythonhosted.org/packages/90/af/60c957af8d2244321124e893828f1a4817cde1a2d08d09d423b73f19bd2f/tokenizers-0.20.3-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:2b6e54e71f84c4202111a489879005cb14b92616a87417f6c102c833af961ea2", size = 9303621, upload-time = "2024-11-05T17:31:27.341Z" },
-    { url = "https://files.pythonhosted.org/packages/be/a9/96172310ee141009646d63a1ca267c099c462d747fe5ef7e33f74e27a683/tokenizers-0.20.3-cp312-none-win32.whl", hash = "sha256:83d9bfbe9af86f2d9df4833c22e94d94750f1d0cd9bfb22a7bb90a86f61cdb1c", size = 2188979, upload-time = "2024-11-05T17:31:29.483Z" },
-    { url = "https://files.pythonhosted.org/packages/bd/68/61d85ae7ae96dde7d0974ff3538db75d5cdc29be2e4329cd7fc51a283e22/tokenizers-0.20.3-cp312-none-win_amd64.whl", hash = "sha256:44def74cee574d609a36e17c8914311d1b5dbcfe37c55fd29369d42591b91cf2", size = 2380725, upload-time = "2024-11-05T17:31:31.315Z" },
-    { url = "https://files.pythonhosted.org/packages/07/19/36e9eaafb229616cb8502b42030fa7fe347550e76cb618de71b498fc3222/tokenizers-0.20.3-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:e0b630e0b536ef0e3c8b42c685c1bc93bd19e98c0f1543db52911f8ede42cf84", size = 2666813, upload-time = "2024-11-05T17:31:32.783Z" },
-    { url = "https://files.pythonhosted.org/packages/b9/c7/e2ce1d4f756c8a62ef93fdb4df877c2185339b6d63667b015bf70ea9d34b/tokenizers-0.20.3-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:a02d160d2b19bcbfdf28bd9a4bf11be4cb97d0499c000d95d4c4b1a4312740b6", size = 2555354, upload-time = "2024-11-05T17:31:34.208Z" },
-    { url = "https://files.pythonhosted.org/packages/7c/cf/5309c2d173a6a67f9ec8697d8e710ea32418de6fd8541778032c202a1c3e/tokenizers-0.20.3-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0e3d80d89b068bc30034034b5319218c7c0a91b00af19679833f55f3becb6945", size = 2897745, upload-time = "2024-11-05T17:31:35.733Z" },
-    { url = "https://files.pythonhosted.org/packages/2c/e5/af3078e32f225e680e69d61f78855880edb8d53f5850a1834d519b2b103f/tokenizers-0.20.3-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:174a54910bed1b089226512b4458ea60d6d6fd93060254734d3bc3540953c51c", size = 2794385, upload-time = "2024-11-05T17:31:37.497Z" },
-    { url = "https://files.pythonhosted.org/packages/0b/a7/bc421fe46650cc4eb4a913a236b88c243204f32c7480684d2f138925899e/tokenizers-0.20.3-cp313-cp313-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:098b8a632b8656aa5802c46689462c5c48f02510f24029d71c208ec2c822e771", size = 3084580, upload-time = "2024-11-05T17:31:39.456Z" },
-    { url = "https://files.pythonhosted.org/packages/c6/22/97e1e95ee81f75922c9f569c23cb2b1fdc7f5a7a29c4c9fae17e63f751a6/tokenizers-0.20.3-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:78c8c143e3ae41e718588281eb3e212c2b31623c9d6d40410ec464d7d6221fb5", size = 3093581, upload-time = "2024-11-05T17:31:41.224Z" },
-    { url = "https://files.pythonhosted.org/packages/d5/14/f0df0ee3b9e516121e23c0099bccd7b9f086ba9150021a750e99b16ce56f/tokenizers-0.20.3-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:2b26b0aadb18cd8701077362ba359a06683662d5cafe3e8e8aba10eb05c037f1", size = 3385934, upload-time = "2024-11-05T17:31:43.811Z" },
-    { url = "https://files.pythonhosted.org/packages/66/52/7a171bd4929e3ffe61a29b4340fe5b73484709f92a8162a18946e124c34c/tokenizers-0.20.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:07d7851a72717321022f3774e84aa9d595a041d643fafa2e87fbc9b18711dac0", size = 2997311, upload-time = "2024-11-05T17:31:46.224Z" },
-    { url = "https://files.pythonhosted.org/packages/7c/64/f1993bb8ebf775d56875ca0d50a50f2648bfbbb143da92fe2e6ceeb4abd5/tokenizers-0.20.3-cp313-cp313-musllinux_1_1_aarch64.whl", hash = "sha256:bd44e48a430ada902c6266a8245f5036c4fe744fcb51f699999fbe82aa438797", size = 8988601, upload-time = "2024-11-05T17:31:47.907Z" },
-    { url = "https://files.pythonhosted.org/packages/d6/3f/49fa63422159bbc2f2a4ac5bfc597d04d4ec0ad3d2ef46649b5e9a340e37/tokenizers-0.20.3-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:a4c186bb006ccbe1f5cc4e0380d1ce7806f5955c244074fd96abc55e27b77f01", size = 9303950, upload-time = "2024-11-05T17:31:50.674Z" },
-    { url = "https://files.pythonhosted.org/packages/66/11/79d91aeb2817ad1993ef61c690afe73e6dbedbfb21918b302ef5a2ba9bfb/tokenizers-0.20.3-cp313-none-win32.whl", hash = "sha256:6e19e0f1d854d6ab7ea0c743d06e764d1d9a546932be0a67f33087645f00fe13", size = 2188941, upload-time = "2024-11-05T17:31:53.334Z" },
-    { url = "https://files.pythonhosted.org/packages/c2/ff/ac8410f868fb8b14b5e619efa304aa119cb8a40bd7df29fc81a898e64f99/tokenizers-0.20.3-cp313-none-win_amd64.whl", hash = "sha256:d50ede425c7e60966a9680d41b58b3a0950afa1bb570488e2972fa61662c4273", size = 2380269, upload-time = "2024-11-05T17:31:54.796Z" },
-]
-
-[[package]]
-name = "tokenizers"
 version = "0.22.2"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')",
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version >= '3.13' and sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version >= '3.13' and sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-]
 dependencies = [
     { name = "huggingface-hub" },
 ]
@@ -3820,15 +3720,10 @@ name = "torch"
 version = "2.9.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "python_full_version >= '3.13' and sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version >= '3.13' and sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
+    "python_full_version >= '3.13' and sys_platform == 'darwin'",
+    "python_full_version < '3.13' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and sys_platform == 'linux'",
+    "python_full_version < '3.13' and sys_platform == 'linux'",
 ]
 dependencies = [
     { name = "filelock", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -3858,24 +3753,19 @@ dependencies = [
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d3/3985739f3b8e88675127bf70f82b3a48ae083e39cda56305dbd90398fec0/torch-2.9.0-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:e5f7af1dc4c0a7c4a260c2534f41ddaf209714f7c89145e644c44712fbd6b642", size = 104107898, upload-time = "2025-10-15T15:46:20.883Z" },
     { url = "https://files.pythonhosted.org/packages/a5/4b/f4bb2e6c25d0272f798cd6d7a04ed315da76cec68c602d87040c7847287f/torch-2.9.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:01cff95ecd9a212ea2f141db28acccdceb6a4c54f64e6c51091146f5e2a772c6", size = 899738273, upload-time = "2025-10-15T15:50:04.188Z" },
-    { url = "https://files.pythonhosted.org/packages/66/11/c1c5ba6691cda6279087c35bd626536e4fd29521fe740abf5008377a9a02/torch-2.9.0-cp312-cp312-win_amd64.whl", hash = "sha256:4582b162f541651f0cb184d3e291c05c2f556c7117c64a9873e2ee158d40062b", size = 109280887, upload-time = "2025-10-15T15:46:26.228Z" },
     { url = "https://files.pythonhosted.org/packages/dd/5f/b85bd8c05312d71de9402bf5868d217c38827cfd09d8f8514e5be128a52b/torch-2.9.0-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:33f58e9a102a91259af289d50525c30323b5c9ae1d31322b6447c0814da68695", size = 74478983, upload-time = "2025-10-15T15:46:39.406Z" },
     { url = "https://files.pythonhosted.org/packages/c2/1c/90eb13833cdf4969ea9707586d7b57095c3b6e2b223a7256bf111689bcb8/torch-2.9.0-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:c30a17fc83eeab346913e237c64b15b5ba6407fff812f6c541e322e19bc9ea0e", size = 104111330, upload-time = "2025-10-15T15:46:35.238Z" },
     { url = "https://files.pythonhosted.org/packages/0e/21/2254c54b8d523592c25ef4434769aa23e29b1e6bf5f4c0ad9e27bf442927/torch-2.9.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:8f25033b8667b57857dfd01458fbf2a9e6a6df1f8def23aef0dc46292f6aa642", size = 899750243, upload-time = "2025-10-15T15:48:57.459Z" },
-    { url = "https://files.pythonhosted.org/packages/b7/a5/5cb94fa4fd1e78223455c23c200f30f6dc10c6d4a2bcc8f6e7f2a2588370/torch-2.9.0-cp313-cp313-win_amd64.whl", hash = "sha256:d037f1b4ffd25013be4a7bf3651a0a910c68554956c7b2c92ebe87c76475dece", size = 109284513, upload-time = "2025-10-15T15:46:45.061Z" },
     { url = "https://files.pythonhosted.org/packages/66/e8/fc414d8656250ee46120b44836ffbb3266343db424b3e18ca79ebbf69d4f/torch-2.9.0-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:e4e5b5cba837a2a8d1a497ba9a58dae46fa392593eaa13b871c42f71847503a5", size = 74830362, upload-time = "2025-10-15T15:46:48.983Z" },
     { url = "https://files.pythonhosted.org/packages/ed/5f/9474c98fc5ae0cd04b9466035428cd360e6611a86b8352a0fc2fa504acdc/torch-2.9.0-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:64693568f5dc4dbd5f880a478b1cea0201cc6b510d91d1bc54fea86ac5d1a637", size = 104144940, upload-time = "2025-10-15T15:47:29.076Z" },
     { url = "https://files.pythonhosted.org/packages/2d/5a/8e0c1cf57830172c109d4bd6be2708cabeaf550983eee7029291322447a0/torch-2.9.0-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:f8ed31ddd7d10bfb3fbe0b9fe01b1243577f13d75e6f4a0839a283915ce3791e", size = 899744054, upload-time = "2025-10-15T15:48:29.864Z" },
-    { url = "https://files.pythonhosted.org/packages/6d/28/82c28b30fcb4b7c9cdd995763d18bbb830d6521356712faebbad92ffa61d/torch-2.9.0-cp313-cp313t-win_amd64.whl", hash = "sha256:eff527d4e4846e6f70d2afd8058b73825761203d66576a7e04ea2ecfebcb4ab8", size = 109517546, upload-time = "2025-10-15T15:47:33.395Z" },
     { url = "https://files.pythonhosted.org/packages/ff/c3/a91f96ec74347fa5fd24453fa514bc61c61ecc79196fa760b012a1873d96/torch-2.9.0-cp313-none-macosx_11_0_arm64.whl", hash = "sha256:f8877779cf56d1ce431a7636703bdb13307f5960bb1af49716d8b179225e0e6a", size = 74480732, upload-time = "2025-10-15T15:47:38.002Z" },
     { url = "https://files.pythonhosted.org/packages/5c/73/9f70af34b334a7e0ef496ceec96b7ec767bd778ea35385ce6f77557534d1/torch-2.9.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:7e614fae699838038d888729f82b687c03413c5989ce2a9481f9a7e7a396e0bb", size = 74433037, upload-time = "2025-10-15T15:47:41.894Z" },
     { url = "https://files.pythonhosted.org/packages/b7/84/37cf88625901934c97109e583ecc21777d21c6f54cda97a7e5bbad1ee2f2/torch-2.9.0-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:dfb5b8cd310ba3436c7e14e8b7833ef658cf3045e50d2bdaed23c8fc517065eb", size = 104116482, upload-time = "2025-10-15T15:47:46.266Z" },
     { url = "https://files.pythonhosted.org/packages/56/8e/ca8b17866943a8d4f4664d402ea84210aa274588b4c5d89918f5caa24eec/torch-2.9.0-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:b3d29524993a478e46f5d598b249cd824b7ed98d7fba538bd9c4cde6c803948f", size = 899746916, upload-time = "2025-10-15T15:50:40.294Z" },
-    { url = "https://files.pythonhosted.org/packages/43/65/3b17c0fbbdab6501c5b320a52a648628d0d44e7379f64e27d9eef701b6bf/torch-2.9.0-cp314-cp314-win_amd64.whl", hash = "sha256:71c7578984f5ec0eb645eb4816ac8435fcf3e3e2ae1901bcd2f519a9cafb5125", size = 109275151, upload-time = "2025-10-15T15:49:20.715Z" },
     { url = "https://files.pythonhosted.org/packages/83/36/74f8c051f785500396e42f93542422422dfd874a174f21f8d955d36e5d64/torch-2.9.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:71d9309aee457bbe0b164bce2111cd911c4ed4e847e65d5077dbbcd3aba6befc", size = 74823353, upload-time = "2025-10-15T15:49:16.59Z" },
     { url = "https://files.pythonhosted.org/packages/62/51/dc3b4e2f9ba98ae27238f0153ca098bf9340b2dafcc67fde645d496dfc2a/torch-2.9.0-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:c08fb654d783899e204a32cca758a7ce8a45b2d78eeb89517cc937088316f78e", size = 104140340, upload-time = "2025-10-15T15:50:19.67Z" },
     { url = "https://files.pythonhosted.org/packages/c0/8d/b00657f8141ac16af7bb6cda2e67de18499a3263b78d516b9a93fcbc98e3/torch-2.9.0-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:ec8feb0099b2daa5728fbc7abb0b05730fd97e0f359ff8bda09865aaa7bd7d4b", size = 899731750, upload-time = "2025-10-15T15:49:36.673Z" },
-    { url = "https://files.pythonhosted.org/packages/fc/29/bd361e0cbb2c79ce6450f42643aaf6919956f89923a50571b0ebfe92d142/torch-2.9.0-cp314-cp314t-win_amd64.whl", hash = "sha256:695ba920f234ad4170c9c50e28d56c848432f8f530e6bc7f88fcb15ddf338e75", size = 109503850, upload-time = "2025-10-15T15:50:24.118Z" },
 ]
 
 [[package]]
@@ -3883,13 +3773,8 @@ name = "torch"
 version = "2.9.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch'",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
+    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux'",
 ]
 dependencies = [
     { name = "filelock", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
@@ -3901,22 +3786,12 @@ dependencies = [
     { name = "typing-extensions", marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:3a651434ae1248b0568c12b5f9e3acc8942eb28378d9d04a79302938b68c6f24", upload-time = "2025-10-14T17:26:02Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:28f6eb31b08180a5c5e98d5bc14eef6909c9f5a1dbff9632c3e02a8773449349", upload-time = "2025-10-14T17:26:03Z" },
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp312-cp312-win_amd64.whl", hash = "sha256:e438061b87ec7dd6018fca9f975219889aa0a3f6cdc3ea10dd0ae2bc7f1c47ce", upload-time = "2025-10-14T17:26:05Z" },
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp312-cp312-win_arm64.whl", hash = "sha256:eb13ff1c34e338d722e76a4fd83b8d282782505bd1b99af4b3c32da66eba6eb4", upload-time = "2025-10-14T17:26:06Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:be4438d8dad7f0d5a5e54f0feef8a893446894ec87f102bb1d82dcc4518542e4", upload-time = "2025-10-14T17:26:07Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:6c9b217584400963d5b4daddb3711ec7a3778eab211e18654fba076cce3b8682", upload-time = "2025-10-14T17:26:07Z" },
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp313-cp313-win_amd64.whl", hash = "sha256:728372e3f58c5826445f677746e5311c1935c1a7c59599f73a49ded850e038e8", upload-time = "2025-10-14T17:26:10Z" },
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp313-cp313-win_arm64.whl", hash = "sha256:95e56c26f919fbb98f16e7a0b87af494b893f9da9a65a020f17a01c13e520a81", upload-time = "2025-10-14T17:26:08Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:6c777160288b08555820781ae0f3a2c67a59bd24b065e88ca1ec20e2f9dc8ac7", upload-time = "2025-10-14T17:26:09Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:528fd338311f31c9fb18038cafd00e6eae0bf5ad5577521701acb62510753d18", upload-time = "2025-10-14T17:26:09Z" },
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp313-cp313t-win_amd64.whl", hash = "sha256:d572863990e7d2762b547735ef589f6350d9eb4e441d38753a1c33636698cf4c", upload-time = "2025-10-14T17:26:11Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:44aadb735774d4a99525d2ec29126b23016c44a07b02ce6c237dfa61a223dd52", upload-time = "2025-10-14T17:26:12Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:b355e07b7f0c369cb031adfcbff5c37a609abcea091b918a39886412afd2e07d", upload-time = "2025-10-14T17:26:14Z" },
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp314-cp314-win_amd64.whl", hash = "sha256:c2698999361d73c2d25d7cc8a787130188d49b183abb18b554228daa102e1594", upload-time = "2025-10-14T17:26:12Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:fa0d1373d04b30ff8f12d542135d292f1a1ddb7c0d852a3d487a320360e5dab9", upload-time = "2025-10-14T17:26:13Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:2f49bb57a5fe0dc7f8e73ea9e5d36ebda2ea25b8a714a788f0fc2fc47d20a830", upload-time = "2025-10-14T17:26:13Z" },
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp314-cp314t-win_amd64.whl", hash = "sha256:3a60d1ecf27a9cce839b3aa665b26f0af1b1007b9c9f1e7f597f6b7bdf107617", upload-time = "2025-10-14T17:26:15Z" },
 ]
 
@@ -3925,8 +3800,8 @@ name = "torchaudio"
 version = "2.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-nemo') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/63/3c0ede3aa3d19a8a6698ddd107fa88660549360b51bf8ce2717cd498d800/torchaudio-2.9.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:ab4cbcccfd873b0fb41fcb39c9869e59ef84bb95b093f6f58e2d05172a7500d2", size = 809116, upload-time = "2025-10-15T15:52:00.911Z" },
@@ -3975,8 +3850,8 @@ dependencies = [
     { name = "lightning-utilities" },
     { name = "numpy" },
     { name = "packaging" },
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-nemo') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'darwin' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra != 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/85/2e/48a887a59ecc4a10ce9e8b35b3e3c5cef29d902c4eac143378526e7485cb/torchmetrics-1.8.2.tar.gz", hash = "sha256:cf64a901036bf107f17a524009eea7781c9c5315d130713aeca5747a686fe7a5", size = 580679, upload-time = "2025-09-03T14:00:54.077Z" }
 wheels = [
@@ -3997,49 +3872,8 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "4.46.3"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "sys_platform != 'darwin' and sys_platform != 'linux'",
-    "sys_platform == 'darwin' or sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "filelock", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "huggingface-hub", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "numpy", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "packaging", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "pyyaml", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "regex", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "requests", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "safetensors", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "tokenizers", version = "0.20.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-    { name = "tqdm", marker = "extra == 'extra-9-linto-stt-whisper' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/37/5a/58f96c83e566f907ae39f16d4401bbefd8bb85c60bd1e6a95c419752ab90/transformers-4.46.3.tar.gz", hash = "sha256:8ee4b3ae943fe33e82afff8e837f4b052058b07ca9be3cb5b729ed31295f72cc", size = 8627944, upload-time = "2024-11-18T22:13:01.012Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/51/b87caa939fedf307496e4dbf412f4b909af3d9ca8b189fc3b65c1faa456f/transformers-4.46.3-py3-none-any.whl", hash = "sha256:a12ef6f52841fd190a3e5602145b542d03507222f2c64ebb7ee92e8788093aef", size = 10034536, upload-time = "2024-11-18T22:12:57.024Z" },
-]
-
-[[package]]
-name = "transformers"
 version = "4.57.6"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')",
-    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version >= '3.13' and sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version >= '3.13' and sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "python_full_version < '3.13' and sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra == 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-    "sys_platform != 'darwin' and sys_platform != 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch'",
-    "(sys_platform == 'darwin' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch') or (sys_platform == 'linux' and extra != 'extra-9-linto-stt-kaldi' and extra != 'extra-9-linto-stt-kyutai' and extra != 'extra-9-linto-stt-nemo' and extra != 'extra-9-linto-stt-whisper' and extra != 'extra-9-linto-stt-whisper-torch')",
-]
 dependencies = [
     { name = "filelock" },
     { name = "huggingface-hub" },
@@ -4049,7 +3883,7 @@ dependencies = [
     { name = "regex" },
     { name = "requests" },
     { name = "safetensors" },
-    { name = "tokenizers", version = "0.22.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "tokenizers" },
     { name = "tqdm" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c4/35/67252acc1b929dc88b6602e8c4a982e64f31e733b804c14bc24b47da35e6/transformers-4.57.6.tar.gz", hash = "sha256:55e44126ece9dc0a291521b7e5492b572e6ef2766338a610b9ab5afbb70689d3", size = 10134912, upload-time = "2026-01-16T10:38:39.284Z" }
@@ -4109,7 +3943,7 @@ name = "tzlocal"
 version = "5.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "tzdata", marker = "sys_platform == 'win32' or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8b/2e/c14812d3d4d9cd1773c6be938f89e5735a1f11a9f184ac3639b93cef35d5/tzlocal-5.3.1.tar.gz", hash = "sha256:cceffc7edecefea1f595541dbd6e990cb1ea3d19bf01b2809f362a03dd7921fd", size = 30761, upload-time = "2025-03-05T21:17:41.549Z" }
 wheels = [

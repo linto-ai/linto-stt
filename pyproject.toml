@@ -65,22 +65,6 @@ test = [
     "requests>=2.31",
 ]
 
-# The engine extras are mutually exclusive (a deployment installs exactly one,
-# e.g. `uv sync --extra whisper`). Declaring them as conflicting lets uv resolve
-# each independently instead of demanding a single set that satisfies them all.
-# This is required since the faster-whisper fork below pins tokenizers<0.21,
-# which cannot co-resolve with nemo's transformers (tokenizers>=0.21).
-[tool.uv]
-conflicts = [
-    [
-        { extra = "nemo" },
-        { extra = "whisper" },
-        { extra = "whisper-torch" },
-        { extra = "kaldi" },
-        { extra = "kyutai" },
-    ],
-]
-
 [[tool.uv.index]]
 # NeMo's pyproject pins torch to this index for non-linux/non-darwin platforms.
 # We mirror it (below) so our requirement set agrees with NeMo's; otherwise uv
