@@ -35,7 +35,7 @@ nemo = [
 moshi = []
 
 whisper = [
-    "faster-whisper>=1.2.1",
+    "faster-whisper==1.2.1+linto",  # LinTO fork; source pinned in [tool.uv.sources]
     "wavio>=0.0.9",
     "auditok>=0.3.0",
 ]
@@ -64,6 +64,28 @@ test = [
     "pytest-timeout>=2.2",
     "requests>=2.31",
 ]
+
+# The engine extras are mutually exclusive (a deployment installs exactly one,
+# e.g. `uv sync --extra whisper`). Declaring them as conflicting lets uv resolve
+# each independently instead of demanding a single set that satisfies them all.
+# This is required since the faster-whisper fork below pins tokenizers<0.21,
+# which cannot co-resolve with nemo's transformers 4.57 (tokenizers>=0.21).
+[tool.uv]
+conflicts = [
+    [
+        { extra = "nemo" },
+        { extra = "whisper" },
+        { extra = "whisper-torch" },
+        { extra = "kaldi" },
+        { extra = "kyutai" },
+    ],
+]
+
+# faster-whisper is LinTO's fork, tagged 1.2.1+linto (not on PyPI), so the
+# `whisper` extra's "faster-whisper==1.2.1+linto" is resolved from git here.
+# To bump: retag the fork and update both this tag and the version above.
+[tool.uv.sources]
+faster-whisper = { git = "https://github.com/linto-ai/faster-whisper.git", tag = "1.2.1+linto" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
