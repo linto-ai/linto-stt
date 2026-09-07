@@ -118,16 +118,34 @@ def decode_ct2(
         kwargs["beam_size"] = 1
     if kwargs.get("best_of") is None:
         kwargs["best_of"] = 1
+    clip_timestamps = "0"  # faster-whisper default: transcribe the whole audio
     if VAD:
         _, speech_segments, _ = remove_non_speech(audio, use_sample=True, method=VAD, dilatation=VAD_DILATATION,
                                                   min_silence_duration=VAD_MIN_SILENCE_DURATION, min_speech_duration=VAD_MIN_SPEECH_DURATION, return_format="dict")
+        # Restrict transcription to the detected speech via `clip_timestamps`
+        # (a flat [start, end, start, end, ...] list in seconds), NOT `vad_filter`.
+        # In faster-whisper `vad_filter` is a bool: a non-empty list is only
+        # truthy, so the computed segments were silently discarded and
+        # faster-whisper ran its own default Silero VAD instead, dropping speech.
+        # `clip_timestamps` is the parameter it actually reads to honour given
+        # segments. See https://github.com/linto-ai/linto-stt/issues/129
+        if speech_segments:
+            clip_timestamps = [
+                round(seg[bound] / SAMPLE_RATE, 3)
+                for seg in speech_segments
+                for bound in ("start", "end")
+            ]
     segments, info = model.transcribe(
         audio,
         word_timestamps=with_word_timestamps,
         language=language,
         # Careful with the following options
         max_initial_timestamp=10000.0,
-        vad_filter=speech_segments if VAD else False,
+        # VAD is applied via clip_timestamps only; we rely on WhisperModel.transcribe's
+        # vad_filter default (False). NB: BatchedInferencePipeline.transcribe defaults
+        # vad_filter=True, so if ever switching to it, pass vad_filter=False explicitly
+        # (otherwise its own Silero VAD runs on the VAD=false path, where clip_timestamps="0").
+        clip_timestamps=clip_timestamps,
         **kwargs,
     )
     segments = list(segments)
