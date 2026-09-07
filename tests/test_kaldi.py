@@ -22,6 +22,7 @@ def _skip_without_kaldi_paths(request):
 # UV tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.kaldi
 @pytest.mark.uv
 class TestKaldiUV:
@@ -31,22 +32,27 @@ class TestKaldiUV:
     def _check_paths(self, request):
         _skip_without_kaldi_paths(request)
 
-    @pytest.mark.parametrize("uv_server", [
-        pytest.param(
-            {"engine": "kaldi", "mode": "http", "port": 0,
-             "env_overrides": {}},
-            id="http",
-        ),
-    ], indirect=True)
+    @pytest.mark.parametrize(
+        "uv_server",
+        [
+            pytest.param(
+                {"engine": "kaldi", "mode": "http", "port": 0, "env_overrides": {}},
+                id="http",
+            ),
+        ],
+        indirect=True,
+    )
     def test_transcription_http(self, uv_server, test_audio_bonjour):
         result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), \
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Docker tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.kaldi
 @pytest.mark.docker
@@ -59,27 +65,43 @@ class TestKaldiDocker:
     def _check_paths(self, request):
         _skip_without_kaldi_paths(request)
 
-    @pytest.mark.parametrize("docker_server", [
-        pytest.param(
-            {"engine": "kaldi", "mode": "http", "port": 0,
-             "env_overrides": {}},
-            id="http",
-        ),
-    ], indirect=True)
+    @pytest.mark.parametrize(
+        "docker_server",
+        [
+            pytest.param(
+                {"engine": "kaldi", "mode": "http", "port": 0, "env_overrides": {}},
+                id="http",
+            ),
+        ],
+        indirect=True,
+    )
     def test_transcription_http(self, docker_server, test_audio_bonjour):
         result = transcribe_http(docker_server["url"], str(test_audio_bonjour))
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), \
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
+        )
 
-    @pytest.mark.parametrize("docker_server", [
-        pytest.param(
-            {"engine": "kaldi", "mode": "task", "port": 0,
-             "env_overrides": {"SERVICES_BROKER": "redis://172.17.0.1:6379"}},
-            id="task",
-        ),
-    ], indirect=True)
+    @pytest.mark.parametrize(
+        "docker_server",
+        [
+            pytest.param(
+                {
+                    "engine": "kaldi",
+                    "mode": "task",
+                    "port": 0,
+                    "env_overrides": {"SERVICES_BROKER": "redis://172.17.0.1:6379"},
+                },
+                id="task",
+            ),
+        ],
+        indirect=True,
+    )
     def test_transcription_task(self, docker_server, test_audio_bonjour, redis_server):
         from helpers.transcription_client import transcribe_celery
-        result = transcribe_celery("bonjour.wav", language="fr", broker_url=redis_server)
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), \
+
+        result = transcribe_celery(
+            "bonjour.wav", language="fr", broker_url=redis_server
+        )
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
+        )
