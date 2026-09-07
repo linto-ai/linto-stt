@@ -5,6 +5,9 @@
     - Native cache-aware streaming for models that support it (e.g. `nvidia/nemotron-3.5-asr-streaming-0.6b`), automatically discriminated from offline models (which keep the buffered/simulated streaming path)
     - Support prompt-conditioned models (automatic language prompt, e.g. Nemotron ASR)
     - More robust model loading (OS-level `filelock` instead of the deprecated `lockfile`)
+- Whisper engine updates:
+    - Fix VAD option (silero was run when VAD was enabled, even if auditok -the default- was specified)
+    - Use of LinTO faster-whisper fork, to support more whisper models (French finetuned & distilled model)
 
 # 2.1.0
 - NeMo engine updates:
