@@ -141,6 +141,10 @@ def decode_ct2(
         language=language,
         # Careful with the following options
         max_initial_timestamp=10000.0,
+        # VAD is applied via clip_timestamps only; we rely on WhisperModel.transcribe's
+        # vad_filter default (False). NB: BatchedInferencePipeline.transcribe defaults
+        # vad_filter=True, so if ever switching to it, pass vad_filter=False explicitly
+        # (otherwise its own Silero VAD runs on the VAD=false path, where clip_timestamps="0").
         clip_timestamps=clip_timestamps,
         **kwargs,
     )
