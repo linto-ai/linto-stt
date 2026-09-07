@@ -25,7 +25,7 @@ include = ["linto_stt*"]
 [project.optional-dependencies]
 nemo = [
     "auditok==0.3.0",
-    "nemo-toolkit[asr]==2.7.0",
+    "nemo-toolkit[asr]",
     "onnx==1.18",
     "torchaudio>=2.9.0",
     "torchcodec>=0.9.1",
@@ -65,6 +65,29 @@ test = [
     "requests>=2.31",
 ]
 
+[[tool.uv.index]]
+# NeMo's pyproject pins torch to this index for non-linux/non-darwin platforms.
+# We mirror it (below) so our requirement set agrees with NeMo's; otherwise uv
+# reports "conflicting indexes for package torch". `explicit = true` means the
+# index is only used by sources that name it — it won't affect other packages.
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+# NeMo pinned to a frozen main commit (snapshot of 2026-06-17). The released
+# 2.7.x line lacks nemo.collections.asr.models.rnnt_bpe_models_prompt, required
+# by newer prompt/streaming checkpoints such as
+# nvidia/nemotron-3.5-asr-streaming-0.6b. Pinning to an explicit rev keeps the
+# build reproducible; bump the rev deliberately to move forward.
+nemo-toolkit = { git = "https://github.com/NVIDIA-NeMo/NeMo.git", rev = "0f378e9d8dd72630c911025b555f18658d44cc8f" }
+# Match NeMo's torch index selection on the platforms where it diverges from
+# PyPI, so the two requirement sets don't conflict during locking. linux/darwin
+# keep PyPI's torch (uv's default), as before.
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' and sys_platform != 'darwin'" },
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
@@ -78,3 +101,9 @@ markers = [
 ]
 addopts = "-v --tb=short"
 timeout = 900
+# Stream log messages live so long waits (Docker build, model load, transcribe)
+# show progress as they happen, instead of only on failure.
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s %(levelname)s %(message)s"
+log_cli_date_format = "%H:%M:%S"

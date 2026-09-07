@@ -27,6 +27,21 @@ ARCHITECTURE=rnnt_bpe
 # MODEL=nvidia/stt_fr_fastconformer_hybrid_large_pc
 # ARCHITECTURE=hybrid_bpe
 
+# Cache-aware streaming model (served through NeMo's native streaming path):
+# MODEL=nvidia/nemotron-3.5-asr-streaming-0.6b
+# ARCHITECTURE=rnnt_bpe
+
+# Attention context size, in encoder frames (~80ms each): left and right (look-ahead).
+# Defaults depend on the model and are resolved at load time:
+#   - cache-aware streaming models: trained context kept when unset; right defaults to 0
+#   - other (offline) models: ATT_CONTEXT_SIZE defaults to 128 (local attention),
+#     ATT_CONTEXT_SIZE_RIGHT defaults to the same value
+# A larger right context gives better accuracy but higher latency. For cache-aware
+# streaming models only specific right values are valid (model-specific; e.g.
+# nvidia/nemotron-3.5-asr-streaming-0.6b supports 0, 3, 6, 13).
+# ATT_CONTEXT_SIZE=
+# ATT_CONTEXT_SIZE_RIGHT=
+
 VAD=auditok
 VAD_DILATATION=0.5                # Time to add before and after the detected speech
 VAD_MIN_SPEECH_DURATION=0.1       # Minimum duration of speech to keep
@@ -48,12 +63,19 @@ LONG_FILE_CHUNK_CONTEXT_LEN=5
 # STREAMING PARAMETERS (WEBSOCKET MODE)
 ############################################
 
+# The parameters below tune the buffered (simulated) streaming used for OFFLINE
+# models. Models that natively support cache-aware streaming bypass them and use
+# the native NeMo streaming path instead (see STREAMING_NATIVE_PARTIAL_INTERVAL).
 STREAMING_MIN_CHUNK_SIZE=0.5
 STREAMING_BUFFER_TRIMMING_SEC=10
 STREAMING_PAUSE_FOR_FINAL=1.2
 STREAMING_TIMEOUT_FOR_SILENCE=
 STREAMING_MAX_WORDS_IN_BUFFER=5
 STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4
+
+# Native cache-aware streaming only: seconds of received audio between partial
+# results (larger = fewer partials, less compute).
+# STREAMING_NATIVE_PARTIAL_INTERVAL=2.0
 
 ############################################
 # EFFICIENCY PARAMETERS

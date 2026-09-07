@@ -16,7 +16,7 @@ from linto_stt.engines.nemo.stt import (
 )
 
 from .vad import remove_non_speech
-from .utils import SAMPLE_RATE, get_language
+from .utils import SAMPLE_RATE, get_language, is_language_marker
 
 default_prompt = os.environ.get("PROMPT", None)
 
@@ -132,6 +132,16 @@ def format_nemo_response(
                 for word in hypothesis.timestamp['word']:
                     start, end = _convert_timestamps(word['start'], word['end'], conversion_function)
                     words.append({'word': word['word'], 'start': start, 'end': end})
+    # The model's native strip_lang_tags switch (enabled at load) removes language
+    # markers like "<fr-FR>" from the joined text, but NOT from the word-level
+    # output — so drop word entries that are only a marker (or empty), keeping
+    # `text` consistent with the concatenation of `words`.
+    if words is not None:
+        words = [w for w in words if not is_language_marker(w["word"])]
+        if "confidence-score" in res:
+            res["confidence-score"] = (
+                round(np.average([w["conf"] for w in words]), 2) if words else 0.0
+            )
     if with_word_timestamps:
         res["words"] = words
     return res

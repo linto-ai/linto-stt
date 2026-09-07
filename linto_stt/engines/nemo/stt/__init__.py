@@ -26,7 +26,15 @@ VAD_DILATATION = float(os.environ.get("VAD_DILATATION", 0.5))
 VAD_MIN_SPEECH_DURATION = float(os.environ.get("VAD_MIN_SPEECH_DURATION", 0.1))
 VAD_MIN_SILENCE_DURATION = float(os.environ.get("VAD_MIN_SILENCE_DURATION", 0.1))
 
-ATT_CONTEXT_SIZE = int(os.environ.get("ATT_CONTEXT_SIZE", 128))  # Local attention window in encoder frames (~80ms each). 128 frames ≈ 10s context per side. Set to -1 for full attention.
+# Attention context size in encoder frames (~80ms each): ATT_CONTEXT_SIZE is the
+# LEFT context, ATT_CONTEXT_SIZE_RIGHT the RIGHT (look-ahead). Their defaults
+# depend on the model type (cache-aware streaming vs offline), so they are
+# resolved at load time (see load_model.py); here they are None when the user did
+# not set them explicitly.
+ATT_CONTEXT_SIZE = os.environ.get("ATT_CONTEXT_SIZE")
+ATT_CONTEXT_SIZE = int(ATT_CONTEXT_SIZE) if ATT_CONTEXT_SIZE is not None else None
+ATT_CONTEXT_SIZE_RIGHT = os.environ.get("ATT_CONTEXT_SIZE_RIGHT")
+ATT_CONTEXT_SIZE_RIGHT = int(ATT_CONTEXT_SIZE_RIGHT) if ATT_CONTEXT_SIZE_RIGHT is not None else None
 
 STREAMING_MIN_CHUNK_SIZE=float(os.environ.get("STREAMING_MIN_CHUNK_SIZE", 0.5))
 STREAMING_BUFFER_TRIMMING_SEC=float(os.environ.get("STREAMING_BUFFER_TRIMMING_SEC", 10.0))
