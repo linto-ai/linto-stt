@@ -254,6 +254,25 @@ class TestWhisperHotwords:
 
 @pytest.mark.whisper
 @pytest.mark.uv
+class TestWhisperVADNoSpeech:
+    """With VAD enabled, an audio with no speech at all must give an empty
+    transcription. Before the fix, when the VAD found no segment the whole
+    audio was decoded (clip_timestamps default) and Whisper hallucinated
+    subtitle credits on silent chunks."""
+
+    @pytest.mark.parametrize(
+        "uv_server",
+        list(_whisper_configs(None, ["auditok", "silero"])),
+        indirect=True,
+    )
+    def test_no_speech_gives_empty_output(self, uv_server, test_audio_no_speech):
+        for name, path in test_audio_no_speech.items():
+            result = transcribe_http(uv_server["url"], str(path))
+            assert result == "", f"Hallucinated text on {name}: {result!r}"
+
+
+@pytest.mark.whisper
+@pytest.mark.uv
 class TestWhisperStreaming:
     """Whisper streaming over the WebSocket serving mode."""
 

@@ -1,3 +1,7 @@
+# 2.1.2
+- Whisper engine updates:
+    - When VAD is enabled and finds no speech at all in an audio (silence, noise, music), decode nothing instead of the whole audio (which made Whisper hallucinate subtitle credits on silent chunks)
+
 # 2.1.1
 - NeMo engine updates:
     - Add asymmetric local attention support. Configurable attention context via `ATT_CONTEXT_SIZE` (left) and the new `ATT_CONTEXT_SIZE_RIGHT` (right/look-ahead), with model-dependent defaults
