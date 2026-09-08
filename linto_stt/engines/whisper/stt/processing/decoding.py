@@ -135,6 +135,13 @@ def decode_ct2(
                 for seg in speech_segments
                 for bound in ("start", "end")
             ]
+        else:
+            # No speech at all in this audio (silence, noise, music...): decode
+            # nothing. Keeping the "0" default would decode the whole audio and
+            # make Whisper hallucinate ("Sous-titrage ST' 501", ...), since
+            # no_speech_threshold is disabled above. An empty clip keeps the
+            # normal transcribe() path (language detection, response format).
+            clip_timestamps = [0.0, 0.0]
     segments, info = model.transcribe(
         audio,
         word_timestamps=with_word_timestamps,

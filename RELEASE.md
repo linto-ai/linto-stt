@@ -7,6 +7,7 @@
     - More robust model loading (OS-level `filelock` instead of the deprecated `lockfile`)
 - Whisper engine updates:
     - Fix VAD option (silero was run when VAD was enabled, even if auditok -the default- was specified)
+    - When VAD is enabled and finds no speech at all in an audio (silence, noise, music), decode nothing instead of the whole audio (which made Whisper hallucinate subtitle credits on silent chunks)
     - Use of LinTO faster-whisper fork, to support more whisper models (French finetuned & distilled model)
 
 # 2.1.0

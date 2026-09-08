@@ -146,6 +146,33 @@ def test_audio_hotel():
 
 
 @pytest.fixture(scope="session")
+def test_audio_no_speech(tmp_path_factory):
+    """Return paths to two generated 16 kHz mono WAVs with no speech at all:
+    30 s of digital silence and 30 s of very low white noise (~-80 dBFS)."""
+    import random
+    import struct
+    import wave
+
+    out_dir = tmp_path_factory.mktemp("no_speech")
+    sample_rate = 16000
+    n = 30 * sample_rate
+    files = {}
+    rng = random.Random(0)
+    for name, samples in (
+        ("silence_30s.wav", [0] * n),
+        ("near_silence_30s.wav", [int(rng.gauss(0, 3)) for _ in range(n)]),
+    ):
+        path = out_dir / name
+        with wave.open(str(path), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(sample_rate)
+            w.writeframes(struct.pack(f"<{n}h", *samples))
+        files[name] = path
+    return files
+
+
+@pytest.fixture(scope="session")
 def server_timeout(request):
     return request.config.getoption("--server-timeout")
 
