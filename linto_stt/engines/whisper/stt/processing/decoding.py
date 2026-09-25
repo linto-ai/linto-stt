@@ -13,6 +13,7 @@ from linto_stt.engines.whisper.stt import (
 )
 
 from .vad import remove_non_speech
+from .hallucinations import HALLUCINATION_FILTER, remove_hallucinations
 from .alignment_model import get_alignment_model, load_alignment_model
 from .text_normalize import normalize_text, remove_emoji, remove_punctuation
 from .utils import SAMPLE_RATE, get_language
@@ -90,6 +91,9 @@ def decode(
         res = decode_ct2(**kwargs)
     else:
         res = decode_torch(**kwargs)
+
+    if HALLUCINATION_FILTER:
+        res = remove_hallucinations(res, HALLUCINATION_FILTER)
 
     logger.info("Transcription complete (t={}s)".format(time.time() - start_t))
 
