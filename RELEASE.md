@@ -1,3 +1,7 @@
+# 2.1.2
+- Whisper engine updates:
+    - Remove the subtitle credits Whisper hallucinates from its training data ("Sous-titrage ST' 501", "Sous-titrage Société Radio-Canada", "Untertitel im Auftrag des ZDF", "...Amara.org", "www.microsoft.com"...), matched as whole phrases in about 20 languages (environment variable `HALLUCINATION_FILTER`, default `credits`; `all` also removes video outros such as "Merci d'avoir regardé cette vidéo" or "Thanks for watching"; `false` disables it)
+
 # 2.1.1
 - NeMo engine updates:
     - Add asymmetric local attention support. Configurable attention context via `ATT_CONTEXT_SIZE` (left) and the new `ATT_CONTEXT_SIZE_RIGHT` (right/look-ahead), with model-dependent defaults
