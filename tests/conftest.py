@@ -37,7 +37,7 @@ def pytest_addoption(parser):
         "--engine",
         action="store",
         default=None,
-        choices=["nemo", "whisper", "kaldi"],
+        choices=["nemo", "whisper", "kaldi", "transformers"],
         help="Only run tests for this engine",
     )
     parser.addoption(
@@ -96,7 +96,7 @@ def pytest_collection_modifyitems(config, items):
 
         # Filter by engine
         if engine_filter:
-            engine_markers = markers & {"nemo", "whisper", "kaldi"}
+            engine_markers = markers & {"nemo", "whisper", "kaldi", "transformers"}
             if engine_markers and engine_filter not in engine_markers:
                 deselected.append(item)
                 continue

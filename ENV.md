@@ -6,7 +6,7 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STT_ENGINE` | `nemo` | STT engine to use (`nemo`, `whisper`, `kaldi`, `kyutai`). Used as Docker build arg and CLI default |
+| `STT_ENGINE` | `nemo` | STT engine to use (`nemo`, `whisper`, `kaldi`, `kyutai`, `transformers`). Used as Docker build arg and CLI default |
 | `SERVICE_NAME` | `stt` | Celery queue/worker name in task mode. Defaults to the engine name when not set |
 | `SERVICE_MODE` | `http` | STT serving mode: `http`, `task`, `websocket` |
 | `PORT` | `80` (Docker) / `8080` (CLI) | Listening port |
@@ -102,6 +102,22 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `FINAL_TRANSCRIPT_DELAY` | `1.5` | Delay before sending final transcript (seconds) |
 | `LOG_TRANSCRIPTS` | `false` | Debug logging for transcripts |
 | `LOG_VAD` | `false` | Debug logging for VAD |
+
+## Transformers-specific
+
+The `transformers` engine serves Hugging Face transformers-native ASR models
+(currently Qwen3-ASR, e.g. `Qwen/Qwen3-ASR-1.7B-hf`). See the engine README.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MODEL` | `Qwen/Qwen3-ASR-1.7B-hf` | Transformers-native ASR checkpoint (currently Qwen3-ASR, model type `qwen3_asr`), e.g. `Qwen/Qwen3-ASR-0.6B-hf`. Needs transformers ≥ 5.13 (the `transformers` extra) |
+| `ALIGNER_MODEL` | `Qwen/Qwen3-ForcedAligner-0.6B-hf` | Forced-alignment model for word-level timestamps (Qwen3-ASR has none natively). Loaded lazily and run only on metadata requests (JSON / Celery task), never on the plain-text path. Set empty or `none` to disable (then `words` is empty for metadata requests) |
+| `DTYPE` | `bfloat16` | Model compute dtype (`bfloat16`, `float16`, `float32`, `auto`) |
+| `ATTN_IMPLEMENTATION` | _(transformers default: `sdpa`)_ | Attention kernel. The default `sdpa` already dispatches to Flash-Attention kernels on supported GPUs (bf16/fp16) via PyTorch — efficient out of the box, and it also works on CPU. Set `flash_attention_2` only if you have separately installed the `flash-attn` package (GPU-only, heavy build); gains over `sdpa` for short-audio ASR inference are usually small |
+| `MAX_NEW_TOKENS` | `440` | Maximum number of generated tokens per request |
+| `BACKEND` | `transformers` | Inference backend. Only `transformers` is implemented (`vllm` is planned) |
+
+`LANGUAGE` and `HOTWORDS` behave as in the Common section (per-request overridable); `HOTWORDS` is passed to the model as a biasing prompt. WebSocket/streaming is not supported for this engine.
 
 ## Hardcoded (not configurable)
 

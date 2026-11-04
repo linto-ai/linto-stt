@@ -1,6 +1,6 @@
 [project]
 name = "linto-stt"
-version = "2.1.1"
+version = "2.2.0"
 description = "Automatic Speech Recognition API with support for multiple STT backends"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -59,10 +59,40 @@ recasepunc = [
 kyutai = [
     "msgpack>=1.1.2",
 ]
+transformers = [
+    # Transformers-native ASR models (e.g. Qwen3-ASR, checkpoint model type
+    # 'qwen3_asr') need transformers >= 5.13. This conflicts with NeMo's
+    # transformers, so the engine extras are declared mutually exclusive in
+    # [tool.uv] below.
+    "transformers>=5.13.0",
+    "accelerate",
+    "torchaudio>=2.9.0",
+    "torchcodec>=0.9.1",
+    "wavio>=0.0.9",
+    "hf_xet",  # to speed up downloads from HuggingFace
+]
 test = [
     "pytest>=8.0",
     "pytest-timeout>=2.2",
     "requests>=2.31",
+]
+
+[tool.uv]
+# The engine extras are mutually exclusive (a deployment installs exactly one,
+# e.g. `uv sync --extra transformers`). Declaring them as conflicting lets uv
+# resolve each independently instead of demanding one dependency set that
+# satisfies all. Required because the `transformers` extra pins
+# transformers>=5.13 while `nemo` pins NeMo's (4.x) transformers — the two
+# cannot co-resolve.
+conflicts = [
+    [
+        { extra = "nemo" },
+        { extra = "whisper" },
+        { extra = "whisper-torch" },
+        { extra = "kaldi" },
+        { extra = "kyutai" },
+        { extra = "transformers" },
+    ],
 ]
 
 [[tool.uv.index]]
@@ -100,6 +130,7 @@ markers = [
     "nemo: Backend NeMo",
     "whisper: Backend Whisper",
     "kaldi: Backend Kaldi",
+    "transformers: Backend Transformers (HF transformers-native ASR, e.g. Qwen3-ASR)",
     "slow: Tests > 2 minutes",
 ]
 addopts = "-v --tb=short"

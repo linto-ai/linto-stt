@@ -1,0 +1,58 @@
+import torch
+
+_DTYPES = {
+    "float16": torch.float16,
+    "bfloat16": torch.bfloat16,
+    "float32": torch.float32,
+    "auto": "auto",
+}
+
+
+def load_asr_model(model_name, device, dtype="bfloat16", attn_implementation=None):
+    """Load a Qwen3-ASR(-family) processor + model via Hugging Face transformers.
+
+    Targets the transformers-native checkpoints (checkpoint model type
+    'qwen3_asr', e.g. Qwen/Qwen3-ASR-1.7B-hf), which require transformers >= 5.13.
+    The (processor, model) pair and the apply_transcription_request() protocol it
+    implies are kept behind this function + the decoding module, so another
+    transformers-ASR family (or a vLLM backend) can be added without changing the
+    engine contract.
+    """
+    from transformers import AutoProcessor
+
+    # Qwen3ASRForConditionalGeneration is the concrete class; fall back to the
+    # generic multimodal Auto mapping if this transformers only exposes that.
+    try:
+        from transformers import Qwen3ASRForConditionalGeneration as _ModelCls
+    except ImportError:
+        from transformers import AutoModelForMultimodalLM as _ModelCls
+
+    torch_dtype = _DTYPES.get(dtype, torch.bfloat16)
+    device_map = "auto" if "cuda" in str(device) else str(device)
+
+    processor = AutoProcessor.from_pretrained(model_name)
+    kwargs = {"torch_dtype": torch_dtype, "device_map": device_map}
+    if attn_implementation:
+        kwargs["attn_implementation"] = attn_implementation
+    model = _ModelCls.from_pretrained(model_name, **kwargs).eval()
+    return processor, model
+
+
+def load_aligner_model(model_name, device, dtype="bfloat16"):
+    """Load a Qwen3-ForcedAligner(-family) processor + token-classification model.
+
+    The aligner produces word-level timestamps for an existing transcript via the
+    processor's prepare_forced_aligner_inputs() / decode_forced_alignment()
+    protocol (see decoding.py). It is a separate model from the ASR one, loaded
+    lazily and only when word timestamps are requested.
+    """
+    from transformers import AutoModelForTokenClassification, AutoProcessor
+
+    torch_dtype = _DTYPES.get(dtype, torch.bfloat16)
+    device_map = "auto" if "cuda" in str(device) else str(device)
+
+    processor = AutoProcessor.from_pretrained(model_name)
+    model = AutoModelForTokenClassification.from_pretrained(
+        model_name, dtype=torch_dtype, device_map=device_map
+    ).eval()
+    return processor, model

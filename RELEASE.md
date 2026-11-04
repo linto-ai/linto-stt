@@ -1,3 +1,11 @@
+# 2.2.0
+- Hotwords are now a **per-request** parameter (the `hotwords` HTTP query parameter / Celery task argument) in addition to the `HOTWORDS` environment default, mirroring the existing per-request `language` handling (previously Whisper-only and settable only via the environment)
+- New **Transformers** engine (`STT_ENGINE=transformers`): speech-to-text with Hugging Face `transformers`-native ASR models, built around [Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-1.7B-hf) (e.g. `Qwen/Qwen3-ASR-1.7B-hf`, `Qwen/Qwen3-ASR-0.6B-hf`), served in HTTP and Celery task modes. Named after the library so it can grow to other transformers-native ASR models
+    - Language selection: force a language or auto-detect (multilingual), via `LANGUAGE` with per-request override; the response language is normalised to an ISO code
+    - Hotwords: bias the transcription toward given words/phrases via the model's context prompt (`HOTWORDS`, with per-request override)
+    - Word-level timestamps via the companion [Qwen3-ForcedAligner](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf) model (`ALIGNER_MODEL`), loaded lazily and run only when word timestamps are requested
+    - Efficient by default: `sdpa` attention (already FlashAttention-2 kernels on supported GPUs) and bfloat16
+
 # 2.1.1
 - NeMo engine updates:
     - Add asymmetric local attention support. Configurable attention context via `ATT_CONTEXT_SIZE` (left) and the new `ATT_CONTEXT_SIZE_RIGHT` (right/look-ahead), with model-dependent defaults

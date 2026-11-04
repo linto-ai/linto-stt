@@ -13,7 +13,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   git \
-  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ]; then \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ] || [ "$STT_ENGINE" = "transformers" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential \
     portaudio19-dev \
@@ -61,12 +61,12 @@ RUN apt-get update && \
   gosu \
   netcat-traditional \
   passwd \
-  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ]; then \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ] || [ "$STT_ENGINE" = "transformers" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     libportaudio2 \
     libsndfile1; \
   fi \
-  && if [ "$STT_ENGINE" = "nemo" ]; then \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "transformers" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ffmpeg; \
   fi \

@@ -1,0 +1,58 @@
+############################################
+# SERVING PARAMETERS
+############################################
+# "http" or "task" (websocket/streaming is not supported for this engine)
+SERVICE_MODE=http
+
+# Below: used when SERVICE_MODE=task
+SERVICE_NAME=stt
+SERVICES_BROKER=redis://172.17.0.1:6379
+BROKER_PASS=
+
+############################################
+# STT MODELING PARAMETERS
+############################################
+
+# Transformers-native Qwen3-ASR checkpoint (model type 'qwen3_asr').
+# Other sizes of the same family also work, e.g. Qwen/Qwen3-ASR-0.6B-hf.
+MODEL=Qwen/Qwen3-ASR-1.7B-hf
+
+# Default language. "*" (or unset) = automatic detection / multilingual.
+# Otherwise an ISO code (fr, en, ...) or full English name (French, English).
+# Overridable per request with the `language` query parameter / task argument.
+LANGUAGE=*
+
+# Default hotwords/keywords to bias the transcription (proper nouns, jargon).
+# Overridable per request with the `hotwords` query parameter / task argument.
+HOTWORDS=
+
+# Forced-alignment model for word-level timestamps (Qwen3-ASR has none natively).
+# Loaded and run only for metadata requests (JSON / Celery task), never for the
+# plain-text path. Set empty or "none" to disable (words returned empty).
+# ALIGNER_MODEL=Qwen/Qwen3-ForcedAligner-0.6B-hf
+
+############################################
+# EFFICIENCY PARAMETERS
+############################################
+
+# Device: "cuda" (GPU, recommended) or "cpu".
+DEVICE=cuda
+
+# Inference backend: "transformers" (default). "vllm" is planned.
+# BACKEND=transformers
+
+# Model compute dtype: bfloat16 (default), float16, float32, or auto.
+DTYPE=bfloat16
+
+# Attention kernel. "flash_attention_2" is faster (needs flash-attn + bf16/fp16);
+# leave unset to use the transformers default ("sdpa").
+# ATTN_IMPLEMENTATION=flash_attention_2
+
+# Maximum number of generated tokens per request.
+MAX_NEW_TOKENS=440
+
+# Number of CPU threads (when DEVICE=cpu).
+# NUM_THREADS=4
+
+# Concurrency (number of workers in task mode).
+CONCURRENCY=1
