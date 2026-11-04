@@ -96,7 +96,7 @@ def run_celery_server():
     stt = import_stt_module(engine)
 
     @app.task(name='transcribe_task')
-    def transcribe_task(file_name: str, with_metadata: bool, language: Optional[str] = None):
+    def transcribe_task(file_name: str, with_metadata: bool, language: Optional[str] = None, hotwords: Optional[str] = None):
         stt_utils = import_stt_module(engine, "utils")
         audio_dir = os.environ.get("AUDIO_DIR", "/opt/audio")
         file_path = os.path.join(audio_dir, file_name)
@@ -106,7 +106,7 @@ def run_celery_server():
             import traceback
             raise Exception(f"{traceback.format_exc()}\nFailed to load resource {file_path}")
         try:
-            result = stt.decode(file_content, stt.MODEL, with_metadata, language=language)
+            result = stt.decode(file_content, stt.MODEL, with_metadata, language=language, hotwords=hotwords)
         except Exception:
             import traceback
             raise Exception(f"{traceback.format_exc()}\nFailed to decode {file_path}")

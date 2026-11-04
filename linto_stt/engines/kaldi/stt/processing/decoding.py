@@ -9,7 +9,7 @@ try:
 except ImportError:
     apply_recasepunc = lambda config, text, **kw: text
 
-def decode(audio: Tuple[bytes, int], model: Model, with_metadata: bool, language=None) -> dict:
+def decode(audio: Tuple[bytes, int], model: Model, with_metadata: bool, language=None, hotwords=None) -> dict:
     """Transcribe the audio data using the vosk library with the defined model."""
     decoder_result = {"text": "", "confidence-score": 0.0, "words": []}
 

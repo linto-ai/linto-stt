@@ -50,11 +50,13 @@ class Http_Server:
 
             file_buffer = file.file.read()
             language = request.query_params.get("language")
+            hotwords = request.query_params.get("hotwords")
             logger.info(f"Transcribing {file.filename} in {language}")
 
             audio_data = self.load_wave_buffer(file_buffer)
             transcription = self.decode(
-                audio_data, self.model, join_metadata, language=language)
+                audio_data, self.model, join_metadata, language=language,
+                hotwords=hotwords)
 
             if join_metadata:
                 return json.dumps(transcription, ensure_ascii=False)

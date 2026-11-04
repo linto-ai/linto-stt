@@ -11,7 +11,7 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `SERVICE_MODE` | `http` | STT serving mode: `http`, `task`, `websocket` |
 | `PORT` | `80` (Docker) / `8080` (CLI) | Listening port |
 | `IP` | `0.0.0.0` (Docker) / `127.0.0.1` (CLI) | Bind address |
-| `LANGUAGE` | `*` (auto-detect) | Language to recognize. `*` for automatic detection, or a language code (`fr`, `en`), BCP-47 code (`fr-FR`), or language name (`French`) |
+| `LANGUAGE` | `*` (auto-detect) | Default language to recognize. `*` for automatic detection, or a language code (`fr`, `en`), BCP-47 code (`fr-FR`), or language name (`French`). Can be overridden per request with the `language` query parameter (HTTP) or task argument |
 | `DEVICE` | `cuda` if available, else `cpu` | Device to use for the model (`cpu`, `cuda`). By default, GPU/CUDA is used if available, CPU otherwise |
 | `CUDA_VISIBLE_DEVICES` | _(all)_ | GPU device index to use when running on GPU/CUDA. Recommended to also set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines |
 | `NUM_THREADS` | `torch.get_num_threads()` | Number of threads (maximum) to speed up transcription when running on CPU. Falls back to `OMP_NUM_THREADS` |
@@ -76,7 +76,7 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 |----------|---------|-------------|
 | `MODEL` | `large-v3` | Path to a Whisper model, type of Whisper model used, or HuggingFace identifier |
 | `PROMPT` | _(none)_ | Initial prompt for the Whisper model (faster-whisper's `initial_prompt`): free text prepended as previous context to encourage a certain transcription style |
-| `HOTWORDS` | _(none)_ | Free-text hint phrases/words to bias the transcription toward a given spelling (e.g. proper nouns, jargon). Only supported with the CTranslate2/faster-whisper backend; ignored by the `whisper_timestamped` backend |
+| `HOTWORDS` | _(none)_ | Default free-text hint phrases/words to bias the transcription toward a given spelling (e.g. proper nouns, jargon). Can be overridden per request with the `hotwords` query parameter (HTTP) or task argument. Only supported with the CTranslate2/faster-whisper backend; ignored by the `whisper_timestamped` backend |
 | `ALIGNMENT_MODEL` | _(none)_ | (Deprecated) Path to a wav2vec model for word alignment, or HuggingFace repository name or torchaudio pipeline |
 | `USE_ACCURATE` | `true` | Use more expensive parameters for better transcriptions (but slower). Uses beam_size=5 |
 | `ENABLE_STREAMING` | `false` | (Legacy) For the HTTP mode, redirects to websocket mode if enabled |

@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def transcribe_http(base_url: str, audio_path: str, language: str = None,
-                    timeout: float = 300) -> str:
+                    hotwords: str = None, timeout: float = 300) -> str:
     """POST an audio file to /transcribe and return the transcription text.
 
     The first request can be slow: with lazy-loaded engines (e.g. NeMo on
@@ -19,6 +19,8 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None,
     params = {}
     if language:
         params["language"] = language
+    if hotwords:
+        params["hotwords"] = hotwords
 
     logger.info(
         f"Transcribing {audio_path.split('/')[-1]} via HTTP POST {url} "
