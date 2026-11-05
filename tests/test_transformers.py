@@ -29,6 +29,12 @@ def _config(device, env=None, id="default", mode="http"):
     )
 
 
+def _vllm_installed():
+    import importlib.util
+
+    return importlib.util.find_spec("vllm") is not None
+
+
 # ---------------------------------------------------------------------------
 # UV tests - integration
 # ---------------------------------------------------------------------------
@@ -172,6 +178,63 @@ class TestTransformersHotwords:
     def test_hotwords_per_request(self, uv_server, test_audio_hotel):
         """The per-request `hotwords` param biases toward 'double' with no env set,
         proving it overrides the (empty) default."""
+        result = transcribe_http(
+            uv_server["url"], str(test_audio_hotel), hotwords=HOTWORDS
+        )
+        assert BIASED_WORD in result.lower(), (
+            f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# UV tests - vLLM backend (BACKEND=vllm; needs the `vllm` extra + a CUDA GPU)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.transformers
+@pytest.mark.vllm
+@pytest.mark.uv
+@pytest.mark.gpu
+@pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
+class TestTransformersVllmBackend:
+    """The transformers engine with BACKEND=vllm: in-process vLLM for ASR, the
+    transformers forced aligner for word timestamps. Requires the `vllm` extra
+    (`uv sync --extra vllm --extra test`) and a CUDA GPU. vLLM startup is slow, so
+    use a generous `--server-timeout` on the first (uncached) run."""
+
+    @pytest.mark.parametrize(
+        "uv_server",
+        [_config("cuda", {"LANGUAGE": "fr", "BACKEND": "vllm"}, id="vllm-fr")],
+        indirect=True,
+    )
+    def test_integration(self, uv_server, test_audio_bonjour):
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+            f"Unexpected transcription: {result}"
+        )
+
+    @pytest.mark.parametrize(
+        "uv_server",
+        [_config("cuda", {"LANGUAGE": "fr", "BACKEND": "vllm"}, id="vllm-no-hotwords")],
+        indirect=True,
+    )
+    def test_without_hotwords(self, uv_server, test_audio_hotel):
+        """Control: without hotwords, the biased word is not produced (via vLLM)."""
+        result = transcribe_http(uv_server["url"], str(test_audio_hotel))
+        assert get_expected_regex(str(test_audio_hotel), "fr").search(result), (
+            f"Unexpected transcription: {result!r}"
+        )
+        assert BIASED_WORD not in result.lower(), (
+            f"Baseline unexpectedly contains {BIASED_WORD!r}: {result!r}"
+        )
+
+    @pytest.mark.parametrize(
+        "uv_server",
+        [_config("cuda", {"LANGUAGE": "fr", "BACKEND": "vllm"}, id="vllm-hotwords")],
+        indirect=True,
+    )
+    def test_with_hotwords(self, uv_server, test_audio_hotel):
+        """The per-request hotword biases the vLLM transcription toward 'double'."""
         result = transcribe_http(
             uv_server["url"], str(test_audio_hotel), hotwords=HOTWORDS
         )

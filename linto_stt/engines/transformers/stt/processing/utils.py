@@ -54,6 +54,19 @@ _LANGUAGE_NAME_TO_CODE = {
 }
 
 
+def language_code_to_name(code):
+    """ISO code -> the full English language name Qwen3-ASR uses (e.g. "fr" ->
+    "French"), or None if unknown. Inverse of `_LANGUAGE_NAME_TO_CODE`; used to
+    force the language in the vLLM prompt prefill (`language <Name><asr_text>`)."""
+    if not code:
+        return None
+    code = code.lower()
+    for name, c in _LANGUAGE_NAME_TO_CODE.items():
+        if c == code:
+            return name.title()
+    return None
+
+
 def normalize_language_code(language):
     """Normalise a language string to a short ISO code; None/empty/`*` -> None.
 

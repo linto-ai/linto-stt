@@ -6,6 +6,7 @@ from filelock import FileLock
 from linto_stt.engines.transformers.stt import (
     ALIGNER_MODEL,
     ATTN_IMPLEMENTATION,
+    BACKEND,
     DTYPE,
     NUM_THREADS,
     logger,
@@ -13,7 +14,7 @@ from linto_stt.engines.transformers.stt import (
 )
 
 from .decoding import decode
-from .load_model import load_aligner_model, load_asr_model
+from .load_model import load_aligner_model, load_asr_backend
 from .utils import get_device, get_language, load_audiofile, load_wave_buffer
 
 __all__ = [
@@ -34,8 +35,10 @@ def warmup():
 
 
 class LazyLoadedModel:
-    """Load the processor + model lazily on first use, so importing the engine
-    (and reading its config) stays cheap. Exposes `.processor` and `.model`.
+    """Load the ASR backend lazily on first use, so importing the engine (and
+    reading its config) stays cheap. Exposes `.asr`, the backend selected by
+    `BACKEND` ("transformers" or "vllm"), whose `.transcribe()` turns a segment
+    into (text, detected_language).
 
     The companion forced-alignment model (for word-level timestamps) is loaded
     separately and even more lazily: only on the first request that asks for word
@@ -49,20 +52,26 @@ class LazyLoadedModel:
         self.attn_implementation = attn_implementation
         self.num_threads = num_threads
         self.aligner_model_name = aligner_model_name
-        self._processor = None
-        self._model = None
+        self._asr = None
         self._aligner_processor = None
         self._aligner_model = None
         self.has_set_num_threads = False
 
     def check_loaded(self):
-        if self._model is None:
+        if self._asr is None:
             # OS-level flock (released by the kernel if the holder dies), so a
             # crashed load cannot leave a stale lock that deadlocks later loads.
             lockfile = os.path.basename(self.model_name) + ".lock"
             with FileLock(lockfile):
-                if self._model is None:
-                    self._processor, self._model = load_asr_model(
+                if self._asr is None:
+                    # Constructing the vLLM engine patches transformers' Qwen3ASR
+                    # config, after which the transformers forced aligner can no
+                    # longer be *loaded*. So load the aligner first (while the
+                    # registry is clean); the already-loaded model then runs fine.
+                    if BACKEND == "vllm" and self.aligner_model_name:
+                        self.check_aligner_loaded()
+                    self._asr = load_asr_backend(
+                        BACKEND,
                         self.model_name,
                         device=self.device,
                         dtype=self.dtype,
@@ -90,16 +99,10 @@ class LazyLoadedModel:
             self.has_set_num_threads = True
 
     @property
-    def processor(self):
+    def asr(self):
         self.check_loaded()
         self.check_num_threads()
-        return self._processor
-
-    @property
-    def model(self):
-        self.check_loaded()
-        self.check_num_threads()
-        return self._model
+        return self._asr
 
     @property
     def has_aligner(self):

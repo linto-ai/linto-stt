@@ -6,6 +6,7 @@
     - Word-level timestamps via the companion [Qwen3-ForcedAligner](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf) model (`ALIGNER_MODEL`), loaded lazily and run only when word timestamps are requested
     - Efficient by default: `sdpa` attention (already FlashAttention-2 kernels on supported GPUs) and bfloat16
     - Long-audio handling: files longer than `LONG_FILE_THRESHOLD` seconds are transcribed in consecutive chunks (`LONG_FILE_CHUNK_LEN`) to avoid out-of-memory / truncation, with word timestamps offset per chunk
+    - Swappable ASR backend via `BACKEND`: `transformers` (default) or in-process `vllm` (the `vllm` extra, GPU) for higher throughput; both share language/hotwords/chunking and the forced-aligner word timestamps, so they can be benchmarked against each other
 
 # 2.1.1
 - NeMo engine updates:

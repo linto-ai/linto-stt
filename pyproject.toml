@@ -71,6 +71,22 @@ transformers = [
     "wavio>=0.0.9",
     "hf_xet",  # to speed up downloads from HuggingFace
 ]
+vllm = [
+    # The transformers engine's vLLM backend (BACKEND=vllm): in-process vllm.LLM
+    # for ASR, plus the transformers deps it still needs (the forced aligner and
+    # prompt building). A self-contained alternative to the `transformers` extra;
+    # mutually exclusive with the other engine extras in [tool.uv] below.
+    # torchaudio is left unpinned so it follows vLLM's torch; torchcodec is
+    # omitted on purpose (not needed here, and it fails to load under vLLM's
+    # torch). vLLM is a fast-moving, version-sensitive dependency, so it is tight
+    # pinned (like faster-whisper / onnx elsewhere); bump deliberately.
+    "transformers>=5.22.0",  # forced aligner needs >=5.22 (5.17 lacks audio_config)
+    "accelerate",
+    "torchaudio",
+    "wavio>=0.0.9",
+    "hf_xet",
+    "vllm==0.30.0",  # newest vLLM that still allows transformers>=5.22; 0.31 caps <5.18
+]
 test = [
     "pytest>=8.0",
     "pytest-timeout>=2.2",
@@ -92,6 +108,7 @@ conflicts = [
         { extra = "kaldi" },
         { extra = "kyutai" },
         { extra = "transformers" },
+        { extra = "vllm" },
     ],
 ]
 
@@ -131,6 +148,7 @@ markers = [
     "whisper: Backend Whisper",
     "kaldi: Backend Kaldi",
     "transformers: Backend Transformers (HF transformers-native ASR, e.g. Qwen3-ASR)",
+    "vllm: Transformers engine with the vLLM backend (needs the vllm extra)",
     "slow: Tests > 2 minutes",
 ]
 addopts = "-v --tb=short"

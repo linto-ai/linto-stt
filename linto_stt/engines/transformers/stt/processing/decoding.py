@@ -3,11 +3,9 @@ import time
 import torch
 
 from linto_stt.engines.transformers.stt import (
-    BACKEND,
     HOTWORDS,
     LONG_FILE_CHUNK_LEN,
     LONG_FILE_THRESHOLD,
-    MAX_NEW_TOKENS,
     logger,
 )
 
@@ -50,12 +48,6 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
 
     Returns the standard STT dict: {text, language, confidence-score, words}.
     """
-    if BACKEND != "transformers":
-        raise NotImplementedError(
-            f"BACKEND={BACKEND!r} is not implemented yet "
-            "(only 'transformers' is available)."
-        )
-
     language = get_language(language)
     if hotwords is None:
         hotwords = HOTWORDS
@@ -87,40 +79,15 @@ def _transcribe_segment(model, audio, with_word_timestamps, language, prompt):
     """Transcribe a single audio segment (short enough for one model pass).
 
     Returns (text, words, result_language). `language` is an ISO code or None,
-    `prompt` the already-built context prompt (or None).
+    `prompt` the already-built context prompt (or None). The ASR step runs on the
+    selected backend (`model.asr`); word timestamps always use the transformers
+    forced aligner below.
     """
-    processor = model.processor
-    gen_model = model.model
-
-    request_kwargs = {}
-    if language:
-        request_kwargs["language"] = language
-    if prompt:
-        # Qwen3-ASR biases decoding toward the words supplied in its context
-        # `prompt`. This is how hotwords are implemented for this engine.
-        request_kwargs["prompt"] = prompt
-
     start_t = time.time()
-    # Qwen3ASRProcessor builds the chat/transcription request; the feature
-    # extractor expects 16 kHz audio, which load_wave_buffer / load_audiofile
-    # already guarantee.
-    inputs = processor.apply_transcription_request(audio=audio, **request_kwargs)
-    inputs = inputs.to(gen_model.device, gen_model.dtype)
-    input_len = inputs["input_ids"].shape[1]
-
-    with torch.inference_mode():
-        output_ids = gen_model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS)
-
-    generated_ids = output_ids[:, input_len:]
-    # return_format="parsed" yields {transcription, language, ...} per sequence,
-    # so we recover both the text and the language the model actually used
-    # (important when language is auto-detected — we need it for alignment and
-    # for the response).
-    parsed = processor.decode(generated_ids, return_format="parsed")[0]
-    text = (parsed.get("transcription") or "").strip()
+    text, detected = model.asr.transcribe(audio, language=language, prompt=prompt)
     # Normalise to an ISO code: a detected language comes back as a full English
     # name ("French"), a forced one is already a code ("fr") -- unify them.
-    result_language = normalize_language_code(parsed.get("language") or language)
+    result_language = normalize_language_code(detected or language)
     logger.info(f"Transcription complete (t={time.time() - start_t}s)")
 
     if not with_word_timestamps:

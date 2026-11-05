@@ -38,6 +38,25 @@ def load_asr_model(model_name, device, dtype="bfloat16", attn_implementation=Non
     return processor, model
 
 
+def load_asr_backend(backend, model_name, device, dtype="bfloat16", attn_implementation=None):
+    """Build the ASR backend selected by `BACKEND` ("transformers" or "vllm").
+
+    Returns an object exposing ``transcribe(audio, language, prompt) ->
+    (text, detected_language)``. The forced aligner (word timestamps) is loaded
+    separately and is the same regardless of backend.
+    """
+    from .backends import TransformersASRBackend, VllmASRBackend
+
+    if backend == "transformers":
+        processor, model = load_asr_model(model_name, device, dtype, attn_implementation)
+        return TransformersASRBackend(processor, model)
+    if backend == "vllm":
+        return VllmASRBackend(model_name, device, dtype=dtype)
+    raise ValueError(
+        f"Unknown BACKEND={backend!r} (expected 'transformers' or 'vllm')"
+    )
+
+
 def load_aligner_model(model_name, device, dtype="bfloat16"):
     """Load a Qwen3-ForcedAligner(-family) processor + token-classification model.
 

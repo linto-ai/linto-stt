@@ -17,6 +17,24 @@ These require **transformers >= 5.13** (installed by the `transformers` extra). 
 `-hf` (transformers) variant is used — not the plain `Qwen/Qwen3-ASR-1.7B` repo,
 which targets the separate `qwen-asr` package.
 
+## Backends
+
+The ASR step runs on a backend selected by `BACKEND`:
+
+- `transformers` (default) — in-process Hugging Face `transformers`. Install with
+  `uv sync --extra transformers`.
+- `vllm` — in-process [vLLM](https://docs.vllm.ai) (`vllm.LLM`), for higher
+  throughput. Install with `uv sync --extra vllm` (vLLM is pinned to a version
+  that still allows the aligner's transformers) and run on a **CUDA GPU**. vLLM
+  uses the non-`-hf` checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf`
+  id automatically. Tunable via `VLLM_GPU_MEMORY_UTILIZATION` (fraction of VRAM)
+  or `VLLM_KV_CACHE_MEMORY_BYTES` (absolute KV-cache budget, better on
+  unified-memory / shared GPUs), and `VLLM_MAX_MODEL_LEN` (see `ENV.md`).
+
+Everything else — language selection, hotwords, long-audio chunking, and word
+timestamps (always via the transformers forced aligner) — is shared, so the two
+backends can be benchmarked against each other by flipping `BACKEND`.
+
 ## Language
 
 - `LANGUAGE=*` (or unset) → automatic detection; the model transcribes
@@ -66,6 +84,13 @@ MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda uv run main.py -m http -e transformers 
 curl -s -X POST "http://127.0.0.1:8080/transcribe?language=fr" -F "file=@tests/bonjour.wav"
 ```
 
+With the vLLM backend (GPU):
+
+```sh
+uv sync --extra vllm
+MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=vllm uv run main.py -m http -e transformers -p 8080 -i 127.0.0.1
+```
+
 Docker:
 
 ```sh
@@ -76,7 +101,8 @@ docker build -t linto-stt-transformers --build-arg STT_ENGINE=transformers --bui
 
 - **GPU strongly recommended.** The model is an LLM-based ASR; CPU inference is
   slow.
-- **No WebSocket/streaming** (Qwen3-ASR streaming needs the vLLM backend).
+- **No WebSocket/streaming** (it would need vLLM's realtime API, which is not
+  wired here; the `vllm` backend is offline-only).
 - **Word timestamps** come from the forced-alignment model (see above), which
   runs only on metadata requests. Disable it with `ALIGNER_MODEL=none`.
 - **Long audio**: files longer than `LONG_FILE_THRESHOLD` seconds are transcribed
