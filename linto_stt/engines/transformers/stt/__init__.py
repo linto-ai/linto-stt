@@ -26,7 +26,22 @@ DTYPE = os.environ.get("DTYPE", "bfloat16")
 # Upper bound on generated tokens per request. Short clips need little; long
 # audio needs more (long-form chunking is handled in decoding). ~440 tokens
 # covers a few minutes of dense speech.
-MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "440"))
+# Cap on generated tokens per pass (per chunk for long audio). It is only a
+# safety cap: generation stops at the end-of-speech token, so a generous value
+# costs nothing for short audio but avoids truncating a dense chunk. ~1280 covers
+# a dense 4-minute chunk (the default chunk length below).
+MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "1280"))
+
+# Long-audio handling. VRAM grows ~linearly with audio length and MAX_NEW_TOKENS
+# caps the transcript, so audio longer than LONG_FILE_THRESHOLD seconds is
+# transcribed in consecutive (non-overlapping) chunks of LONG_FILE_CHUNK_LEN
+# seconds and the per-chunk results concatenated (word timestamps offset by each
+# chunk's start time). The 4-minute default keeps the per-pass footprint modest
+# (~8 GB for the 1.7B model, both models loaded) and stays under the forced
+# aligner's documented ~5-minute limit. Raise all three (threshold, chunk len,
+# MAX_NEW_TOKENS) together for fewer/larger passes on a GPU with spare VRAM.
+LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", "240"))
+LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", "240"))
 
 # Attention kernel, e.g. "flash_attention_2" (needs flash-attn + fp16/bf16).
 # None lets transformers pick its default ("sdpa").

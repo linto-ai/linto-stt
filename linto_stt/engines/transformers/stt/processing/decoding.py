@@ -2,9 +2,16 @@ import time
 
 import torch
 
-from linto_stt.engines.transformers.stt import BACKEND, HOTWORDS, MAX_NEW_TOKENS, logger
+from linto_stt.engines.transformers.stt import (
+    BACKEND,
+    HOTWORDS,
+    LONG_FILE_CHUNK_LEN,
+    LONG_FILE_THRESHOLD,
+    MAX_NEW_TOKENS,
+    logger,
+)
 
-from .utils import get_language, normalize_language_code
+from .utils import SAMPLE_RATE, get_language, normalize_language_code
 
 
 def _hotwords_prompt(hotwords):
@@ -49,17 +56,45 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
             "(only 'transformers' is available)."
         )
 
-    processor = model.processor
-    gen_model = model.model
-
     language = get_language(language)
     if hotwords is None:
         hotwords = HOTWORDS
+    prompt = _hotwords_prompt(hotwords)
+
+    duration = len(audio) / SAMPLE_RATE
+    if duration <= LONG_FILE_THRESHOLD:
+        text, words, result_language = _transcribe_segment(
+            model, audio, with_word_timestamps, language, prompt
+        )
+    else:
+        logger.info(
+            f"Audio is {duration:.0f}s (> {LONG_FILE_THRESHOLD}s): transcribing in "
+            f"{LONG_FILE_CHUNK_LEN}s chunks"
+        )
+        text, words, result_language = _transcribe_long(
+            model, audio, with_word_timestamps, language, prompt
+        )
+
+    return {
+        "text": text,
+        "language": result_language,
+        "confidence-score": None,  # Qwen3-ASR does not expose a confidence
+        "words": words,
+    }
+
+
+def _transcribe_segment(model, audio, with_word_timestamps, language, prompt):
+    """Transcribe a single audio segment (short enough for one model pass).
+
+    Returns (text, words, result_language). `language` is an ISO code or None,
+    `prompt` the already-built context prompt (or None).
+    """
+    processor = model.processor
+    gen_model = model.model
 
     request_kwargs = {}
     if language:
         request_kwargs["language"] = language
-    prompt = _hotwords_prompt(hotwords)
     if prompt:
         # Qwen3-ASR biases decoding toward the words supplied in its context
         # `prompt`. This is how hotwords are implemented for this engine.
@@ -96,12 +131,44 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
         # Metadata requested but alignment is disabled or there is no text.
         words = []
 
-    return {
-        "text": text,
-        "language": result_language,
-        "confidence-score": None,  # Qwen3-ASR does not expose a confidence
-        "words": words,
-    }
+    return text, words, result_language
+
+
+def _transcribe_long(model, audio, with_word_timestamps, language, prompt):
+    """Transcribe long audio in consecutive non-overlapping chunks and merge.
+
+    Chunks are cut at fixed boundaries (no overlap), so the concatenated words
+    still reconstruct the concatenated text. Word timestamps from each chunk are
+    offset by that chunk's start time. A word spoken exactly across a cut may be
+    split at the boundary; keep chunks a few minutes long to make this rare.
+    """
+    chunk_samples = LONG_FILE_CHUNK_LEN * SAMPLE_RATE
+    texts = []
+    words = []
+    languages = []
+    for start in range(0, len(audio), chunk_samples):
+        segment = audio[start : start + chunk_samples]
+        seg_text, seg_words, seg_language = _transcribe_segment(
+            model, segment, with_word_timestamps, language, prompt
+        )
+        if seg_text:
+            texts.append(seg_text)
+        if seg_language:
+            languages.append(seg_language)
+        if with_word_timestamps:
+            offset = start / SAMPLE_RATE
+            for w in seg_words:
+                w["start"] += offset
+                w["end"] += offset
+            words.extend(seg_words)
+
+    text = " ".join(texts)
+    if not with_word_timestamps:
+        words = text.split()
+    # Use the first chunk's detected language (forced language is identical
+    # across chunks; auto-detect is normally consistent for one recording).
+    result_language = languages[0] if languages else normalize_language_code(language)
+    return text, words, result_language
 
 
 def _align_words(model, audio, text, language):

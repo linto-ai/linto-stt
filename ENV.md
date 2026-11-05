@@ -114,7 +114,9 @@ The `transformers` engine serves Hugging Face transformers-native ASR models
 | `ALIGNER_MODEL` | `Qwen/Qwen3-ForcedAligner-0.6B-hf` | Forced-alignment model for word-level timestamps (Qwen3-ASR has none natively). Loaded lazily and run only on metadata requests (JSON / Celery task), never on the plain-text path. Set empty or `none` to disable (then `words` is empty for metadata requests) |
 | `DTYPE` | `bfloat16` | Model compute dtype (`bfloat16`, `float16`, `float32`, `auto`) |
 | `ATTN_IMPLEMENTATION` | _(transformers default: `sdpa`)_ | Attention kernel. The default `sdpa` already dispatches to Flash-Attention kernels on supported GPUs (bf16/fp16) via PyTorch — efficient out of the box, and it also works on CPU. Set `flash_attention_2` only if you have separately installed the `flash-attn` package (GPU-only, heavy build); gains over `sdpa` for short-audio ASR inference are usually small |
-| `MAX_NEW_TOKENS` | `440` | Maximum number of generated tokens per request |
+| `MAX_NEW_TOKENS` | `1280` | Cap on generated tokens per pass (per chunk for long audio). Only a safety cap — generation stops at the end-of-speech token, so a generous value is free for short audio; `1280` covers a dense 4-min chunk. Raise it (with the chunk length) if long/dense speech gets truncated |
+| `LONG_FILE_THRESHOLD` | `240` | Audio longer than this (seconds) is transcribed in consecutive chunks instead of one pass, to bound VRAM (it grows ~linearly with audio length) and avoid truncation. Independent from NeMo's same-named variable |
+| `LONG_FILE_CHUNK_LEN` | `240` | Chunk length (seconds) when an audio exceeds `LONG_FILE_THRESHOLD`. Non-overlapping; word timestamps are offset per chunk. ~4 min keeps the 1.7B footprint ~8 GB and stays under the aligner's ~5-min limit; raise it (with `MAX_NEW_TOKENS`) for fewer passes when VRAM allows |
 | `BACKEND` | `transformers` | Inference backend. Only `transformers` is implemented (`vllm` is planned) |
 
 `LANGUAGE` and `HOTWORDS` behave as in the Common section (per-request overridable); `HOTWORDS` is passed to the model as a biasing prompt. WebSocket/streaming is not supported for this engine.

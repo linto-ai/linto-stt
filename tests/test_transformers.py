@@ -210,6 +210,64 @@ class TestTransformersStreamingUnsupported:
 
 
 # ---------------------------------------------------------------------------
+# Long-audio chunking (unit test, no model/GPU)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.transformers
+@pytest.mark.uv
+class TestTransformersLongFileChunking:
+    """Unit-test the long-file chunk/merge logic without loading a model: the
+    per-segment transcription is mocked, and we check chunk count, text
+    concatenation, per-chunk timestamp offsets, and that the merged words still
+    reconstruct the merged text."""
+
+    def test_chunks_merge_with_offsets(self, monkeypatch):
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        pytest.importorskip("transformers")
+
+        import numpy as np
+
+        from linto_stt.engines.transformers.stt import LONG_FILE_CHUNK_LEN
+        from linto_stt.engines.transformers.stt.processing import decoding
+        from linto_stt.engines.transformers.stt.processing.utils import SAMPLE_RATE
+
+        calls = []
+
+        def fake_segment(model, audio, with_word_timestamps, language, prompt):
+            idx = len(calls)
+            calls.append(len(audio))
+            text = f"word{idx}."
+            if with_word_timestamps:
+                words = [{"word": text, "start": 0.1, "end": 0.5}]
+            else:
+                words = text.split()
+            return text, words, "fr"
+
+        monkeypatch.setattr(decoding, "_transcribe_segment", fake_segment)
+
+        # 2.5 chunks worth of audio -> ceil = 3 chunks.
+        n = int(2.5 * LONG_FILE_CHUNK_LEN * SAMPLE_RATE)
+        audio = np.zeros(n, dtype=np.float32)
+
+        text, words, language = decoding._transcribe_long(
+            model=None, audio=audio, with_word_timestamps=True, language="fr", prompt=None
+        )
+
+        assert len(calls) == 3, f"expected 3 chunks, got {len(calls)}"
+        assert text == "word0. word1. word2."
+        assert language == "fr"
+        # Each chunk's timestamps are offset by that chunk's start time.
+        assert words[0]["start"] == pytest.approx(0.1)
+        assert words[1]["start"] == pytest.approx(0.1 + LONG_FILE_CHUNK_LEN)
+        assert words[2]["start"] == pytest.approx(0.1 + 2 * LONG_FILE_CHUNK_LEN)
+        # Merged words still reconstruct merged text (the harness invariant).
+        text_from_words = " ".join(w["word"] for w in words)
+        assert text.replace(" ", "") == text_from_words.replace(" ", "")
+
+
+# ---------------------------------------------------------------------------
 # Docker tests
 # ---------------------------------------------------------------------------
 

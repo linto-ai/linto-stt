@@ -79,6 +79,11 @@ docker build -t linto-stt-transformers --build-arg STT_ENGINE=transformers --bui
 - **No WebSocket/streaming** (Qwen3-ASR streaming needs the vLLM backend).
 - **Word timestamps** come from the forced-alignment model (see above), which
   runs only on metadata requests. Disable it with `ALIGNER_MODEL=none`.
+- **Long audio**: files longer than `LONG_FILE_THRESHOLD` seconds are transcribed
+  in consecutive non-overlapping chunks of `LONG_FILE_CHUNK_LEN` seconds (word
+  timestamps offset per chunk), avoiding out-of-memory / truncation. A word
+  spoken across a chunk boundary may be split there; keep chunks a few minutes
+  long to make this rare.
 - Efficiency: the default attention (`sdpa`) already uses Flash-Attention
   kernels on supported GPUs, so it is efficient out of the box. Other knobs:
   `DTYPE`, `MAX_NEW_TOKENS`, and `ATTN_IMPLEMENTATION=flash_attention_2` (opt-in;

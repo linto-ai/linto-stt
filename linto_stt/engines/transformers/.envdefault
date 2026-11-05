@@ -48,8 +48,18 @@ DTYPE=bfloat16
 # leave unset to use the transformers default ("sdpa").
 # ATTN_IMPLEMENTATION=flash_attention_2
 
-# Maximum number of generated tokens per request.
-MAX_NEW_TOKENS=440
+# Cap on generated tokens per pass (per chunk for long audio). Only a safety cap
+# (generation stops at end-of-speech), so a generous value is free for short
+# audio; ~1280 covers a dense 4-minute chunk.
+MAX_NEW_TOKENS=1280
+
+# Long-audio handling: audio longer than LONG_FILE_THRESHOLD seconds is
+# transcribed in consecutive chunks of LONG_FILE_CHUNK_LEN seconds (VRAM grows
+# ~linearly with length). The 4-minute default keeps the per-pass footprint
+# modest and under the aligner's ~5-minute limit. Raise these together with
+# MAX_NEW_TOKENS for fewer/larger passes when VRAM allows.
+# LONG_FILE_THRESHOLD=240
+# LONG_FILE_CHUNK_LEN=240
 
 # Number of CPU threads (when DEVICE=cpu).
 # NUM_THREADS=4
