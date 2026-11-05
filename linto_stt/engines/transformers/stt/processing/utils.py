@@ -96,13 +96,33 @@ def conform_audio(audio, sample_rate=SAMPLE_RATE):
     return audio
 
 
+def _decode_audio_file(path):
+    """Decode an audio file to a (channels, samples) float32 tensor + sample rate.
+
+    Prefer soundfile (libsndfile, bundled in its wheel): it needs no system
+    ffmpeg and avoids torchaudio.load, which on torch >= 2.11 routes through
+    torchcodec whose native library fails to load without a matching ffmpeg. Fall
+    back to torchaudio for any format libsndfile cannot read.
+    """
+    try:
+        import soundfile as sf
+
+        data, sample_rate = sf.read(path, dtype="float32", always_2d=True)
+        # soundfile returns (frames, channels); conform_audio wants (channels, frames)
+        return torch.from_numpy(data.T.copy()), sample_rate
+    except (ImportError, RuntimeError):
+        # RuntimeError covers soundfile.LibsndfileError (unsupported format).
+        audio, sample_rate = torchaudio.load(path)
+        return audio, sample_rate
+
+
 def load_audiofile(path):
     """Load an audio file as a 16 kHz mono float32 numpy array (task mode)."""
     if not os.path.isfile(path):
         raise RuntimeError(f"File not found: {path}")
     if not os.access(path, os.R_OK):
         raise RuntimeError(f"Missing reading permission for: {path}")
-    audio, sample_rate = torchaudio.load(path)
+    audio, sample_rate = _decode_audio_file(path)
     return conform_audio(audio, sample_rate).numpy()
 
 

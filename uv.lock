@@ -2840,6 +2840,7 @@ test = [
 transformers = [
     { name = "accelerate" },
     { name = "hf-xet" },
+    { name = "soundfile" },
     { name = "torchaudio" },
     { name = "torchcodec" },
     { name = "transformers" },
@@ -2848,6 +2849,7 @@ transformers = [
 vllm = [
     { name = "accelerate" },
     { name = "hf-xet" },
+    { name = "soundfile" },
     { name = "torchaudio" },
     { name = "transformers" },
     { name = "vllm" },
@@ -2891,6 +2893,8 @@ requires-dist = [
     { name = "regex", specifier = ">=2025.11.3" },
     { name = "requests", marker = "extra == 'test'", specifier = ">=2.31" },
     { name = "simple-websocket", marker = "extra == 'kaldi'", specifier = ">=1.1.0" },
+    { name = "soundfile", marker = "extra == 'transformers'", specifier = ">=0.12" },
+    { name = "soundfile", marker = "extra == 'vllm'", specifier = ">=0.12" },
     { name = "torch", marker = "(sys_platform == 'darwin' and extra == 'recasepunc') or (sys_platform == 'linux' and extra == 'recasepunc')", specifier = ">=2.0.0" },
     { name = "torch", marker = "sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'recasepunc'", specifier = ">=2.0.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torchaudio", marker = "extra == 'nemo'", specifier = ">=2.9.0" },
@@ -6379,7 +6383,8 @@ version = "0.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cffi" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" } },
+    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.13' and extra == 'extra-9-linto-stt-vllm') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-transformers') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-vllm') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-nemo') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-transformers') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-vllm') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-transformers') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-vllm') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-nemo' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-transformers' and extra == 'extra-9-linto-stt-vllm') or (extra == 'extra-9-linto-stt-transformers' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-transformers' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-vllm' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-vllm' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.13' and extra == 'extra-9-linto-stt-vllm') or extra == 'extra-9-linto-stt-nemo' or extra == 'extra-9-linto-stt-transformers' or (extra == 'extra-9-linto-stt-vllm' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-vllm' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-kyutai') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-vllm') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kaldi' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-vllm') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper') or (extra == 'extra-9-linto-stt-kyutai' and extra == 'extra-9-linto-stt-whisper-torch') or (extra == 'extra-9-linto-stt-whisper' and extra == 'extra-9-linto-stt-whisper-torch')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e1/41/9b873a8c055582859b239be17902a85339bec6a30ad162f98c9b0288a2cc/soundfile-0.13.1.tar.gz", hash = "sha256:b2c68dab1e30297317080a5b43df57e302584c49e2942defdde0acccc53f0e5b", size = 46156, upload-time = "2025-01-25T09:17:04.831Z" }
 wheels = [

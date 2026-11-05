@@ -69,6 +69,7 @@ transformers = [
     "torchaudio>=2.9.0",
     "torchcodec>=0.9.1",
     "wavio>=0.0.9",
+    "soundfile>=0.12",  # task-mode file decoding (libsndfile, no ffmpeg needed)
     "hf_xet",  # to speed up downloads from HuggingFace
 ]
 vllm = [
@@ -84,6 +85,7 @@ vllm = [
     "accelerate",
     "torchaudio",
     "wavio>=0.0.9",
+    "soundfile>=0.12",  # task-mode file decoding (avoids torchcodec under vLLM's torch)
     "hf_xet",
     "vllm==0.30.0",  # newest vLLM that still allows transformers>=5.22; 0.31 caps <5.18
 ]
