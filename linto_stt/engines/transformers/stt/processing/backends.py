@@ -4,8 +4,10 @@ The engine runs one pipeline (chunking, forced-alignment word timestamps,
 language/hotword handling, response assembly) around a pluggable ASR backend
 selected by the ``BACKEND`` environment variable:
 
-- ``transformers`` (default): in-process Hugging Face ``transformers``.
-- ``vllm``: in-process vLLM (``vllm.LLM``), for higher throughput.
+- ``vllm`` (default): a managed ``vllm serve`` subprocess reached over HTTP, for
+  higher throughput; serves any vLLM-servable ASR model (CUDA GPU only).
+- ``transformers``: in-process Hugging Face ``transformers`` (runs on CPU too).
+- ``vllm_offline``: in-process vLLM (``vllm.LLM``), Qwen3-ASR only (experimental).
 
 A backend only has to turn one audio segment into ``(text, detected_language)``;
 word timestamps (the forced aligner) and everything else stay backend-agnostic,

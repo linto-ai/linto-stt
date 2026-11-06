@@ -38,8 +38,10 @@ HOTWORDS=
 # Device: "cuda" (GPU, recommended) or "cpu". Empty = cuda if available, else cpu.
 DEVICE=
 
-# Inference backend: "transformers" (default). "vllm" is planned.
-# BACKEND=transformers
+# Inference backend: "vllm" (default; a managed `vllm serve` subprocess, CUDA GPU
+# only) or "transformers" (in-process Hugging Face transformers, runs on CPU too).
+# On CPU you must set BACKEND=transformers.
+# BACKEND=vllm
 
 # Model compute dtype: bfloat16 (default), float16, float32, or auto.
 DTYPE=bfloat16

@@ -1,7 +1,7 @@
 # Transformers engine
 
-Speech-to-text with Hugging Face `transformers`-native ASR models, through an
-in-process `transformers` or `vllm` backend. The engine is named after the
+Speech-to-text with Hugging Face `transformers`-native ASR models, through a
+managed `vllm` server or an in-process `transformers` backend. The engine is named after the
 library (not a single model): it auto-detects each checkpoint's family and
 capabilities from its processor, so it supports several ASR models.
 
