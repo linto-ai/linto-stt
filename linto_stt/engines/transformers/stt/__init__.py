@@ -28,9 +28,6 @@ BACKEND = os.environ.get("BACKEND", "vllm").lower()
 # Compute dtype of the model weights.
 DTYPE = os.environ.get("DTYPE", "bfloat16")
 
-# Upper bound on generated tokens per request. Short clips need little; long
-# audio needs more (long-form chunking is handled in decoding). ~440 tokens
-# covers a few minutes of dense speech.
 # Cap on generated tokens per pass (per chunk for long audio). It is only a
 # safety cap: generation stops at the end-of-speech token, so a generous value
 # costs nothing for short audio but avoids truncating a dense chunk. ~1280 covers
