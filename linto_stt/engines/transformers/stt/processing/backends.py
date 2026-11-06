@@ -455,8 +455,10 @@ class VllmServeBackend:
         health = f"{self.base_url}/health"
         while time.time() < deadline:
             if self._proc.poll() is not None:
+                returncode = self._proc.returncode
+                self.shutdown()  # release the log handle, drop the atexit hook
                 raise RuntimeError(
-                    f"vLLM server exited (code {self._proc.returncode}) during "
+                    f"vLLM server exited (code {returncode}) during "
                     f"startup. Last log lines:\n{self._tail_log(log_path)}"
                 )
             try:
@@ -532,6 +534,9 @@ class VllmServeBackend:
             except OSError:
                 pass
             self._log = None
+        import atexit
+
+        atexit.unregister(self.shutdown)
 
     def __del__(self):
         try:
