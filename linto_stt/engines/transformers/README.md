@@ -15,23 +15,31 @@ capabilities from its processor, so it supports several ASR models.
 | **Qwen3-ASR** (`qwen3_asr`) | `Qwen/Qwen3-ASR-1.7B-hf` (default), `Qwen/Qwen3-ASR-0.6B-hf` | ✅ | ✅ | ✅ |
 | **Cohere Transcribe** (`cohere_asr`) | `CohereLabs/cohere-transcribe-03-2026` | ❌ | ✅ | ❌ |
 | **Whisper** (`whisper`) \* | `openai/whisper-large-v3`, `openai/whisper-large-v3-turbo` | ✅ | ✅ | ❌ |
+| **Voxtral** (`voxtral`) \* | `mistralai/Voxtral-Mini-3B-2507`, `mistralai/Voxtral-Small-24B-2507` | ✅ | ✅ | ❌ |
+| **Granite-Speech** (`granite_speech`) \* | `ibm-granite/granite-speech-4.1-2b`, `ibm-granite/granite-speech-3.3-8b` | ✅ | ❌ | ❌ |
 
-- **Both backends.** Listed models run on both the `transformers` and `vllm`
-  backends, **except Whisper** (\*), which currently runs on the `vllm` (serve)
-  backend only (its in-process `transformers` support is not wired yet).
+- **Backends.** Qwen3-ASR and Cohere run on **both** the `transformers` and `vllm`
+  backends. The **\*-marked** models (Whisper, Voxtral, Granite-Speech) run on the
+  **`vllm` backend only** for now (their in-process `transformers` path is not
+  wired). vLLM serves them via the same transcription endpoint, so no code change
+  is needed to use them, only to list/validate them.
 - **Word-level timestamps** (via the forced aligner) work for *every* model.
 - **Capabilities are detected from the model's processor signature, not its
   name**, so a request asking for an unsupported feature (hotwords on a model
   without them, or auto-detection on a model that requires a language) is
-  rejected with a clear error.
+  rejected with a clear error. For the \*-marked (vLLM-only) models the flags are
+  detected and may be conservative (e.g. a model that can force a language but
+  does not expose it in its processor signature is marked ❌).
 - For Qwen the `-hf` (transformers) variant is used, not the plain
   `Qwen/Qwen3-ASR-1.7B` repo, which targets the separate `qwen-asr` package.
+- **VRAM:** the bigger checkpoints need a big GPU (Voxtral-Small is 24B,
+  Granite-3.3 is 8B); the Mini/2B ones fit a single mid-range GPU.
 
 All require **transformers >= 5.13** (the `transformers` / `vllm` extra); seq2seq
 models (Cohere, Whisper) also use `librosa` (included). The `vllm` backend can
-serve any vLLM-servable ASR model (so more models are mostly a matter of listing
-and validating them); the in-process `transformers` backend needs a per-family
-code branch. Candidates come from the
+serve any vLLM-servable ASR model, so **more leaderboard models can be added by
+listing + validating them** (no code), e.g. MOSS-Transcribe-Diarize
+(`OpenMOSS-Team/MOSS-Transcribe-Diarize`). Candidates come from the
 [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard)
 and the [LINAGORA ASR benchmark](https://linagora-labs.github.io/asr_benchmark/).
 
