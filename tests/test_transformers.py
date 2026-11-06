@@ -114,6 +114,79 @@ class TestTransformersLanguages:
 
 
 # ---------------------------------------------------------------------------
+# UV tests - a second model family (Cohere, Whisper-like seq2seq)
+# ---------------------------------------------------------------------------
+
+# Proves the engine generalises beyond Qwen3-ASR: Cohere is a seq2seq ASR with a
+# different processor API, no hotwords, a required language, and its own
+# long-audio chunking. Word timestamps still come from the forced aligner.
+COHERE_MODEL = "CohereLabs/cohere-transcribe-03-2026"
+
+
+def _cohere_config(language, id):
+    return pytest.param(
+        {
+            "engine": "transformers",
+            "mode": "http",
+            "port": 0,
+            "env_overrides": {"MODEL": COHERE_MODEL, "LANGUAGE": language, "DEVICE": "cuda"},
+        },
+        id=id,
+    )
+
+
+@pytest.mark.transformers
+@pytest.mark.uv
+class TestTransformersCapabilities:
+    """Model-capability detection from the processor signature (NOT the model
+    name). Cheap: loads only the processors (no model weights, no GPU)."""
+
+    def test_capabilities_detected_from_processor(self):
+        pytest.importorskip("transformers")
+        pytest.importorskip("librosa")  # Cohere's processor needs it
+
+        from transformers import AutoProcessor
+
+        from linto_stt.engines.transformers.stt.processing.backends import (
+            detect_capabilities,
+        )
+
+        qwen = detect_capabilities(AutoProcessor.from_pretrained(TEST_MODEL))
+        assert qwen == {"hotwords": True, "language_spec": True, "language_auto": True}
+
+        cohere = detect_capabilities(AutoProcessor.from_pretrained(COHERE_MODEL))
+        assert cohere == {"hotwords": False, "language_spec": True, "language_auto": False}
+
+
+@pytest.mark.transformers
+@pytest.mark.uv
+@pytest.mark.gpu
+@pytest.mark.slow
+class TestTransformersCohere:
+    """Cohere ASR (`cohere_asr`) through the transformers backend. Needs a CUDA
+    GPU; the ~2B model downloads on first use (and pulls `librosa`)."""
+
+    @pytest.mark.parametrize("uv_server", [_cohere_config("fr", "cohere-fr")], indirect=True)
+    def test_integration(self, uv_server, test_audio_bonjour):
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+            f"Unexpected transcription: {result}"
+        )
+
+    @pytest.mark.parametrize("uv_server", [_cohere_config("fr", "cohere-hotwords")], indirect=True)
+    def test_hotwords_rejected(self, uv_server, test_audio_bonjour):
+        """Cohere has no hotwords -> a request with hotwords is rejected."""
+        with pytest.raises(RuntimeError):
+            transcribe_http(uv_server["url"], str(test_audio_bonjour), hotwords="test")
+
+    @pytest.mark.parametrize("uv_server", [_cohere_config("fr", "cohere-nolang")], indirect=True)
+    def test_no_language_rejected(self, uv_server, test_audio_bonjour):
+        """Cohere needs a language -> forcing auto-detect (language='*') is rejected."""
+        with pytest.raises(RuntimeError):
+            transcribe_http(uv_server["url"], str(test_audio_bonjour), language="*")
+
+
+# ---------------------------------------------------------------------------
 # UV tests - hotwords
 # ---------------------------------------------------------------------------
 

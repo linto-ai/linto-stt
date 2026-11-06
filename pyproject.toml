@@ -70,6 +70,7 @@ transformers = [
     "torchcodec>=0.9.1",
     "wavio>=0.0.9",
     "soundfile>=0.12",  # task-mode file decoding (libsndfile, no ffmpeg needed)
+    "librosa>=0.10",  # feature extraction for seq2seq ASR models (e.g. Cohere)
     "hf_xet",  # to speed up downloads from HuggingFace
 ]
 vllm = [
@@ -86,6 +87,7 @@ vllm = [
     "torchaudio",
     "wavio>=0.0.9",
     "soundfile>=0.12",  # task-mode file decoding (avoids torchcodec under vLLM's torch)
+    "librosa>=0.10",  # feature extraction for seq2seq ASR models (e.g. Cohere)
     "hf_xet",
     "vllm==0.30.0",  # newest vLLM that still allows transformers>=5.22; 0.31 caps <5.18
 ]

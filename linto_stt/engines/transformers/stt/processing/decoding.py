@@ -51,10 +51,26 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
     language = get_language(language)
     if hotwords is None:
         hotwords = HOTWORDS
+
+    # Validate the request against what this model can do (capabilities detected
+    # from the processor, not the model name), with clear client errors.
+    asr = model.asr
+    if hotwords and not asr.supports_hotwords:
+        raise ValueError(
+            "This model does not support hotwords; unset HOTWORDS and the "
+            "request `hotwords` parameter."
+        )
+    if not language and not asr.supports_language_auto:
+        raise ValueError(
+            "This model has no automatic language detection; set LANGUAGE or the "
+            "request `language` parameter (e.g. 'fr', 'en')."
+        )
     prompt = _hotwords_prompt(hotwords)
 
     duration = len(audio) / SAMPLE_RATE
-    if duration <= LONG_FILE_THRESHOLD:
+    # Some backends (e.g. the Cohere seq2seq model) split long audio themselves,
+    # so the engine must not also chunk them.
+    if duration <= LONG_FILE_THRESHOLD or getattr(asr, "handles_long_audio", False):
         text, words, result_language = _transcribe_segment(
             model, audio, with_word_timestamps, language, prompt
         )
@@ -165,20 +181,23 @@ def _align_words(model, audio, text, language):
     )[0]
     logger.info(f"Forced alignment complete (t={time.time() - start_t}s)")
 
-    # The aligner emits the "core" word tokens, typically stripped of the
+    # The aligner emits the "core" word tokens, usually stripped of the
     # surrounding punctuation the transcript carries (e.g. "Bonjour" for
-    # "Bonjour."). Re-attach the original transcript tokens when they line up 1:1
-    # with the aligner segments, so the returned words keep the transcript's
-    # exact spelling/punctuation and concatenate back to `text`. Fall back to the
-    # aligner tokens otherwise (e.g. languages without whitespace word
-    # boundaries, where the counts won't match).
-    original_words = text.split()
-    use_original = len(original_words) == len(items)
-    return [
-        {
-            "word": original_words[i] if use_original else item["text"],
-            "start": float(item["start_time"]),
-            "end": float(item["end_time"]),
-        }
-        for i, item in enumerate(items)
-    ]
+    # "Bonjour.", or a separate "!" / "?" the aligner skips). Always return the
+    # transcript's own whitespace tokens (so the words concatenate back to `text`,
+    # keeping its exact spelling/punctuation) and assign the aligner timestamps to
+    # the content tokens in order; punctuation-only tokens get a zero-width stamp.
+    words = []
+    j = 0
+    last_end = 0.0
+    for token in text.split():
+        has_content = any(ch.isalnum() for ch in token)
+        if has_content and j < len(items):
+            start = float(items[j]["start_time"])
+            end = float(items[j]["end_time"])
+            last_end = end
+            j += 1
+        else:
+            start = end = last_end  # punctuation, or more tokens than aligner words
+        words.append({"word": token, "start": start, "end": end})
+    return words

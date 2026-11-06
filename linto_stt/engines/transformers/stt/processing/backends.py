@@ -11,11 +11,41 @@ A backend only has to turn one audio segment into ``(text, detected_language)``;
 word timestamps (the forced aligner) and everything else stay backend-agnostic,
 so backends can be benchmarked against each other by flipping ``BACKEND``.
 """
+import inspect
 import os
 
 import torch
 
 from linto_stt.engines.transformers.stt import MAX_NEW_TOKENS, logger
+
+from .utils import SAMPLE_RATE
+
+
+def detect_capabilities(processor):
+    """Detect a model's ASR capabilities from its *processor's* transcription
+    signature — not from the model name — so it is robust across checkpoints:
+
+    - ``hotwords``: the transcription call takes a context/hotword ``prompt``.
+    - ``language_spec``: it takes a ``language`` argument at all.
+    - ``language_auto``: ``language`` is optional (auto-detection) rather than
+      required.
+
+    Qwen3-ASR exposes ``apply_transcription_request(audio, language=None,
+    prompt=None)``; a seq2seq model (e.g. Cohere) exposes
+    ``__call__(audio, language, ...)`` with no ``prompt`` and a required
+    ``language``.
+    """
+    fn = getattr(processor, "apply_transcription_request", None) or processor.__call__
+    params = inspect.signature(fn).parameters
+    has_language = "language" in params
+    language_optional = (
+        has_language and params["language"].default is not inspect.Parameter.empty
+    )
+    return {
+        "hotwords": "prompt" in params,
+        "language_spec": has_language,
+        "language_auto": (not has_language) or language_optional,
+    }
 
 # vLLM tuning (env). gpu_memory_utilization is the FRACTION of total VRAM vLLM
 # reserves (model + KV cache); keep it modest on a shared GPU. max_model_len caps
@@ -39,11 +69,17 @@ VLLM_ENFORCE_EAGER = os.environ.get("VLLM_ENFORCE_EAGER", "").strip().lower() in
 
 
 class TransformersASRBackend:
-    """In-process Hugging Face transformers ASR.
+    """In-process Hugging Face transformers ASR, for any transformers-native ASR.
 
-    Uses the processor's ``apply_transcription_request`` (which builds the
-    chat/transcription request, injecting the context ``prompt`` as the system
-    message and forcing ``language`` via an assistant prefill) + ``generate``.
+    Two model families are supported, auto-detected from the processor:
+
+    - **Qwen3-ASR** (processor exposes ``apply_transcription_request``): an LLM-
+      style model. The context ``prompt`` carries hotwords and the language is
+      forced via an assistant prefill; long audio is chunked by the engine.
+    - **Seq2seq ASR** (e.g. ``cohere_asr``): a Whisper-like encoder-decoder.
+      ``processor(audio, language=...)`` -> ``generate`` -> ``processor.decode``.
+      It has no hotword/prompt mechanism, requires an explicit language, and
+      chunks long audio itself (``handles_long_audio``).
     """
 
     name = "transformers"
@@ -51,13 +87,24 @@ class TransformersASRBackend:
     def __init__(self, processor, model):
         self.processor = processor
         self.model = model
+        # Qwen3-ASR exposes apply_transcription_request (chat + hotword prompt);
+        # other transformers ASR (e.g. cohere_asr) use the plain seq2seq API.
+        self._is_qwen = hasattr(processor, "apply_transcription_request")
+        # Seq2seq models (Cohere) split long audio internally, so the engine must
+        # NOT also chunk them.
+        self.handles_long_audio = not self._is_qwen
+        caps = detect_capabilities(processor)
+        self.supports_hotwords = caps["hotwords"]
+        self.supports_language_spec = caps["language_spec"]
+        self.supports_language_auto = caps["language_auto"]
 
     def transcribe(self, audio, language=None, prompt=None):
-        """Transcribe one 16 kHz mono float32 segment -> (text, detected_language).
+        """Transcribe one 16 kHz mono float32 segment -> (text, detected_language)."""
+        if self._is_qwen:
+            return self._transcribe_qwen(audio, language, prompt)
+        return self._transcribe_seq2seq(audio, language)
 
-        ``detected_language`` is the model's own language (a full English name
-        when auto-detecting, None when forced); the caller normalises it.
-        """
+    def _transcribe_qwen(self, audio, language, prompt):
         request_kwargs = {}
         if language:
             request_kwargs["language"] = language
@@ -77,6 +124,28 @@ class TransformersASRBackend:
         text = (parsed.get("transcription") or "").strip()
         return text, parsed.get("language")
 
+    def _transcribe_seq2seq(self, audio, language):
+        # Seq2seq ASR (e.g. Cohere): language is required and there is no hotword
+        # mechanism; both are validated upstream (decode) from the capabilities.
+        inputs = self.processor(
+            audio=audio, sampling_rate=SAMPLE_RATE, return_tensors="pt", language=language
+        )
+        # The feature extractor splits long audio into chunks; decode reassembles
+        # them using audio_chunk_index.
+        audio_chunk_index = inputs.get("audio_chunk_index")
+        inputs = inputs.to(self.model.device, self.model.dtype)
+
+        with torch.inference_mode():
+            output_ids = self.model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS)
+
+        text = self.processor.decode(
+            output_ids,
+            skip_special_tokens=True,
+            audio_chunk_index=audio_chunk_index,
+            language=language,
+        )[0].strip()
+        return text, language
+
 
 class VllmASRBackend:
     """In-process vLLM ASR (``vllm.LLM``), loaded lazily.
@@ -93,6 +162,10 @@ class VllmASRBackend:
     """
 
     name = "vllm"
+    handles_long_audio = False  # Qwen via vLLM: the engine chunks long audio
+    supports_hotwords = True  # vLLM backend is Qwen3-ASR only (guarded below)
+    supports_language_auto = True
+    supports_language_spec = True
 
     def __init__(self, model_name, device, dtype="bfloat16", **kwargs):
         if "cuda" not in str(device):
@@ -107,6 +180,15 @@ class VllmASRBackend:
 
         self._SamplingParams = SamplingParams
         self.processor = AutoProcessor.from_pretrained(self.vllm_model)
+        # The vLLM path builds Qwen3-ASR's chat/transcription prompt, so it only
+        # fits that family. Other transformers ASR (e.g. the Cohere seq2seq model,
+        # which vLLM runs as an encoder-decoder) need a different prompt API that
+        # is not wired here — fail clearly rather than emit a wrong prompt.
+        if not hasattr(self.processor, "apply_transcription_request"):
+            raise NotImplementedError(
+                f"The vLLM backend currently supports only the Qwen3-ASR family; "
+                f"{model_name!r} is not supported. Use BACKEND=transformers for it."
+            )
 
         llm_kwargs = {
             "model": self.vllm_model,

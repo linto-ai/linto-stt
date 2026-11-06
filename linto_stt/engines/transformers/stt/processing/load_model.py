@@ -9,32 +9,45 @@ _DTYPES = {
 
 
 def load_asr_model(model_name, device, dtype="bfloat16", attn_implementation=None):
-    """Load a Qwen3-ASR(-family) processor + model via Hugging Face transformers.
+    """Load a transformers-native ASR processor + model, by checkpoint model type.
 
-    Targets the transformers-native checkpoints (checkpoint model type
-    'qwen3_asr', e.g. Qwen/Qwen3-ASR-1.7B-hf), which require transformers >= 5.13.
-    The (processor, model) pair and the apply_transcription_request() protocol it
-    implies are kept behind this function + the decoding module, so another
-    transformers-ASR family (or a vLLM backend) can be added without changing the
-    engine contract.
+    - ``qwen3_asr`` (e.g. Qwen/Qwen3-ASR-1.7B-hf): an LLM-style model loaded via
+      Qwen3ASRForConditionalGeneration (apply_transcription_request protocol).
+    - any other type (e.g. ``cohere_asr``): a Whisper-like speech-to-text
+      encoder-decoder, loaded via AutoModelForSpeechSeq2Seq (built-in support,
+      no remote code).
+
+    The backend (see backends.py) auto-detects which protocol to use from the
+    processor, so new transformers-ASR families can be added here without changing
+    the engine contract.
     """
-    from transformers import AutoProcessor
+    from transformers import AutoConfig, AutoProcessor
 
-    # Qwen3ASRForConditionalGeneration is the concrete class; fall back to the
-    # generic multimodal Auto mapping if this transformers only exposes that.
-    try:
-        from transformers import Qwen3ASRForConditionalGeneration as _ModelCls
-    except ImportError:
-        from transformers import AutoModelForMultimodalLM as _ModelCls
-
+    config = AutoConfig.from_pretrained(model_name)
+    model_type = getattr(config, "model_type", "")
     torch_dtype = _DTYPES.get(dtype, torch.bfloat16)
     device_map = "auto" if "cuda" in str(device) else str(device)
 
     processor = AutoProcessor.from_pretrained(model_name)
-    kwargs = {"torch_dtype": torch_dtype, "device_map": device_map}
-    if attn_implementation:
-        kwargs["attn_implementation"] = attn_implementation
-    model = _ModelCls.from_pretrained(model_name, **kwargs).eval()
+
+    if model_type == "qwen3_asr":
+        # Qwen3ASRForConditionalGeneration is the concrete class; fall back to the
+        # generic multimodal Auto mapping if this transformers only exposes that.
+        try:
+            from transformers import Qwen3ASRForConditionalGeneration as _ModelCls
+        except ImportError:
+            from transformers import AutoModelForMultimodalLM as _ModelCls
+        kwargs = {"torch_dtype": torch_dtype, "device_map": device_map}
+        if attn_implementation:
+            kwargs["attn_implementation"] = attn_implementation
+        model = _ModelCls.from_pretrained(model_name, **kwargs).eval()
+    else:
+        from transformers import AutoModelForSpeechSeq2Seq
+
+        kwargs = {"dtype": torch_dtype, "device_map": device_map}
+        if attn_implementation:
+            kwargs["attn_implementation"] = attn_implementation
+        model = AutoModelForSpeechSeq2Seq.from_pretrained(model_name, **kwargs).eval()
     return processor, model
 
 

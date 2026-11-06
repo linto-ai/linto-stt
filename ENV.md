@@ -110,7 +110,7 @@ The `transformers` engine serves Hugging Face transformers-native ASR models
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MODEL` | `Qwen/Qwen3-ASR-1.7B-hf` | Transformers-native ASR checkpoint (currently Qwen3-ASR, model type `qwen3_asr`), e.g. `Qwen/Qwen3-ASR-0.6B-hf`. Needs transformers ≥ 5.13 (the `transformers` extra) |
+| `MODEL` | `Qwen/Qwen3-ASR-1.7B-hf` | Transformers-native ASR checkpoint, auto-detected by `model_type`: Qwen3-ASR (`qwen3_asr`, e.g. `Qwen/Qwen3-ASR-0.6B-hf`) or a seq2seq ASR (e.g. `cohere_asr`: `CohereLabs/cohere-transcribe-03-2026`). Seq2seq models require an explicit `LANGUAGE` (no auto-detect) and have no hotwords. Needs transformers ≥ 5.13 (the `transformers`/`vllm` extra) |
 | `ALIGNER_MODEL` | `Qwen/Qwen3-ForcedAligner-0.6B-hf` | Forced-alignment model for word-level timestamps (Qwen3-ASR has none natively). Loaded lazily and run only on metadata requests (JSON / Celery task), never on the plain-text path. Set empty or `none` to disable (then `words` is empty for metadata requests) |
 | `DTYPE` | `bfloat16` | Model compute dtype (`bfloat16`, `float16`, `float32`, `auto`) |
 | `ATTN_IMPLEMENTATION` | _(transformers default: `sdpa`)_ | Attention kernel. The default `sdpa` already dispatches to Flash-Attention kernels on supported GPUs (bf16/fp16) via PyTorch — efficient out of the box, and it also works on CPU. Set `flash_attention_2` only if you have separately installed the `flash-attn` package (GPU-only, heavy build); gains over `sdpa` for short-audio ASR inference are usually small |

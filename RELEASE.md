@@ -1,12 +1,10 @@
 # 2.2.0
 - Hotwords are now a **per-request** parameter (the `hotwords` HTTP query parameter / Celery task argument) in addition to the `HOTWORDS` environment default, mirroring the existing per-request `language` handling (previously Whisper-only and settable only via the environment)
-- New **Transformers** engine (`STT_ENGINE=transformers`): speech-to-text with Hugging Face `transformers`-native ASR models, built around [Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-1.7B-hf) (e.g. `Qwen/Qwen3-ASR-1.7B-hf`, `Qwen/Qwen3-ASR-0.6B-hf`), served in HTTP and Celery task modes. Named after the library so it can grow to other transformers-native ASR models
-    - Language selection: force a language or auto-detect (multilingual), via `LANGUAGE` with per-request override; the response language is normalised to an ISO code
-    - Hotwords: bias the transcription toward given words/phrases via the model's context prompt (`HOTWORDS`, with per-request override)
-    - Word-level timestamps via the companion [Qwen3-ForcedAligner](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf) model (`ALIGNER_MODEL`), loaded lazily and run only when word timestamps are requested
-    - Efficient by default: `sdpa` attention (already FlashAttention-2 kernels on supported GPUs) and bfloat16
-    - Long-audio handling: files longer than `LONG_FILE_THRESHOLD` seconds are transcribed in consecutive chunks (`LONG_FILE_CHUNK_LEN`) to avoid out-of-memory / truncation, with word timestamps offset per chunk
-    - Swappable ASR backend via `BACKEND`: `transformers` (default) or in-process `vllm` (the `vllm` extra, GPU) for higher throughput; both share language/hotwords/chunking and the forced-aligner word timestamps, so they can be benchmarked against each other
+- New **Transformers** engine (`STT_ENGINE=transformers`): speech-to-text with Hugging Face `transformers`-native ASR models (HTTP and Celery task modes). Per-model capabilities (language auto-detection, forced language, hotwords) are auto-detected from the model's processor (not its name), so an unsupported request is rejected with a clear error. Word-level timestamps come from the companion [Qwen3-ForcedAligner](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf) (`ALIGNER_MODEL`, lazy, run only when timestamps are requested) for every model. Supported models:
+    - **Qwen3-ASR** (`Qwen/Qwen3-ASR-1.7B-hf` default, `-0.6B-hf`): multilingual auto-detection or forced language, hotwords (via the model's context prompt), long-audio chunking (`LONG_FILE_THRESHOLD`/`LONG_FILE_CHUNK_LEN`). Runs on the in-process `vllm` backend (`BACKEND=vllm`, GPU) for higher throughput as well as the default `transformers` backend
+    - **Cohere Transcribe** (`CohereLabs/cohere-transcribe-03-2026`): Whisper-like seq2seq; **requires an explicit language** (no auto-detection) and has **no hotwords**; chunks long audio itself. `transformers` backend only
+    - Swappable ASR backend via `BACKEND` (`transformers` default or `vllm`), sharing language/hotwords/chunking and the forced-aligner timestamps, so backends can be benchmarked against each other
+    - Efficient by default: `sdpa` attention (FlashAttention-2 kernels on supported GPUs) and bfloat16
 
 # 2.1.1
 - NeMo engine updates:
