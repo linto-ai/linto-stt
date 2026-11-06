@@ -30,6 +30,12 @@ VLLM_MAX_MODEL_LEN = int(os.environ.get("VLLM_MAX_MODEL_LEN", "16384"))
 # where a relative share is awkward. gpu_memory_utilization still bounds the total
 # reservation (weights + activations + KV).
 VLLM_KV_CACHE_MEMORY_BYTES = os.environ.get("VLLM_KV_CACHE_MEMORY_BYTES") or None
+# Skip torch.compile + CUDA-graph capture. Uses less VRAM and starts almost
+# instantly (no ~minute-long compile), at some inference-throughput cost. Useful
+# on memory-tight GPUs; off by default so the graphs give best throughput.
+VLLM_ENFORCE_EAGER = os.environ.get("VLLM_ENFORCE_EAGER", "").strip().lower() in (
+    "1", "true", "yes",
+)
 
 
 class TransformersASRBackend:
@@ -113,6 +119,8 @@ class VllmASRBackend:
             llm_kwargs["max_model_len"] = int(VLLM_MAX_MODEL_LEN)
         if VLLM_KV_CACHE_MEMORY_BYTES:
             llm_kwargs["kv_cache_memory_bytes"] = int(VLLM_KV_CACHE_MEMORY_BYTES)
+        if VLLM_ENFORCE_EAGER:
+            llm_kwargs["enforce_eager"] = True
         logger.info(
             f"Loading vLLM model {self.vllm_model} (gpu_mem_util="
             f"{VLLM_GPU_MEMORY_UTILIZATION}"
