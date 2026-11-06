@@ -60,9 +60,11 @@ def pytest_addoption(parser):
         "--server-timeout",
         action="store",
         type=int,
-        default=300,
+        default=600,
         help="Timeout in seconds for server startup (failures usually "
-        "surface much sooner via process-exit / fatal-log checks)",
+        "surface much sooner via process-exit / fatal-log checks). Generous by "
+        "default because a cold Docker container recompiles vLLM/Triton kernels "
+        "each run, so an in-container vLLM server can take several minutes",
     )
     parser.addoption(
         "--kaldi-am-path",

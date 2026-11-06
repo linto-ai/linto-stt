@@ -448,6 +448,11 @@ class TestTransformersDockerCelery:
                         "MODEL": TEST_MODEL,
                         "LANGUAGE": "fr",
                         "DEVICE": "cuda",
+                        # Skip torch.compile + CUDA-graph capture so the in-container
+                        # vLLM server starts well within the default --server-timeout
+                        # (a cold container has no warm compile cache). ASR output is
+                        # unaffected; only startup is faster.
+                        "VLLM_ENFORCE_EAGER": "1",
                         "SERVICES_BROKER": "redis://172.17.0.1:6379",
                     },
                 },
