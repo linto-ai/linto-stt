@@ -68,8 +68,10 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
     prompt = _hotwords_prompt(hotwords)
 
     duration = len(audio) / SAMPLE_RATE
-    # Some backends (e.g. the Cohere seq2seq model) split long audio themselves,
-    # so the engine must not also chunk them.
+    # Some backends split long audio themselves (the vLLM serve backend chunks
+    # server-side ~30s; seq2seq models such as Cohere self-chunk), so the engine
+    # must not also chunk them -- LONG_FILE_THRESHOLD then has no effect. It only
+    # applies to in-process models that do not self-chunk (Qwen3-ASR).
     if duration <= LONG_FILE_THRESHOLD or getattr(asr, "handles_long_audio", False):
         text, words, result_language = _transcribe_segment(
             model, audio, with_word_timestamps, language, prompt

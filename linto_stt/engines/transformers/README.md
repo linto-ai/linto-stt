@@ -161,11 +161,17 @@ only the lean `transformers` extra (no vLLM), so that image **must** be run with
   wired here; the vLLM backends are used for offline transcription only).
 - **Word timestamps** come from the forced-alignment model (see above), which
   runs only on metadata requests. Disable it with `ALIGNER_MODEL=none`.
-- **Long audio**: files longer than `LONG_FILE_THRESHOLD` seconds are transcribed
-  in consecutive non-overlapping chunks of `LONG_FILE_CHUNK_LEN` seconds (word
-  timestamps offset per chunk), avoiding out-of-memory / truncation. A word
-  spoken across a chunk boundary may be split there; keep chunks a few minutes
-  long to make this rare.
+- **Long audio**: handling depends on the backend.
+  - On the **`vllm`** backend, vLLM chunks long audio **server-side** (~30 s
+    windows, split at quiet points with a short overlap), so `LONG_FILE_THRESHOLD`
+    / `LONG_FILE_CHUNK_LEN` have **no effect**.
+  - On the **`transformers`** backend, only models that do not self-chunk
+    (Qwen3-ASR) are chunked by the engine: files longer than `LONG_FILE_THRESHOLD`
+    seconds are transcribed in consecutive non-overlapping chunks of
+    `LONG_FILE_CHUNK_LEN` seconds (word timestamps offset per chunk), avoiding
+    out-of-memory / truncation. A word spoken across a chunk boundary may be split
+    there; keep chunks a few minutes long to make this rare. Seq2seq models
+    (Cohere) self-chunk, so these vars do not affect them either.
 - Efficiency: the default attention (`sdpa`) already uses Flash-Attention
   kernels on supported GPUs, so it is efficient out of the box. Other knobs:
   `DTYPE`, `MAX_NEW_TOKENS`, and `ATTN_IMPLEMENTATION=flash_attention_2` (opt-in;
