@@ -65,6 +65,11 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
             "This model has no automatic language detection; set LANGUAGE or the "
             "request `language` parameter (e.g. 'fr', 'en')."
         )
+    if language and not asr.supports_language_spec:
+        raise ValueError(
+            "This model does not take a forced language; unset LANGUAGE (or set "
+            "it to '*') and the request `language` parameter."
+        )
     prompt = _hotwords_prompt(hotwords)
 
     duration = len(audio) / SAMPLE_RATE
