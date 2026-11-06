@@ -29,22 +29,33 @@ def _pgid_alive(pgid: int) -> bool:
         return True
 
 
-def _signal_and_drain_group(pgid: int, timeout: float = 25.0) -> None:
+def _signal_and_drain_group(pgid: int, timeout: float = 25.0,
+                            leader: subprocess.Popen = None) -> None:
     """SIGTERM the whole group, then WAIT for every process to exit, escalating to
     SIGKILL. The transformers engine's vLLM backend spawns a `vllm serve`
     grandchild (same group) that outlives `uv run`/main.py and keeps holding the
     GPU while it shuts down; if the next GPU test starts before that VRAM is
     released it can OOM. Draining the group here makes teardown fully release the
-    GPU before the fixture returns."""
+    GPU before the fixture returns.
+
+    `leader` is the Popen handle of our direct child (the group leader). It must
+    be reaped while polling: an exited but unreaped child is a zombie, and a
+    zombie still counts as a member of the group, so without reaping it the
+    group would look alive until the deadline on every teardown."""
+    def alive():
+        if leader is not None:
+            leader.poll()  # reap the leader if it has exited
+        return _pgid_alive(pgid)
+
     for sig, wait_s in ((signal.SIGTERM, timeout), (signal.SIGKILL, 5.0)):
         try:
             os.killpg(pgid, sig)
         except ProcessLookupError:
             return
         deadline = time.monotonic() + wait_s
-        while _pgid_alive(pgid) and time.monotonic() < deadline:
+        while alive() and time.monotonic() < deadline:
             time.sleep(0.5)
-        if not _pgid_alive(pgid):
+        if not alive():
             return
 
 
@@ -298,7 +309,7 @@ class UVServerRunner:
             return
         # Drain the whole group (main.py AND the detached vLLM server holding the
         # GPU), so the next GPU test starts with VRAM released.
-        _signal_and_drain_group(pgid)
+        _signal_and_drain_group(pgid, leader=self.process)
         try:
             self.process.wait(timeout=5)
         except (subprocess.TimeoutExpired, ProcessLookupError):
