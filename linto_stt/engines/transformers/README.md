@@ -99,8 +99,9 @@ consult each model card's per-language WER figures for relative accuracy.
 Note: the forced aligner used for **word timestamps**
 ([`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf))
 covers only 11 languages (`zh, en, yue, fr, de, it, ja, ko, pt, ru, es`).
-Transcription of a language outside that set still works; its word timestamps may
-be missing or approximate.
+Plain-text transcription of a language outside that set works, but a request
+asking for word timestamps (metadata) in such a language fails with an error
+listing the supported languages (no partial or dummy timestamps are returned).
 
 ## Hotwords
 
@@ -121,11 +122,12 @@ Qwen3-ASR has no native word timestamps, so they are produced by a companion
 forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf)
 (`ALIGNER_MODEL`), which aligns the transcript against the audio.
 
-- The aligner is a **second model**. It is loaded lazily and run **only** when a
-  request asks for word timestamps, i.e. HTTP `Accept: application/json` and the
-  Celery task (both go through the metadata path). Plain-text requests
-  (`Accept: text/plain`) never load or run it, so that fast path keeps the best
-  RTF.
+- The aligner is a **second model**. It runs **only** when a request asks for
+  word timestamps, i.e. HTTP `Accept: application/json` and the Celery task (both
+  go through the metadata path). Plain-text requests (`Accept: text/plain`) never
+  run it, so that fast path keeps the best RTF. On GPU the startup warmup
+  preloads it (so the first timestamped request is not slow); otherwise it is
+  loaded lazily on first use.
 - Set `ALIGNER_MODEL=` (empty) or `ALIGNER_MODEL=none` to disable alignment; the
   `words` field is then returned empty for metadata requests.
 
