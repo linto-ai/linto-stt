@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 
 from filelock import FileLock
 
@@ -25,6 +26,13 @@ __all__ = [
     "MODEL",
     "USE_GPU",
 ]
+
+
+def _lock_path(model_name):
+    """Path to the model-load lock. Put it in the temp dir (not the current
+    working directory) so loading a model never drops a `.lock` file in the repo,
+    while staying a stable per-model path shared across workers on the machine."""
+    return os.path.join(tempfile.gettempdir(), os.path.basename(model_name) + ".lock")
 
 
 def warmup():
@@ -62,8 +70,7 @@ class LazyLoadedModel:
         if self._asr is None:
             # OS-level flock (released by the kernel if the holder dies), so a
             # crashed load cannot leave a stale lock that deadlocks later loads.
-            lockfile = os.path.basename(self.model_name) + ".lock"
-            with FileLock(lockfile):
+            with FileLock(_lock_path(self.model_name)):
                 if self._asr is None:
                     # Constructing the in-process vLLM engine patches transformers'
                     # Qwen3ASR config, after which the transformers forced aligner
@@ -83,8 +90,7 @@ class LazyLoadedModel:
 
     def check_aligner_loaded(self):
         if self._aligner_model is None:
-            lockfile = os.path.basename(self.aligner_model_name) + ".lock"
-            with FileLock(lockfile):
+            with FileLock(_lock_path(self.aligner_model_name)):
                 if self._aligner_model is None:
                     logger.info(
                         f"Loading forced-alignment model {self.aligner_model_name} "
