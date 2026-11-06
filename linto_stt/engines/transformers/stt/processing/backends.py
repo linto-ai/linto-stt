@@ -23,7 +23,7 @@ from .utils import SAMPLE_RATE
 
 def detect_capabilities(processor):
     """Detect a model's ASR capabilities from its *processor's* transcription
-    signature — not from the model name — so it is robust across checkpoints:
+    signature (not from the model name), so it is robust across checkpoints:
 
     - ``hotwords``: the transcription call takes a context/hotword ``prompt``.
     - ``language_spec``: it takes a ``language`` argument at all.
@@ -56,7 +56,7 @@ VLLM_GPU_MEMORY_UTILIZATION = float(os.environ.get("VLLM_GPU_MEMORY_UTILIZATION"
 VLLM_MAX_MODEL_LEN = int(os.environ.get("VLLM_MAX_MODEL_LEN", "16384"))
 # Optional ABSOLUTE KV-cache budget in bytes. When set, it pins the KV cache size
 # directly (vLLM's kv_cache_memory_bytes) instead of deriving it from the
-# gpu_memory_utilization fraction — preferable on unified-memory / shared GPUs
+# gpu_memory_utilization fraction; preferable on unified-memory / shared GPUs
 # where a relative share is awkward. gpu_memory_utilization still bounds the total
 # reservation (weights + activations + KV).
 VLLM_KV_CACHE_MEMORY_BYTES = os.environ.get("VLLM_KV_CACHE_MEMORY_BYTES") or None
@@ -71,13 +71,25 @@ VLLM_ENFORCE_EAGER = os.environ.get("VLLM_ENFORCE_EAGER", "").strip().lower() in
 # offline backend, this one runs vLLM in its own process (no transformers-registry
 # pollution) and works for every vLLM-servable ASR model (Qwen3-ASR and Cohere).
 VLLM_SERVE_HOST = os.environ.get("VLLM_SERVE_HOST", "127.0.0.1")
-VLLM_SERVE_PORT = int(os.environ.get("VLLM_SERVE_PORT", "8000"))
+# Port for the managed `vllm serve`. Unset (the default) picks a free port per
+# server at startup, so a leftover/orphaned server never blocks a new one; set it
+# to pin a fixed port.
+VLLM_SERVE_PORT = os.environ.get("VLLM_SERVE_PORT") or None
 # How long to wait for the subprocess to become healthy (model load + warmup).
 VLLM_SERVE_STARTUP_TIMEOUT = int(os.environ.get("VLLM_SERVE_STARTUP_TIMEOUT", "900"))
 # Per-request HTTP timeout (long audio is chunked server-side, so keep generous).
 VLLM_SERVE_REQUEST_TIMEOUT = int(os.environ.get("VLLM_SERVE_REQUEST_TIMEOUT", "600"))
 # Extra raw args appended verbatim to the `vllm serve` command line.
 VLLM_SERVE_EXTRA_ARGS = os.environ.get("VLLM_SERVE_EXTRA_ARGS", "").split()
+
+
+def _find_free_port(host="127.0.0.1"):
+    """Ask the OS for a currently-free TCP port on `host`."""
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return sock.getsockname()[1]
 
 
 def _model_derived_max_len(model_name):
@@ -234,7 +246,7 @@ class VllmASRBackend:
         # The vLLM path builds Qwen3-ASR's chat/transcription prompt, so it only
         # fits that family. Other transformers ASR (e.g. the Cohere seq2seq model,
         # which vLLM runs as an encoder-decoder) need a different prompt API that
-        # is not wired here — fail clearly rather than emit a wrong prompt.
+        # is not wired here, so fail clearly rather than emit a wrong prompt.
         if not hasattr(self.processor, "apply_transcription_request"):
             raise NotImplementedError(
                 f"The vLLM backend currently supports only the Qwen3-ASR family; "
@@ -341,7 +353,9 @@ class VllmServeBackend:
         self.supports_language_auto = caps["language_auto"]
 
         self.host = VLLM_SERVE_HOST
-        self.port = VLLM_SERVE_PORT
+        # Pin the port only if the user set VLLM_SERVE_PORT; otherwise pick a free
+        # one, so an orphaned/leftover server can never block a new one.
+        self.port = int(VLLM_SERVE_PORT) if VLLM_SERVE_PORT else _find_free_port(self.host)
         self.base_url = f"http://{self.host}:{self.port}"
         self._proc = None
         self._log = None
@@ -381,6 +395,11 @@ class VllmServeBackend:
         import subprocess
         import tempfile
 
+        # Fail (with a clear message) if the port stays occupied, instead of
+        # silently binding to a stale/orphaned server and getting confusing 404s
+        # from a mismatched process. Tolerate a brief window where a just-killed
+        # previous server is still releasing the port.
+        self._wait_port_free(timeout=15)
         cmd = self._build_command(dtype)
         log_path = os.path.join(
             tempfile.gettempdir(), f"vllm_serve_{self.port}.log"
@@ -390,14 +409,42 @@ class VllmServeBackend:
             f"(logs: {log_path}): {' '.join(cmd)}"
         )
         self._log = open(log_path, "wb")
-        # New session so the whole server (vLLM spawns separate EngineCore worker
-        # processes) can be signalled as one group on shutdown, leaving no orphan
-        # holding GPU memory.
+        # vLLM would JIT-compile FlashInfer's top-k/top-p sampler at startup, which
+        # needs the CUDA toolkit (nvcc) that a slim runtime image does not ship. We
+        # decode greedily (temperature=0), so the native PyTorch sampler is
+        # equivalent -- disable the FlashInfer sampler to drop the nvcc dependency.
+        # Overridable: set VLLM_USE_FLASHINFER_SAMPLER yourself to keep it.
+        env = {**os.environ}
+        env.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
+        # Keep the subprocess in this process group (NO new session): when the
+        # parent or its group is killed -- a container stop, or the test harness
+        # signalling the whole group -- vLLM and its EngineCore workers are reaped
+        # too, instead of orphaning a server that keeps holding the port and GPU.
         self._proc = subprocess.Popen(
-            cmd, stdout=self._log, stderr=subprocess.STDOUT, start_new_session=True
+            cmd, stdout=self._log, stderr=subprocess.STDOUT, env=env
         )
         atexit.register(self.shutdown)
         self._wait_until_ready(log_path)
+
+    def _port_in_use(self):
+        import socket
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            return sock.connect_ex((self.host, self.port)) == 0
+
+    def _wait_port_free(self, timeout=15):
+        import time
+
+        deadline = time.time() + timeout
+        while self._port_in_use():
+            if time.time() >= deadline:
+                raise RuntimeError(
+                    f"Port {self.port} on {self.host} is still in use after "
+                    f"{timeout}s (an orphaned vLLM server may still be running). "
+                    f"Free it, or set a different VLLM_SERVE_PORT."
+                )
+            time.sleep(1)
 
     def _wait_until_ready(self, log_path):
         import time
@@ -465,29 +512,20 @@ class VllmServeBackend:
         # response language fall back accordingly).
         return text, language
 
-    @staticmethod
-    def _signal_group(proc, sig):
-        """Signal the subprocess's whole process group, falling back to the
-        single process (e.g. if the group could not be created)."""
-        try:
-            os.killpg(os.getpgid(proc.pid), sig)
-        except (ProcessLookupError, PermissionError, OSError, AttributeError):
-            try:
-                proc.send_signal(sig)
-            except (ProcessLookupError, OSError):
-                pass
-
     def shutdown(self):
-        """Stop the vLLM server and its workers (idempotent; runs at exit)."""
-        import signal
-
+        """Stop the vLLM server (idempotent; runs at exit). SIGTERM lets vLLM reap
+        its own EngineCore workers; escalate to SIGKILL if it does not exit."""
         proc = self._proc
         if proc is not None and proc.poll() is None:
-            self._signal_group(proc, signal.SIGTERM)
+            proc.terminate()
             try:
                 proc.wait(timeout=30)
             except Exception:  # noqa: BLE001 -- escalate to SIGKILL on any wait issue
-                self._signal_group(proc, signal.SIGKILL)
+                proc.kill()
+                try:
+                    proc.wait(timeout=5)
+                except Exception:  # noqa: BLE001
+                    pass
         if self._log is not None:
             try:
                 self._log.close()

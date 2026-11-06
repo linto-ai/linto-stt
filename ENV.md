@@ -123,7 +123,7 @@ The `transformers` engine serves Hugging Face transformers-native ASR models
 | `VLLM_KV_CACHE_MEMORY_BYTES` | _(unset)_ | (`BACKEND=vllm`, optional) Absolute KV-cache budget in bytes (vLLM `kv_cache_memory_bytes`). When set, pins the KV cache size directly instead of deriving it from `VLLM_GPU_MEMORY_UTILIZATION`, preferable on unified-memory / shared GPUs where a relative fraction is awkward. `gpu_memory_utilization` still bounds the total reservation (weights + activations + KV) |
 | `VLLM_ENFORCE_EAGER` | `false` | (`BACKEND=vllm`, optional) Skip torch.compile + CUDA-graph capture. Uses less VRAM and starts almost instantly (no ~minute compile) at some throughput cost, useful on memory-tight GPUs. Note: with graphs enabled (default), the 1.7B model needs a higher `VLLM_GPU_MEMORY_UTILIZATION` (e.g. ≥0.8) on a 16 GB GPU |
 | `VLLM_SERVE_HOST` | `127.0.0.1` | (`BACKEND=vllm`) Host the managed `vllm serve` subprocess binds to (loopback by default; the engine talks to it in-process) |
-| `VLLM_SERVE_PORT` | `8000` | (`BACKEND=vllm`) Port for the managed `vllm serve` subprocess. Change it if 8000 is taken |
+| `VLLM_SERVE_PORT` | _(auto)_ | (`BACKEND=vllm`) Port for the managed `vllm serve` subprocess. Unset picks a free port per server (so a leftover/orphaned server never blocks a new one); set it to pin a fixed port |
 | `VLLM_SERVE_STARTUP_TIMEOUT` | `900` | (`BACKEND=vllm`) Seconds to wait for the server to become healthy (model load) before failing |
 | `VLLM_SERVE_REQUEST_TIMEOUT` | `600` | (`BACKEND=vllm`) Per-request HTTP timeout in seconds (long audio is chunked server-side) |
 | `VLLM_SERVE_EXTRA_ARGS` | _(unset)_ | (`BACKEND=vllm`, optional) Extra arguments appended verbatim to the `vllm serve` command line (e.g. `--max-num-seqs 8`) |

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from helpers.env_setup import build_env_dict
-from helpers.server_runner import UVServerRunner, DockerServerRunner, find_free_port
+from helpers.server_runner import UVServerRunner, DockerServerRunner
 
 
 # Error signatures that mean "this host can't run CUDA inside a Docker container"

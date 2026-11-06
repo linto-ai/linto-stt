@@ -18,6 +18,36 @@ def find_free_port() -> int:
         return s.getsockname()[1]
 
 
+def _pgid_alive(pgid: int) -> bool:
+    """True while any process remains in the group `pgid`."""
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def _signal_and_drain_group(pgid: int, timeout: float = 25.0) -> None:
+    """SIGTERM the whole group, then WAIT for every process to exit, escalating to
+    SIGKILL. The transformers engine's vLLM backend spawns a `vllm serve`
+    grandchild (same group) that outlives `uv run`/main.py and keeps holding the
+    GPU while it shuts down; if the next GPU test starts before that VRAM is
+    released it can OOM. Draining the group here makes teardown fully release the
+    GPU before the fixture returns."""
+    for sig, wait_s in ((signal.SIGTERM, timeout), (signal.SIGKILL, 5.0)):
+        try:
+            os.killpg(pgid, sig)
+        except ProcessLookupError:
+            return
+        deadline = time.monotonic() + wait_s
+        while _pgid_alive(pgid) and time.monotonic() < deadline:
+            time.sleep(0.5)
+        if not _pgid_alive(pgid):
+            return
+
+
 # Markers in server logs that mean startup has fatally failed — used to fail a
 # health-check fast instead of waiting out the whole timeout.
 _FATAL_LOG_MARKERS = (
@@ -266,16 +296,12 @@ class UVServerRunner:
         except ProcessLookupError:
             self.process = None
             return
+        # Drain the whole group (main.py AND the detached vLLM server holding the
+        # GPU), so the next GPU test starts with VRAM released.
+        _signal_and_drain_group(pgid)
         try:
-            os.killpg(pgid, signal.SIGTERM)
-            self.process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(pgid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
             self.process.wait(timeout=5)
-        except ProcessLookupError:
+        except (subprocess.TimeoutExpired, ProcessLookupError):
             pass
         self.process = None
         if self._log_file:
@@ -392,6 +418,10 @@ class DockerServerRunner:
 
         if self.use_gpu:
             cmd.extend(["--gpus", "all"])
+            # The transformers engine's default vLLM backend spawns EngineCore
+            # workers that talk over shared memory; the default 64MB /dev/shm is
+            # too small and triggers bus errors, so enlarge it for GPU containers.
+            cmd.extend(["--shm-size", "2g"])
 
         for host_path, container_path in self.volumes.items():
             cmd.extend(["-v", f"{host_path}:{container_path}"])

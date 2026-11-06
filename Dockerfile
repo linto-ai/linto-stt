@@ -78,6 +78,10 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ffmpeg; \
   fi \
+  && if [ "$STT_ENGINE" = "transformers" ] && [ -n "$GPU" ]; then \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    gcc g++; \
+  fi \
   && apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 

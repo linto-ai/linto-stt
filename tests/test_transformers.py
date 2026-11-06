@@ -65,7 +65,13 @@ class TestTransformersCapabilities:
     """Model-capability detection from the processor signature (NOT the model
     name). Cheap: loads only the processors (no model weights, no GPU)."""
 
-    def test_capabilities_detected_from_processor(self):
+    def test_capabilities_detected_from_processor(self, monkeypatch):
+        # Importing the engine package runs its module-level warmup on GPU, which
+        # with the default BACKEND=vllm would start a vLLM server. Force CPU + the
+        # transformers backend so the import stays cheap (no warmup, no server).
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
         pytest.importorskip("transformers")
         pytest.importorskip("librosa")  # Cohere's processor needs it
 

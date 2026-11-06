@@ -151,6 +151,10 @@ it runs the default `vllm` backend out of the box, and the in-process
 only the lean `transformers` extra (no vLLM), so that image **must** be run with
 `BACKEND=transformers` (vLLM needs a GPU).
 
+When running the GPU image with the `vllm` backend, give the container enough
+shared memory (vLLM's workers use `/dev/shm`): add `--shm-size=2g` (or
+`--ipc=host`) to `docker run`, or it may fail with a bus error.
+
 ## Notes / limitations
 
 - **GPU strongly recommended.** The model is an LLM-based ASR; CPU inference is
