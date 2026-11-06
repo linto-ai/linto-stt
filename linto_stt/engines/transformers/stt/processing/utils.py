@@ -26,16 +26,15 @@ def get_device():
 def get_language(language=None):
     """Resolve the request/LANGUAGE-env language into the form Qwen3-ASR expects.
 
-    Returns a 2-letter ISO code (e.g. "fr") or None for automatic detection.
-    Qwen's apply_transcription_request() accepts both ISO codes and full English
-    names; we normalise to the ISO code, and `*` / unset means auto-detect.
+    Returns a short ISO code (e.g. "fr") or None for automatic detection.
+    Accepts an ISO code ("fr"), a BCP-47 tag ("fr-FR") or a full English name
+    ("French"), as documented for `LANGUAGE`; `*` / unset means auto-detect.
+    Always normalise to the code: the vLLM transcription endpoint only accepts
+    ISO 639-1 codes, so a full name would be rejected there.
     """
     if language is None:
         language = os.environ.get("LANGUAGE", "*")
-    language = language.split("-")[0]  # "fr-FR" -> "fr"
-    if language in ("*", "", "None", "none"):
-        return None
-    return language.lower()
+    return normalize_language_code(language)
 
 
 # Full English language names (lowercased) -> ISO code, for the languages the
