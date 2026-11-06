@@ -36,13 +36,15 @@ and the [LINAGORA ASR benchmark](https://linagora-labs.github.io/asr_benchmark/)
 
 The ASR step runs on a backend selected by `BACKEND`:
 
-- `transformers` (default): in-process Hugging Face `transformers`. Supports every
-  model (Qwen3-ASR + Cohere). Install with `uv sync --extra transformers`.
-- `vllm`: a managed [vLLM](https://docs.vllm.ai) `vllm serve` **subprocess** that
-  the engine starts and talks to over HTTP (`/v1/audio/transcriptions`), for
-  higher throughput. One server per worker, started inside the container; no
-  external service to run. Supports every vLLM-servable model, **including Cohere**
-  (encoder-decoder). **CUDA GPU** only.
+- `vllm` (default): a managed [vLLM](https://docs.vllm.ai) `vllm serve`
+  **subprocess** that the engine starts and talks to over HTTP
+  (`/v1/audio/transcriptions`), for higher throughput. One server per worker,
+  started inside the container; no external service to run. Supports every
+  vLLM-servable model, **including Cohere** (encoder-decoder). **CUDA GPU** only;
+  needs the `vllm` extra.
+- `transformers`: in-process Hugging Face `transformers`. Supports every model
+  (Qwen3-ASR + Cohere) and runs on CPU too (the portable fallback). Install with
+  `uv sync --extra transformers`.
 - `vllm_offline`: in-process vLLM (`vllm.LLM`). **Qwen3-ASR only** (it builds a
   decoder-only prompt), kept mainly to benchmark the in-process path against the
   `vllm` serve path. CUDA GPU only.
@@ -116,18 +118,20 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
 
 ## Running
 
+Default backend (`vllm`, GPU):
+
 ```sh
-uv sync --extra transformers
+uv sync --extra vllm
 MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda uv run main.py -m http -e transformers -p 8080 -i 127.0.0.1
 # transcribe:
 curl -s -X POST "http://127.0.0.1:8080/transcribe?language=fr" -F "file=@tests/bonjour.wav"
 ```
 
-With the vLLM backend (GPU):
+Transformers backend (in-process HF; runs on CPU too):
 
 ```sh
-uv sync --extra vllm
-MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=vllm uv run main.py -m http -e transformers -p 8080 -i 127.0.0.1
+uv sync --extra transformers
+MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=transformers uv run main.py -m http -e transformers -p 8080 -i 127.0.0.1
 ```
 
 Docker:

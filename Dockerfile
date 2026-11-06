@@ -1,5 +1,5 @@
 ################################################################################
-# Builder stage — compiles native extensions (PyAudio), installs all Python deps
+# Builder stage: compiles native extensions (PyAudio), installs all Python deps
 ################################################################################
 FROM python:3.12-slim AS builder
 
@@ -25,7 +25,11 @@ WORKDIR /usr/src/app
 
 # Install Python dependencies (cached as long as pyproject.toml/uv.lock don't change)
 COPY pyproject.toml uv.lock ./
-RUN uv export --extra "$STT_ENGINE" --no-emit-project --no-hashes --frozen > requirements.txt && \
+# The transformers engine ships the vLLM backend as its default, so it installs
+# the `vllm` extra (a superset that also covers the in-process `transformers`
+# backend). Other engines install their own extra.
+RUN if [ "$STT_ENGINE" = "transformers" ]; then EXTRA="vllm"; else EXTRA="$STT_ENGINE"; fi && \
+    uv export --extra "$EXTRA" --no-emit-project --no-hashes --frozen > requirements.txt && \
     uv pip install --system --no-cache -r requirements.txt
 
 # Optional: install recasepunc (torch CPU + transformers)
@@ -43,7 +47,7 @@ RUN if [ -n "$GPU" ]; then \
     fi
 
 ################################################################################
-# Runtime stage — minimal image with only runtime dependencies
+# Runtime stage: minimal image with only runtime dependencies
 ################################################################################
 FROM python:3.12-slim
 
