@@ -14,6 +14,7 @@ The following STT engines are supported (see each README for engine-specific det
 | ---------------------------------------------- | ------------------------ | --------------------- |
 | [NeMo](linto_stt/engines/nemo/README.md)       | NVIDIA NeMo toolkit      | http, websocket, task |
 | [Whisper](linto_stt/engines/whisper/README.md) | OpenAI Whisper models    | http, websocket, task |
+| [Transformers](linto_stt/engines/transformers/README.md) | Hugging Face `transformers` ASR models (Qwen3-ASR, Cohere Transcribe, Whisper, Voxtral, ...), served with vLLM or in-process | http, task |
 | [Kaldi](linto_stt/engines/kaldi/README.md)     | Kaldi/Vosk toolkit       | http, websocket, task |
 | [Kyutai](linto_stt/engines/kyutai/README.md)   | Kyutai Moshi STT wrapper | websocket only        |
 
@@ -26,7 +27,8 @@ apt install python3-pyaudio portaudio19-dev
 ```
 
 ```sh
-uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|kyutai|recasepunc]
+uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|transformers|vllm|kyutai|recasepunc]
+# transformers engine: `vllm` (GPU, default backend) or `transformers` (CPU-capable backend)
 ```
 
 ### Docker
@@ -81,10 +83,10 @@ docker run -e SERVICE_MODE=task -e STT_ENGINE=nemo \
 
 ```sh
 # HTTP / Websocket
-uv run main.py -m [http|websocket] -e [kaldi|whisper|nemo|kyutai] -p [listening_port] -i [listening_ip]
+uv run main.py -m [http|websocket] -e [kaldi|whisper|nemo|transformers|kyutai] -p [listening_port] -i [listening_ip]
 
 # Celery
-uv run main.py -m task -e [kaldi|whisper|nemo]
+uv run main.py -m task -e [kaldi|whisper|nemo|transformers]
 ```
 
 ## Serving Modes
@@ -141,7 +143,7 @@ Transcription endpoint.
 - **Content-Type**: `multipart/form-data`
 - **File**: Audio file (WAV 16bit 16kHz recommended)
 - **Language** (optional query param): Override the `LANGUAGE` environment variable
-- **Hotwords** (optional query param): Override the `HOTWORDS` environment variable (Whisper)
+- **Hotwords** (optional query param): Override the `HOTWORDS` environment variable (Whisper and Transformers engines)
 
 Response (`Accept: application/json`):
 
@@ -275,7 +277,7 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 
 | Option             | Description                                                 |
 | ------------------ | ----------------------------------------------------------- |
-| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`) |
+| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`, `transformers`) |
 | `--device`         | Target device: `cpu` (default) or `cuda`                    |
 | `--uv-only`        | Only run UV-based tests (skip Docker)                       |
 | `--docker-only`    | Only run Docker-based tests                                 |
@@ -290,6 +292,8 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 | `nemo`    | Engine NeMo                                 |
 | `whisper` | Engine Whisper                              |
 | `kaldi`   | Engine Kaldi                                |
+| `transformers` | Engine Transformers                    |
+| `vllm`    | Transformers engine on the vLLM backend (needs the `vllm` extra) |
 | `docker`  | Tests that build and run a Docker container |
 | `uv`      | Tests via UV subprocess                     |
 | `gpu`     | Requires CUDA                               |
