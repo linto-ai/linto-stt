@@ -105,7 +105,7 @@ test = [
 # e.g. `uv sync --extra transformers`). Declaring them as conflicting lets uv
 # resolve each independently instead of demanding one dependency set that
 # satisfies all. Required because the `transformers` extra pins
-# transformers>=5.13 while `nemo` pins NeMo's (4.x) transformers — the two
+# transformers>=5.13 while `nemo` pins NeMo's (4.x) transformers; the two
 # cannot co-resolve.
 conflicts = [
     [
