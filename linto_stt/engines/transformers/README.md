@@ -10,11 +10,15 @@ capabilities from its processor, so it supports several ASR models.
 `MODEL` is any transformers-native ASR checkpoint; the family is detected from its
 `model_type`.
 
-| Model (`model_type`) | `MODEL` id(s) | vLLM backend | Auto language detect | Force language | Hotwords |
-|---|---|:---:|:---:|:---:|:---:|
-| **Qwen3-ASR** (`qwen3_asr`) | `Qwen/Qwen3-ASR-1.7B-hf` (default), `Qwen/Qwen3-ASR-0.6B-hf` | ✅ | ✅ | ✅ | ✅ |
-| **Cohere Transcribe** (`cohere_asr`) | `CohereLabs/cohere-transcribe-03-2026` | ✅ \* | ❌ | ✅ | ❌ |
+| Model (`model_type`) | `MODEL` id(s) | Auto language detect | Force language | Hotwords |
+|---|---|:---:|:---:|:---:|
+| **Qwen3-ASR** (`qwen3_asr`) | `Qwen/Qwen3-ASR-1.7B-hf` (default), `Qwen/Qwen3-ASR-0.6B-hf` | ✅ | ✅ | ✅ |
+| **Cohere Transcribe** (`cohere_asr`) | `CohereLabs/cohere-transcribe-03-2026` | ❌ | ✅ | ❌ |
+| **Whisper** (`whisper`) \* | `openai/whisper-large-v3`, `openai/whisper-large-v3-turbo` | ✅ | ✅ | ❌ |
 
+- **Both backends.** Listed models run on both the `transformers` and `vllm`
+  backends, **except Whisper** (\*), which currently runs on the `vllm` (serve)
+  backend only (its in-process `transformers` support is not wired yet).
 - **Word-level timestamps** (via the forced aligner) work for *every* model.
 - **Capabilities are detected from the model's processor signature, not its
   name**, so a request asking for an unsupported feature (hotwords on a model
@@ -22,14 +26,13 @@ capabilities from its processor, so it supports several ASR models.
   rejected with a clear error.
 - For Qwen the `-hf` (transformers) variant is used, not the plain
   `Qwen/Qwen3-ASR-1.7B` repo, which targets the separate `qwen-asr` package.
-- \* On vLLM, Cohere runs only on the `vllm` **serve** backend (it is an
-  encoder-decoder); the in-process `vllm_offline` backend is Qwen-only. See
-  **Backends** below.
 
 All require **transformers >= 5.13** (the `transformers` / `vllm` extra); seq2seq
-models (Cohere) also use `librosa` (included). Adding another transformers-native
-ASR model means extending the family dispatch in `load_model.py` / `backends.py`;
-candidates: the [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard)
+models (Cohere, Whisper) also use `librosa` (included). The `vllm` backend can
+serve any vLLM-servable ASR model (so more models are mostly a matter of listing
+and validating them); the in-process `transformers` backend needs a per-family
+code branch. Candidates come from the
+[Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard)
 and the [LINAGORA ASR benchmark](https://linagora-labs.github.io/asr_benchmark/).
 
 ## Backends
@@ -40,16 +43,12 @@ The ASR step runs on a backend selected by `BACKEND`:
   **subprocess** that the engine starts and talks to over HTTP
   (`/v1/audio/transcriptions`), for higher throughput. One server per worker,
   started inside the container; no external service to run. Supports every
-  vLLM-servable model, **including Cohere** (encoder-decoder). **CUDA GPU** only;
-  needs the `vllm` extra.
-- `transformers`: in-process Hugging Face `transformers`. Supports every model
-  (Qwen3-ASR + Cohere) and runs on CPU too (the portable fallback). Install with
-  `uv sync --extra transformers`.
-- `vllm_offline`: in-process vLLM (`vllm.LLM`). **Qwen3-ASR only** (it builds a
-  decoder-only prompt), kept mainly to benchmark the in-process path against the
-  `vllm` serve path. CUDA GPU only.
+  vLLM-servable ASR model. **CUDA GPU** only; install with `uv sync --extra vllm`.
+- `transformers`: in-process Hugging Face `transformers`. Runs on CPU too (the
+  portable fallback), but does not cover `vllm`-only models such as Whisper.
+  Install with `uv sync --extra transformers`.
 
-The two vLLM backends install with `uv sync --extra vllm` (vLLM is pinned to a
+The `vllm` backend installs with `uv sync --extra vllm` (vLLM is pinned to a
 version that still allows the aligner's transformers). vLLM uses the non-`-hf`
 checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf` id automatically. Tune
 with `VLLM_GPU_MEMORY_UTILIZATION` (fraction of VRAM) or
@@ -59,8 +58,8 @@ limit). The serve backend also reads `VLLM_SERVE_HOST` / `VLLM_SERVE_PORT` and
 `VLLM_SERVE_EXTRA_ARGS` (see `ENV.md`).
 
 Everything else (language selection, hotwords, long-audio chunking, and word
-timestamps, always via the transformers forced aligner) is shared, so the
-backends can be benchmarked against each other by flipping `BACKEND`.
+timestamps, always via the transformers forced aligner) is shared between the two
+backends.
 
 ## Language
 
@@ -77,6 +76,7 @@ The set of languages is model-specific:
 |---|:---:|---|
 | **Qwen3-ASR** | 30 (+ 22 Chinese dialects) | `zh, en, yue, ar, de, fr, es, pt, id, it, ko, ru, th, vi, ja, tr, hi, ms, nl, sv, da, fi, pl, cs, fil, fa, el, hu, mk, ro` |
 | **Cohere Transcribe** | 14 | `en, fr, de, it, es, pt, el, nl, pl, zh, ja, ko, vi, ar` |
+| **Whisper** (large-v3) | 99 | multilingual; too many to list, see the [model card](https://huggingface.co/openai/whisper-large-v3) |
 
 The order follows each model card and is **not** a published best-to-worst
 ranking (Qwen lists Chinese/English first; Cohere groups by region: European,
@@ -139,6 +139,11 @@ Docker:
 ```sh
 docker build -t linto-stt-transformers --build-arg STT_ENGINE=transformers --build-arg GPU=1 .
 ```
+
+The transformers engine image installs the `vllm` extra (a superset), so it runs
+the default `vllm` backend on a GPU out of the box, and the in-process
+`transformers` backend (`BACKEND=transformers`) works in the same image (set it
+to run on CPU).
 
 ## Notes / limitations
 

@@ -99,6 +99,7 @@ def _model_derived_max_len(model_name):
     keys = (
         "max_position_embeddings", "n_positions", "max_seq_len", "seq_length",
         "max_sequence_length", "max_seq_length", "model_max_length",
+        "max_target_positions",  # Whisper's decoder limit (448); not max_source_positions
     )
     sub_names = ("text_config", "thinker_config", "decoder_config", "llm_config")
     configs = [config] + [
