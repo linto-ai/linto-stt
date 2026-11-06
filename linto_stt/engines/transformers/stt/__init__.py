@@ -15,9 +15,13 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 # --- Qwen3-ASR decoding knobs (documented in ENV.md and the engine README) ---
 
-# Inference backend. Only "transformers" is implemented for now; "vllm" is a
-# planned alternative (see decoding.py). Kept as a seam so the backend is
-# swappable without touching the engine contract.
+# Inference backend (see backends.py). One of:
+#   "transformers"  in-process Hugging Face transformers (Qwen3-ASR + Cohere).
+#   "vllm"          a managed `vllm serve` subprocess, over HTTP (Qwen3-ASR +
+#                   Cohere); higher throughput, GPU only.
+#   "vllm_offline"  in-process `vllm.LLM` (Qwen3-ASR only); kept to benchmark
+#                   against the "vllm" serve backend.
+# A seam so the backend is swappable without touching the engine contract.
 BACKEND = os.environ.get("BACKEND", "transformers").lower()
 
 # Compute dtype of the model weights.

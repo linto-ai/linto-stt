@@ -52,21 +52,29 @@ def load_asr_model(model_name, device, dtype="bfloat16", attn_implementation=Non
 
 
 def load_asr_backend(backend, model_name, device, dtype="bfloat16", attn_implementation=None):
-    """Build the ASR backend selected by `BACKEND` ("transformers" or "vllm").
+    """Build the ASR backend selected by `BACKEND`.
+
+    - ``transformers``: in-process Hugging Face transformers (Qwen3-ASR + Cohere).
+    - ``vllm``: a managed ``vllm serve`` subprocess, over HTTP (Qwen3-ASR + Cohere).
+    - ``vllm_offline``: in-process ``vllm.LLM`` (Qwen3-ASR only), for benchmarking
+      against the ``vllm`` serve backend.
 
     Returns an object exposing ``transcribe(audio, language, prompt) ->
     (text, detected_language)``. The forced aligner (word timestamps) is loaded
     separately and is the same regardless of backend.
     """
-    from .backends import TransformersASRBackend, VllmASRBackend
+    from .backends import TransformersASRBackend, VllmASRBackend, VllmServeBackend
 
     if backend == "transformers":
         processor, model = load_asr_model(model_name, device, dtype, attn_implementation)
         return TransformersASRBackend(processor, model)
     if backend == "vllm":
+        return VllmServeBackend(model_name, device, dtype=dtype)
+    if backend == "vllm_offline":
         return VllmASRBackend(model_name, device, dtype=dtype)
     raise ValueError(
-        f"Unknown BACKEND={backend!r} (expected 'transformers' or 'vllm')"
+        f"Unknown BACKEND={backend!r} "
+        "(expected 'transformers', 'vllm' or 'vllm_offline')"
     )
 
 

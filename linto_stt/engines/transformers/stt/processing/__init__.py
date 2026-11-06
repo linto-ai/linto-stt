@@ -37,8 +37,9 @@ def warmup():
 class LazyLoadedModel:
     """Load the ASR backend lazily on first use, so importing the engine (and
     reading its config) stays cheap. Exposes `.asr`, the backend selected by
-    `BACKEND` ("transformers" or "vllm"), whose `.transcribe()` turns a segment
-    into (text, detected_language).
+    `BACKEND` ("transformers", "vllm" serve subprocess, or "vllm_offline"
+    in-process), whose `.transcribe()` turns a segment into
+    (text, detected_language).
 
     The companion forced-alignment model (for word-level timestamps) is loaded
     separately and even more lazily: only on the first request that asks for word
@@ -64,11 +65,13 @@ class LazyLoadedModel:
             lockfile = os.path.basename(self.model_name) + ".lock"
             with FileLock(lockfile):
                 if self._asr is None:
-                    # Constructing the vLLM engine patches transformers' Qwen3ASR
-                    # config, after which the transformers forced aligner can no
-                    # longer be *loaded*. So load the aligner first (while the
-                    # registry is clean); the already-loaded model then runs fine.
-                    if BACKEND == "vllm" and self.aligner_model_name:
+                    # Constructing the in-process vLLM engine patches transformers'
+                    # Qwen3ASR config, after which the transformers forced aligner
+                    # can no longer be *loaded*. So load the aligner first (while
+                    # the registry is clean); the already-loaded model then runs
+                    # fine. The "vllm" serve backend runs vLLM in a subprocess and
+                    # does not patch this process, so only "vllm_offline" needs it.
+                    if BACKEND == "vllm_offline" and self.aligner_model_name:
                         self.check_aligner_loaded()
                     self._asr = load_asr_backend(
                         BACKEND,

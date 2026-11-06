@@ -13,7 +13,7 @@ capabilities from its processor, so it supports several ASR models.
 | Model (`model_type`) | `MODEL` id(s) | vLLM backend | Auto language detect | Force language | Hotwords |
 |---|---|:---:|:---:|:---:|:---:|
 | **Qwen3-ASR** (`qwen3_asr`) | `Qwen/Qwen3-ASR-1.7B-hf` (default), `Qwen/Qwen3-ASR-0.6B-hf` | ✅ | ✅ | ✅ | ✅ |
-| **Cohere Transcribe** (`cohere_asr`) | `CohereLabs/cohere-transcribe-03-2026` | ❌ | ❌ | ✅ | ❌ |
+| **Cohere Transcribe** (`cohere_asr`) | `CohereLabs/cohere-transcribe-03-2026` | ✅ \* | ❌ | ✅ | ❌ |
 
 - **Word-level timestamps** (via the forced aligner) work for *every* model.
 - **Capabilities are detected from the model's processor signature, not its
@@ -22,8 +22,9 @@ capabilities from its processor, so it supports several ASR models.
   rejected with a clear error.
 - For Qwen the `-hf` (transformers) variant is used, not the plain
   `Qwen/Qwen3-ASR-1.7B` repo, which targets the separate `qwen-asr` package.
-- The `vllm` backend runs only the **Qwen3-ASR** family for now (it loads Cohere
-  as an encoder-decoder, which this backend does not yet wire).
+- \* On vLLM, Cohere runs only on the `vllm` **serve** backend (it is an
+  encoder-decoder); the in-process `vllm_offline` backend is Qwen-only. See
+  **Backends** below.
 
 All require **transformers >= 5.13** (the `transformers` / `vllm` extra); seq2seq
 models (Cohere) also use `librosa` (included). Adding another transformers-native
@@ -35,24 +36,29 @@ and the [LINAGORA ASR benchmark](https://linagora-labs.github.io/asr_benchmark/)
 
 The ASR step runs on a backend selected by `BACKEND`:
 
-- `transformers` (default): in-process Hugging Face `transformers`. Install with
-  `uv sync --extra transformers`.
-- `vllm`: in-process [vLLM](https://docs.vllm.ai) (`vllm.LLM`), for higher
-  throughput. Install with `uv sync --extra vllm` (vLLM is pinned to a version
-  that still allows the aligner's transformers) and run on a **CUDA GPU**. vLLM
-  uses the non-`-hf` checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf`
-  id automatically. Tunable via `VLLM_GPU_MEMORY_UTILIZATION` (fraction of VRAM)
-  or `VLLM_KV_CACHE_MEMORY_BYTES` (absolute KV-cache budget, better on
-  unified-memory / shared GPUs), and `VLLM_MAX_MODEL_LEN` (see `ENV.md`).
+- `transformers` (default): in-process Hugging Face `transformers`. Supports every
+  model (Qwen3-ASR + Cohere). Install with `uv sync --extra transformers`.
+- `vllm`: a managed [vLLM](https://docs.vllm.ai) `vllm serve` **subprocess** that
+  the engine starts and talks to over HTTP (`/v1/audio/transcriptions`), for
+  higher throughput. One server per worker, started inside the container; no
+  external service to run. Supports every vLLM-servable model, **including Cohere**
+  (encoder-decoder). **CUDA GPU** only.
+- `vllm_offline`: in-process vLLM (`vllm.LLM`). **Qwen3-ASR only** (it builds a
+  decoder-only prompt), kept mainly to benchmark the in-process path against the
+  `vllm` serve path. CUDA GPU only.
+
+The two vLLM backends install with `uv sync --extra vllm` (vLLM is pinned to a
+version that still allows the aligner's transformers). vLLM uses the non-`-hf`
+checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf` id automatically. Tune
+with `VLLM_GPU_MEMORY_UTILIZATION` (fraction of VRAM) or
+`VLLM_KV_CACHE_MEMORY_BYTES` (absolute KV-cache budget, better on unified-memory /
+shared GPUs), and `VLLM_MAX_MODEL_LEN` (context cap, kept within each model's own
+limit). The serve backend also reads `VLLM_SERVE_HOST` / `VLLM_SERVE_PORT` and
+`VLLM_SERVE_EXTRA_ARGS` (see `ENV.md`).
 
 Everything else (language selection, hotwords, long-audio chunking, and word
-timestamps, always via the transformers forced aligner) is shared, so the two
+timestamps, always via the transformers forced aligner) is shared, so the
 backends can be benchmarked against each other by flipping `BACKEND`.
-
-The `vllm` backend currently supports only the **Qwen3-ASR** family; seq2seq
-models (e.g. Cohere) run on the `transformers` backend (vLLM runs them as
-encoder-decoder models, which this backend does not yet wire). `BACKEND=vllm`
-with such a model fails with a clear error.
 
 ## Language
 
@@ -135,7 +141,7 @@ docker build -t linto-stt-transformers --build-arg STT_ENGINE=transformers --bui
 - **GPU strongly recommended.** The model is an LLM-based ASR; CPU inference is
   slow.
 - **No WebSocket/streaming** (it would need vLLM's realtime API, which is not
-  wired here; the `vllm` backend is offline-only).
+  wired here; the vLLM backends are used for offline transcription only).
 - **Word timestamps** come from the forced-alignment model (see above), which
   runs only on metadata requests. Disable it with `ALIGNER_MODEL=none`.
 - **Long audio**: files longer than `LONG_FILE_THRESHOLD` seconds are transcribed

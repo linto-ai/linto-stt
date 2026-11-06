@@ -123,13 +123,16 @@ class TestTransformersLanguages:
 COHERE_MODEL = "CohereLabs/cohere-transcribe-03-2026"
 
 
-def _cohere_config(language, id):
+def _cohere_config(language, id, backend="transformers"):
+    env = {"MODEL": COHERE_MODEL, "LANGUAGE": language, "DEVICE": "cuda"}
+    if backend != "transformers":
+        env["BACKEND"] = backend
     return pytest.param(
         {
             "engine": "transformers",
             "mode": "http",
             "port": 0,
-            "env_overrides": {"MODEL": COHERE_MODEL, "LANGUAGE": language, "DEVICE": "cuda"},
+            "env_overrides": env,
         },
         id=id,
     )
@@ -260,7 +263,7 @@ class TestTransformersHotwords:
 
 
 # ---------------------------------------------------------------------------
-# UV tests - vLLM backend (BACKEND=vllm; needs the `vllm` extra + a CUDA GPU)
+# UV tests - vLLM backends (need the `vllm` extra + a CUDA GPU)
 # ---------------------------------------------------------------------------
 
 
@@ -270,8 +273,10 @@ class TestTransformersHotwords:
 @pytest.mark.gpu
 @pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
 class TestTransformersVllmBackend:
-    """The transformers engine with BACKEND=vllm: in-process vLLM for ASR, the
-    transformers forced aligner for word timestamps. Requires the `vllm` extra
+    """The transformers engine on the vLLM backends, with the transformers forced
+    aligner for word timestamps. `BACKEND=vllm` runs a managed `vllm serve`
+    subprocess over HTTP (Qwen3-ASR + Cohere); `BACKEND=vllm_offline` runs
+    in-process `vllm.LLM` (Qwen only). Requires the `vllm` extra
     (`uv sync --extra vllm --extra test`) and a CUDA GPU. vLLM startup is slow, so
     use a generous `--server-timeout` on the first (uncached) run."""
 
@@ -281,6 +286,33 @@ class TestTransformersVllmBackend:
         indirect=True,
     )
     def test_integration(self, uv_server, test_audio_bonjour):
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+            f"Unexpected transcription: {result}"
+        )
+
+    @pytest.mark.parametrize(
+        "uv_server",
+        [_config("cuda", {"LANGUAGE": "fr", "BACKEND": "vllm_offline"}, id="vllm-offline-fr")],
+        indirect=True,
+    )
+    def test_offline_integration(self, uv_server, test_audio_bonjour):
+        """The in-process vLLM backend (BACKEND=vllm_offline, Qwen only)."""
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+            f"Unexpected transcription: {result}"
+        )
+
+    @pytest.mark.parametrize(
+        "uv_server",
+        [_cohere_config("fr", "vllm-cohere-fr", backend="vllm")],
+        indirect=True,
+    )
+    def test_cohere_integration(self, uv_server, test_audio_bonjour):
+        """Cohere (encoder-decoder) served by the `vllm serve` subprocess backend.
+
+        Only the serve backend runs Cohere on vLLM; `vllm_offline` is Qwen-only.
+        """
         result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
