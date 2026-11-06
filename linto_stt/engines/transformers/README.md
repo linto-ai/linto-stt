@@ -48,6 +48,11 @@ The ASR step runs on a backend selected by `BACKEND`:
   portable fallback), but does not cover `vllm`-only models such as Whisper.
   Install with `uv sync --extra transformers`.
 
+> **On CPU you must set `BACKEND=transformers`.** The default backend is `vllm`,
+> which requires a CUDA GPU, so a CPU run (or a CPU Docker image, built without
+> `GPU=1`, which does not install vLLM) has to select the `transformers` backend
+> explicitly.
+
 The `vllm` backend installs with `uv sync --extra vllm` (vLLM is pinned to a
 version that still allows the aligner's transformers). vLLM uses the non-`-hf`
 checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf` id automatically. Tune
@@ -140,15 +145,18 @@ Docker:
 docker build -t linto-stt-transformers --build-arg STT_ENGINE=transformers --build-arg GPU=1 .
 ```
 
-The transformers engine image installs the `vllm` extra (a superset), so it runs
-the default `vllm` backend on a GPU out of the box, and the in-process
-`transformers` backend (`BACKEND=transformers`) works in the same image (set it
-to run on CPU).
+A **GPU build** (`--build-arg GPU=1`) installs the `vllm` extra (a superset), so
+it runs the default `vllm` backend out of the box, and the in-process
+`transformers` backend works in the same image. A **CPU build** (no `GPU`) installs
+only the lean `transformers` extra (no vLLM), so that image **must** be run with
+`BACKEND=transformers` (vLLM needs a GPU).
 
 ## Notes / limitations
 
 - **GPU strongly recommended.** The model is an LLM-based ASR; CPU inference is
-  slow.
+  slow. The default `vllm` backend requires a CUDA GPU, so **on CPU you must set
+  `BACKEND=transformers`** (and a CPU Docker image, built without `GPU=1`, has
+  only that backend).
 - **No WebSocket/streaming** (it would need vLLM's realtime API, which is not
   wired here; the vLLM backends are used for offline transcription only).
 - **Word timestamps** come from the forced-alignment model (see above), which
