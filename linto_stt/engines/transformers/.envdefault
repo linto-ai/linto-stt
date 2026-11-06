@@ -35,8 +35,8 @@ HOTWORDS=
 # EFFICIENCY PARAMETERS
 ############################################
 
-# Device: "cuda" (GPU, recommended) or "cpu".
-DEVICE=cuda
+# Device: "cuda" (GPU, recommended) or "cpu". Empty = cuda if available, else cpu.
+DEVICE=
 
 # Inference backend: "transformers" (default). "vllm" is planned.
 # BACKEND=transformers
