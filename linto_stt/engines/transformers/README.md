@@ -99,9 +99,10 @@ consult each model card's per-language WER figures for relative accuracy.
 Note: the forced aligner used for **word timestamps**
 ([`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf))
 covers only 11 languages (`zh, en, yue, fr, de, it, ja, ko, pt, ru, es`).
-Plain-text transcription of a language outside that set works, but a request
-asking for word timestamps (metadata) in such a language fails with an error
-listing the supported languages (no partial or dummy timestamps are returned).
+For the other languages the aligner is still run, without a language hint (the
+hint only drives how the transcript is split into words; the model itself is
+language-agnostic), with a warning in the logs: timestamps are produced for every
+language, but their accuracy is only validated by Qwen for the 11 above.
 
 ## Hotwords
 

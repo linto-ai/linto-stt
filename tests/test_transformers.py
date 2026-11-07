@@ -420,6 +420,44 @@ class TestTransformersLongFileChunking:
         assert text.replace(" ", "") == text_from_words.replace(" ", "")
 
 
+@pytest.mark.transformers
+@pytest.mark.uv
+@pytest.mark.slow
+class TestTransformersAlignerLanguages:
+    """The forced aligner is tuned for 11 languages but must still give word
+    timestamps for the others (the language is only a word-splitting hint).
+    Runs the real aligner on CPU on a 2s clip."""
+
+    def test_unsupported_language_still_aligned(self, monkeypatch, caplog):
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+
+        import logging
+        from types import SimpleNamespace
+
+        from linto_stt.engines.transformers.stt import ALIGNER_MODEL
+        from linto_stt.engines.transformers.stt.processing import decoding
+        from linto_stt.engines.transformers.stt.processing.load_model import load_aligner_model
+        from linto_stt.engines.transformers.stt.processing.utils import load_audiofile
+
+        processor, aligner = load_aligner_model(ALIGNER_MODEL, device="cpu", dtype="float32")
+        model = SimpleNamespace(aligner_processor=processor, aligner_model=aligner)
+        audio = load_audiofile("tests/bonjour.wav")
+        text = "Bonjour."
+
+        with caplog.at_level(logging.WARNING):
+            words_nl = decoding._align_words(model, audio, text, "nl")  # not in the 11
+        words_fr = decoding._align_words(model, audio, text, "fr")
+
+        assert "without a language hint" in caplog.text
+        assert [w["word"] for w in words_nl] == ["Bonjour."]
+        assert 0 <= words_nl[0]["start"] < words_nl[0]["end"] <= len(audio) / 16000 + 0.1
+        # Same model, same word splitting for a whitespace language: identical result.
+        assert words_nl == words_fr
+
+
 # ---------------------------------------------------------------------------
 # Docker - Celery task mode
 # ---------------------------------------------------------------------------
