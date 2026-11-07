@@ -55,14 +55,24 @@ ATTN_IMPLEMENTATION = os.environ.get("ATTN_IMPLEMENTATION") or None
 # argument (mirrors LANGUAGE/language).
 HOTWORDS = os.environ.get("HOTWORDS") or None
 
-# Companion forced-alignment model (Qwen3-ForcedAligner family) used to produce
-# word-level timestamps. It is only loaded and run when a request asks for
-# metadata (word timestamps); plain-text requests never touch it, so it adds no
-# cost to the fast path. Set ALIGNER_MODEL empty / "none" to disable alignment
-# (the `words` list is then returned empty for metadata requests).
-ALIGNER_MODEL = os.environ.get("ALIGNER_MODEL", "Qwen/Qwen3-ForcedAligner-0.6B-hf")
-if ALIGNER_MODEL.strip().lower() in ("", "none", "false", "0"):
-    ALIGNER_MODEL = None
+# Companion forced aligner used to produce word-level timestamps: a
+# Qwen3-ForcedAligner checkpoint, or "mms" (Meta's language-agnostic MMS CTC
+# aligner, see processing/aligners.py). It is only loaded and run when a request
+# asks for metadata (word timestamps); plain-text requests never touch it, so it
+# adds no cost to the fast path. Set ALIGNER_MODEL empty / "none" to disable
+# alignment (the `words` list is then returned empty for metadata requests).
+# ALIGNER_FALLBACK_MODEL names a second aligner used for the languages the
+# primary one does not cover (e.g. "mms" behind the 11-language Qwen aligner).
+
+
+def _optional_model(name):
+    return None if name.strip().lower() in ("", "none", "false", "0") else name
+
+
+ALIGNER_MODEL = _optional_model(
+    os.environ.get("ALIGNER_MODEL", "Qwen/Qwen3-ForcedAligner-0.6B-hf")
+)
+ALIGNER_FALLBACK_MODEL = _optional_model(os.environ.get("ALIGNER_FALLBACK_MODEL", ""))
 
 
 def set_num_threads(n):

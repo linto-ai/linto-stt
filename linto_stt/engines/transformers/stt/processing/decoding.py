@@ -1,7 +1,5 @@
 import time
 
-import torch
-
 from linto_stt.engines.transformers.stt import (
     HOTWORDS,
     LONG_FILE_CHUNK_LEN,
@@ -162,65 +160,11 @@ def _transcribe_long(model, audio, with_word_timestamps, language, prompt):
 
 
 def _align_words(model, audio, text, language):
-    """Run the forced-alignment model to get word-level timestamps for `text`.
-
-    Returns a list of {word, start, end} dicts (times in seconds) via the
-    Qwen3-ForcedAligner protocol: prepare_forced_aligner_inputs() ->
-    token-classification forward -> decode_forced_alignment().
-    """
-    processor = model.aligner_processor
-    aligner = model.aligner_model
-
+    """Word-level timestamps for `text` from the forced aligner that covers
+    `language` (primary or fallback, see aligners.py). Returns a list of
+    {word, start, end} dicts (times in seconds), one per whitespace token."""
+    aligner = model.aligner_for(language)
     start_t = time.time()
-    try:
-        inputs, word_lists = processor.prepare_forced_aligner_inputs(
-            audio=audio, transcript=text, language=language
-        )
-    except ValueError as err:
-        if language is None or "not supported by the forced aligner" not in str(err):
-            raise
-        # The aligner is tuned for 11 languages, but the language is only a hint
-        # for splitting the transcript into words (dedicated Japanese/Korean
-        # tokenizers; otherwise CJK characters and whitespace-separated words):
-        # the same model aligns any transcript. So align without the hint rather
-        # than refuse word timestamps for the other languages.
-        logger.warning(
-            f"Language {language!r} is outside the forced aligner's tuned set; "
-            f"aligning without a language hint (accuracy not validated)"
-        )
-        inputs, word_lists = processor.prepare_forced_aligner_inputs(
-            audio=audio, transcript=text, language=None
-        )
-    inputs = inputs.to(aligner.device, aligner.dtype)
-
-    with torch.inference_mode():
-        outputs = aligner(**inputs)
-
-    items = processor.decode_forced_alignment(
-        logits=outputs.logits,
-        input_ids=inputs["input_ids"],
-        word_lists=word_lists,
-        timestamp_token_id=aligner.config.timestamp_token_id,
-    )[0]
-    logger.info(f"Forced alignment complete (t={time.time() - start_t}s)")
-
-    # The aligner emits the "core" word tokens, usually stripped of the
-    # surrounding punctuation the transcript carries (e.g. "Bonjour" for
-    # "Bonjour.", or a separate "!" / "?" the aligner skips). Always return the
-    # transcript's own whitespace tokens (so the words concatenate back to `text`,
-    # keeping its exact spelling/punctuation) and assign the aligner timestamps to
-    # the content tokens in order; punctuation-only tokens get a zero-width stamp.
-    words = []
-    j = 0
-    last_end = 0.0
-    for token in text.split():
-        has_content = any(ch.isalnum() for ch in token)
-        if has_content and j < len(items):
-            start = float(items[j]["start_time"])
-            end = float(items[j]["end_time"])
-            last_end = end
-            j += 1
-        else:
-            start = end = last_end  # punctuation, or more tokens than aligner words
-        words.append({"word": token, "start": start, "end": end})
+    words = aligner.align(audio, text, language)
+    logger.info(f"Forced alignment complete with {aligner.name} (t={time.time() - start_t}s)")
     return words

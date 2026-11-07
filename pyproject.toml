@@ -71,6 +71,7 @@ transformers = [
     "wavio>=0.0.9",
     "soundfile>=0.12",  # task-mode file decoding (libsndfile, no ffmpeg needed)
     "librosa>=0.10",  # feature extraction for seq2seq ASR models (e.g. Cohere)
+    "uroman>=1.3",  # romanisation for the MMS forced aligner (ALIGNER_MODEL=mms)
     "hf_xet",  # to speed up downloads from HuggingFace
 ]
 vllm = [
@@ -91,6 +92,7 @@ vllm = [
     "soundfile>=0.12",  # task-mode file decoding (avoids torchcodec under vLLM's torch)
     "librosa>=0.10",  # feature extraction for seq2seq ASR models (e.g. Cohere)
     "requests>=2.31",  # the vllm serve backend talks to the server over HTTP
+    "uroman>=1.3",  # romanisation for the MMS forced aligner (ALIGNER_MODEL=mms)
     "hf_xet",
     "vllm==0.30.0",  # newest vLLM that still allows transformers>=5.22; 0.31 caps <5.18
 ]

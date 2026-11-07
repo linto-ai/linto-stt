@@ -102,7 +102,9 @@ covers only 11 languages (`zh, en, yue, fr, de, it, ja, ko, pt, ru, es`).
 For the other languages the aligner is still run, without a language hint (the
 hint only drives how the transcript is split into words; the model itself is
 language-agnostic), with a warning in the logs: timestamps are produced for every
-language, but their accuracy is only validated by Qwen for the 11 above.
+language, but their accuracy is only validated by Qwen for the 11 above. For a
+language-agnostic aligner see `ALIGNER_MODEL=mms` / `ALIGNER_FALLBACK_MODEL=mms`
+in the [Word timestamps](#word-timestamps) section.
 
 ## Hotwords
 
@@ -131,6 +133,16 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
   loaded lazily on first use.
 - Set `ALIGNER_MODEL=` (empty) or `ALIGNER_MODEL=none` to disable alignment; the
   `words` field is then returned empty for metadata requests.
+- **MMS aligner.** `ALIGNER_MODEL=mms` selects Meta's MMS forced aligner instead
+  (torchaudio's `MMS_FA` bundle: a 300M wav2vec2 CTC model trained on 1,100+
+  languages). It is language-agnostic: each word is romanised with `uroman`
+  (`Привет` -> `privet`, `ça` -> `sa`) and aligned character by character, so
+  it covers every language the ASR models can output. Its 1.2 GB float32
+  weights are fetched by torchaudio into the torch hub cache (`TORCH_HOME`),
+  not the Hugging Face cache.
+- **Fallback.** `ALIGNER_FALLBACK_MODEL=mms` keeps the Qwen aligner for its 11
+  tuned languages and routes the other languages (forced or detected) to MMS.
+  Both aligners are loaded together on the first timestamped request.
 
 ## Running
 

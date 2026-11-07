@@ -5,6 +5,7 @@ import tempfile
 from filelock import FileLock
 
 from linto_stt.engines.transformers.stt import (
+    ALIGNER_FALLBACK_MODEL,
     ALIGNER_MODEL,
     ATTN_IMPLEMENTATION,
     BACKEND,
@@ -15,7 +16,8 @@ from linto_stt.engines.transformers.stt import (
 )
 
 from .decoding import decode
-from .load_model import load_aligner_model, load_asr_backend
+from .aligners import load_aligner
+from .load_model import load_asr_backend
 from .utils import get_device, get_language, load_audiofile, load_wave_buffer
 
 __all__ = [
@@ -49,21 +51,24 @@ class LazyLoadedModel:
     in-process), whose `.transcribe()` turns a segment into
     (text, detected_language).
 
-    The companion forced-alignment model (for word-level timestamps) is loaded
+    The companion forced aligner(s) (for word-level timestamps) are loaded
     separately and even more lazily: only on the first request that asks for word
-    timestamps. `aligner_model_name=None` disables alignment entirely."""
+    timestamps. `aligner_model_name=None` disables alignment entirely;
+    `fallback_aligner_model_name` names a second aligner used for the languages
+    the primary one does not cover (see `aligner_for`)."""
 
     def __init__(self, model_name, device, dtype, attn_implementation, num_threads,
-                 aligner_model_name=None):
+                 aligner_model_name=None, fallback_aligner_model_name=None):
         self.model_name = model_name
         self.device = device
         self.dtype = dtype
         self.attn_implementation = attn_implementation
         self.num_threads = num_threads
         self.aligner_model_name = aligner_model_name
+        self.fallback_aligner_model_name = fallback_aligner_model_name
         self._asr = None
-        self._aligner_processor = None
-        self._aligner_model = None
+        self._aligner = None
+        self._fallback_aligner = None
         self.has_set_num_threads = False
 
     def check_loaded(self):
@@ -89,18 +94,33 @@ class LazyLoadedModel:
                     )
 
     def check_aligner_loaded(self):
-        if self._aligner_model is None:
+        if self._aligner is None:
             with FileLock(_lock_path(self.aligner_model_name)):
-                if self._aligner_model is None:
-                    logger.info(
-                        f"Loading forced-alignment model {self.aligner_model_name} "
-                        f"({'local' if os.path.exists(self.aligner_model_name) else 'remote'})..."
-                    )
-                    self._aligner_processor, self._aligner_model = load_aligner_model(
-                        self.aligner_model_name,
-                        device=self.device,
-                        dtype=self.dtype,
-                    )
+                if self._aligner is None:
+                    self._aligner = self._load_aligner(self.aligner_model_name)
+                    if self.fallback_aligner_model_name:
+                        self._fallback_aligner = self._load_aligner(
+                            self.fallback_aligner_model_name
+                        )
+
+    def _load_aligner(self, name):
+        logger.info(
+            f"Loading forced aligner {name} "
+            f"({'local' if os.path.exists(name) else 'remote'})..."
+        )
+        return load_aligner(name, device=self.device, dtype=self.dtype)
+
+    def aligner_for(self, language):
+        """The aligner to use for `language`: the primary one when it covers the
+        language (or when no fallback is configured), else the fallback."""
+        self.check_aligner_loaded()
+        if self._fallback_aligner is not None and not self._aligner.covers(language):
+            logger.info(
+                f"Language {language!r} is not covered by the {self._aligner.name} "
+                f"aligner: using the {self._fallback_aligner.name} fallback"
+            )
+            return self._fallback_aligner
+        return self._aligner
 
     def check_num_threads(self):
         if not self.has_set_num_threads and self.num_threads:
@@ -116,16 +136,6 @@ class LazyLoadedModel:
     @property
     def has_aligner(self):
         return self.aligner_model_name is not None
-
-    @property
-    def aligner_processor(self):
-        self.check_aligner_loaded()
-        return self._aligner_processor
-
-    @property
-    def aligner_model(self):
-        self.check_aligner_loaded()
-        return self._aligner_model
 
 
 logger.setLevel(logging.INFO)
@@ -152,6 +162,7 @@ try:
         attn_implementation=ATTN_IMPLEMENTATION,
         num_threads=NUM_THREADS,
         aligner_model_name=ALIGNER_MODEL,
+        fallback_aligner_model_name=ALIGNER_FALLBACK_MODEL,
     )
 
     # Warm up (force the load + one decode) on GPU or websocket mode. On http+cpu

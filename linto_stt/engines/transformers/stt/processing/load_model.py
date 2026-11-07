@@ -78,21 +78,3 @@ def load_asr_backend(backend, model_name, device, dtype="bfloat16", attn_impleme
     )
 
 
-def load_aligner_model(model_name, device, dtype="bfloat16"):
-    """Load a Qwen3-ForcedAligner(-family) processor + token-classification model.
-
-    The aligner produces word-level timestamps for an existing transcript via the
-    processor's prepare_forced_aligner_inputs() / decode_forced_alignment()
-    protocol (see decoding.py). It is a separate model from the ASR one, loaded
-    lazily and only when word timestamps are requested.
-    """
-    from transformers import AutoModelForTokenClassification, AutoProcessor
-
-    torch_dtype = _DTYPES.get(dtype, torch.bfloat16)
-    device_map = "auto" if "cuda" in str(device) else str(device)
-
-    processor = AutoProcessor.from_pretrained(model_name)
-    model = AutoModelForTokenClassification.from_pretrained(
-        model_name, dtype=torch_dtype, device_map=device_map
-    ).eval()
-    return processor, model

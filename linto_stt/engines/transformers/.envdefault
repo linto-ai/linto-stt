@@ -26,10 +26,14 @@ LANGUAGE=*
 # Overridable per request with the `hotwords` query parameter / task argument.
 HOTWORDS=
 
-# Forced-alignment model for word-level timestamps (Qwen3-ASR has none natively).
-# Loaded and run only for metadata requests (JSON / Celery task), never for the
-# plain-text path. Set empty or "none" to disable (words returned empty).
+# Forced aligner for word-level timestamps (Qwen3-ASR has none natively): a
+# Qwen3-ForcedAligner checkpoint (tuned for 11 languages) or "mms" (Meta's
+# language-agnostic MMS aligner). Loaded and run only for metadata requests
+# (JSON / Celery task), never for the plain-text path. Set empty or "none" to
+# disable (words returned empty).
 # ALIGNER_MODEL=Qwen/Qwen3-ForcedAligner-0.6B-hf
+# Second aligner used for the languages the primary one does not cover.
+# ALIGNER_FALLBACK_MODEL=mms
 
 ############################################
 # EFFICIENCY PARAMETERS

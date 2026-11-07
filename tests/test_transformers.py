@@ -423,39 +423,60 @@ class TestTransformersLongFileChunking:
 @pytest.mark.transformers
 @pytest.mark.uv
 @pytest.mark.slow
-class TestTransformersAlignerLanguages:
-    """The forced aligner is tuned for 11 languages but must still give word
-    timestamps for the others (the language is only a word-splitting hint).
-    Runs the real aligner on CPU on a 2s clip."""
+class TestTransformersAligners:
+    """Run the real forced aligners on CPU on the 1.2s `bonjour.wav` clip."""
 
-    def test_unsupported_language_still_aligned(self, monkeypatch, caplog):
+    @pytest.fixture
+    def engine(self, monkeypatch):
         monkeypatch.setenv("DEVICE", "cpu")
         monkeypatch.setenv("SERVICE_MODE", "http")
         monkeypatch.setenv("BACKEND", "transformers")
         pytest.importorskip("transformers")
+        from linto_stt.engines.transformers.stt.processing import aligners, utils
 
+        return aligners, utils.load_audiofile("tests/bonjour.wav")
+
+    @staticmethod
+    def _check_bonjour(words, audio):
+        assert [w["word"] for w in words] == ["Bonjour."]
+        assert 0 <= words[0]["start"] < words[0]["end"] <= len(audio) / 16000 + 0.1
+
+    def test_qwen_unsupported_language_still_aligned(self, engine, caplog):
+        """The Qwen aligner is tuned for 11 languages but must still give word
+        timestamps for the others (the language is only a word-splitting hint)."""
         import logging
-        from types import SimpleNamespace
 
         from linto_stt.engines.transformers.stt import ALIGNER_MODEL
-        from linto_stt.engines.transformers.stt.processing import decoding
-        from linto_stt.engines.transformers.stt.processing.load_model import load_aligner_model
-        from linto_stt.engines.transformers.stt.processing.utils import load_audiofile
 
-        processor, aligner = load_aligner_model(ALIGNER_MODEL, device="cpu", dtype="float32")
-        model = SimpleNamespace(aligner_processor=processor, aligner_model=aligner)
-        audio = load_audiofile("tests/bonjour.wav")
-        text = "Bonjour."
+        aligners, audio = engine
+        aligner = aligners.load_aligner(ALIGNER_MODEL, device="cpu", dtype="float32")
+        assert aligner.covers("fr") and not aligner.covers("nl")
 
         with caplog.at_level(logging.WARNING):
-            words_nl = decoding._align_words(model, audio, text, "nl")  # not in the 11
-        words_fr = decoding._align_words(model, audio, text, "fr")
+            words_nl = aligner.align(audio, "Bonjour.", "nl")  # not in the 11
+        words_fr = aligner.align(audio, "Bonjour.", "fr")
 
         assert "without a language hint" in caplog.text
-        assert [w["word"] for w in words_nl] == ["Bonjour."]
-        assert 0 <= words_nl[0]["start"] < words_nl[0]["end"] <= len(audio) / 16000 + 0.1
+        self._check_bonjour(words_nl, audio)
         # Same model, same word splitting for a whitespace language: identical result.
         assert words_nl == words_fr
+
+    def test_mms_aligner(self, engine):
+        """The MMS aligner (ALIGNER_MODEL=mms) covers any language through
+        romanisation, and keeps the one-entry-per-token contract."""
+        pytest.importorskip("uroman")
+        aligners, audio = engine
+        aligner = aligners.load_aligner("mms", device="cpu")
+        assert aligner.covers("nl") and aligner.covers("ar")
+        assert aligner._normalize("Привет,") == "privet"
+        assert aligner._normalize("ça") == "sa"
+        assert aligner._normalize("...") == ""
+
+        self._check_bonjour(aligner.align(audio, "Bonjour.", "fr"), audio)
+        # Punctuation-only tokens get a zero-width stamp at the previous end.
+        words = aligner.align(audio, "Bonjour !", "fr")
+        assert [w["word"] for w in words] == ["Bonjour", "!"]
+        assert words[1]["start"] == words[1]["end"] == words[0]["end"]
 
 
 # ---------------------------------------------------------------------------
