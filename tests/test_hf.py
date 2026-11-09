@@ -481,6 +481,69 @@ class TestHfAligners:
         assert [w["word"] for w in words] == ["Bonjour", "!"]
         assert words[1]["start"] == words[1]["end"] == words[0]["end"]
 
+    def test_mms_long_audio_consistency(self, engine):
+        """Quality check of the MMS aligner beyond the Qwen aligner's 5-minute
+        limit: a 5+ minute file built from the two test clips (with silences) is
+        aligned in one pass, and every word must land where the same clip
+        aligned alone puts it (no drift, no window-boundary damage)."""
+        pytest.importorskip("uroman")
+        import logging
+
+        import numpy as np
+        import torch
+
+        aligners, _ = engine
+        from linto_stt.engines.hf.stt.processing.utils import load_audiofile
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        aligner = aligners.load_aligner("mms", device=device)
+        clips = [
+            (load_audiofile("tests/bonjour.wav"), "Bonjour."),
+            (
+                load_audiofile("tests/Hotel20sec.wav"),
+                "Bonjour mona. Bonjour monsieur. En quoi pouvez-vous aider aujourd'hui ? "
+                "Euh je voudrais avoir une chambre pour deux personnes. Deux personnes "
+                "chambre d'eau d'accord. Euh deux lits. Deux lits d'accord. Et puis ça "
+                "serait pour deux nuits. Deux nuits.",
+            ),
+        ]
+        silence = np.zeros(16000 // 2, dtype=np.float32)
+
+        # Reference: each clip aligned alone, offset by its position in the file.
+        pieces, texts, reference, offset = [], [], [], 0.0
+        while offset < 310:
+            for audio, text in clips:
+                for w in aligner.align(audio, text, "fr"):
+                    reference.append({**w, "start": w["start"] + offset, "end": w["end"] + offset})
+                pieces += [audio, silence]
+                texts.append(text)
+                offset += (len(audio) + len(silence)) / 16000
+        long_audio = np.concatenate(pieces)
+        duration = len(long_audio) / 16000
+        assert duration > 300 and not aligners.QwenForcedAligner.max_duration >= duration
+
+        words = aligner.align(long_audio, " ".join(texts), "fr")
+        assert [w["word"] for w in words] == [w["word"] for w in reference]
+        content = [(w, r) for w, r in zip(words, reference) if aligner._normalize(w["word"])]
+        assert len(content) > 500
+        deltas = sorted(
+            max(abs(w["start"] - r["start"]), abs(w["end"] - r["end"])) for w, r in content
+        )
+        logging.getLogger(__name__).info(
+            f"MMS on {duration:.0f}s ({len(content)} words, {device}): deviation from the "
+            f"per-clip alignment median={deltas[len(deltas) // 2] * 1000:.0f}ms "
+            f"p95={deltas[int(0.95 * len(deltas))] * 1000:.0f}ms max={deltas[-1] * 1000:.0f}ms"
+        )
+        assert deltas[len(deltas) // 2] <= 0.05, "median deviation above 50 ms"
+        assert deltas[int(0.95 * len(deltas))] <= 0.1, "more than 5% of words off by over 100 ms"
+        # Word starts are stable; only the end of a word followed by a long pause
+        # is ambiguous for a CTC aligner (it may stretch into the silence), so
+        # the strict bound is on starts.
+        start_deltas = [abs(w["start"] - r["start"]) for w, r in content]
+        assert max(start_deltas) <= 0.5, f"a word start drifted by {max(start_deltas):.2f}s"
+        starts = [w["start"] for w, _ in content]
+        assert starts == sorted(starts) and content[-1][0]["end"] <= duration
+
     def test_fallback_routing(self, engine, monkeypatch):
         """ALIGNER_FALLBACK_MODEL takes over when the primary aligner does not
         cover the request: language outside its set, or audio over its limit.

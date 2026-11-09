@@ -150,6 +150,10 @@ class MMSForcedAligner:
     name = "mms"
     max_duration = None  # windowed emissions: no limit
     EMISSION_WINDOW_S = 30
+    # Context given to each window on both sides and then dropped from its
+    # emission, so no frame is computed right at a window edge (without it,
+    # words within ~1 s of a cut shift by up to 0.5 s).
+    EMISSION_CONTEXT_S = 2
 
     def __init__(self, device):
         import torchaudio
@@ -178,18 +182,26 @@ class MMSForcedAligner:
     def _emission(self, waveform):
         """Log-probabilities over the character dictionary, (frames, chars), for
         the whole (1, samples) waveform, computed window by window."""
+        n = waveform.size(1)
         window = self.EMISSION_WINDOW_S * SAMPLE_RATE
-        starts = list(range(0, waveform.size(1), window))
-        bounds = [(start, start + window) for start in starts]
-        if len(bounds) > 1 and waveform.size(1) - bounds[-1][0] < SAMPLE_RATE:
-            # Fold a trailing window shorter than 1s into the previous one.
-            bounds[-2] = (bounds[-2][0], waveform.size(1))
-            bounds.pop()
+        context = self.EMISSION_CONTEXT_S * SAMPLE_RATE
         chunks = []
+        start = 0
         with torch.inference_mode():
-            for start, end in bounds:
-                emission, _ = self.model(waveform[:, start:end].to(self.device))
-                chunks.append(emission[0])
+            while start < n:
+                end = min(start + window, n)
+                if n - end < SAMPLE_RATE:
+                    end = n  # fold a trailing window shorter than 1s into this one
+                ctx_start, ctx_end = max(0, start - context), min(n, end + context)
+                emission, _ = self.model(waveform[:, ctx_start:ctx_end].to(self.device))
+                emission = emission[0]
+                # Keep the frames of [start, end) only (frames are evenly spaced,
+                # so map sample offsets to frame indices proportionally).
+                frames = emission.size(0)
+                first = round((start - ctx_start) / (ctx_end - ctx_start) * frames)
+                last = round((end - ctx_start) / (ctx_end - ctx_start) * frames)
+                chunks.append(emission[first:last])
+                start = end
         return torch.cat(chunks)
 
     def align(self, audio, text, language=None):

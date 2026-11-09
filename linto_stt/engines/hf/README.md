@@ -140,7 +140,9 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
   (`Привет` -> `privet`, `ça` -> `sa`) and aligned character by character, so
   it covers every language the ASR models can output. Tokens that romanise to
   nothing (digits, times such as `06:30`, symbols) cannot be aligned and get a
-  zero-width stamp at the previous word's end. Its 1.2 GB float32 weights are
+  zero-width stamp at the previous word's end. Word starts are reliable; the
+  end of a word followed by a long pause may stretch into the silence (a CTC
+  aligner trait). Its 1.2 GB float32 weights are
   fetched by torchaudio into the torch hub cache (`TORCH_HOME`), not the
   Hugging Face cache.
 - **Fallback (default).** `ALIGNER_FALLBACK_MODEL` (default `mms`) keeps the
