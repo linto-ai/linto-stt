@@ -471,6 +471,9 @@ class TestHfAligners:
         assert aligner._normalize("Привет,") == "privet"
         assert aligner._normalize("ça") == "sa"
         assert aligner._normalize("...") == ""
+        # "-" is the CTC blank in the MMS dictionary: hyphens must be dropped.
+        assert aligner._normalize("pouvez-vous") == "pouvezvous"
+        aligner.align(audio, "Bonjour, pouvez-vous ?", "fr")
 
         self._check_bonjour(aligner.align(audio, "Bonjour.", "fr"), audio)
         # Punctuation-only tokens get a zero-width stamp at the previous end.

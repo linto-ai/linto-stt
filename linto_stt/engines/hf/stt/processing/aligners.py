@@ -21,13 +21,8 @@ import torch
 
 from linto_stt.engines.hf.stt import logger
 
+from .load_model import _DTYPES
 from .utils import SAMPLE_RATE
-
-_DTYPES = {
-    "float16": torch.float16,
-    "bfloat16": torch.bfloat16,
-    "float32": torch.float32,
-}
 
 
 def load_aligner(model_name, device, dtype="bfloat16"):
@@ -165,7 +160,11 @@ class MMSForcedAligner:
         self.model = bundle.get_model(with_star=False).to(self.device).eval()
         self.tokenizer = bundle.get_tokenizer()
         self.aligner = bundle.get_aligner()
-        self.dictionary = bundle.get_dict(star=None)
+        # Characters a word may contain after romanisation. The dictionary's
+        # index 0 ("-") is the CTC blank, which must never appear in a target,
+        # so hyphens are dropped like any other character outside the set.
+        blank = getattr(self.aligner, "blank", 0)
+        self.characters = {ch for ch, idx in bundle.get_dict(star=None).items() if idx != blank}
         self.uroman = uroman.Uroman()
         assert bundle.sample_rate == SAMPLE_RATE
 
@@ -174,7 +173,7 @@ class MMSForcedAligner:
 
     def _normalize(self, token):
         romanized = self.uroman.romanize_string(token).lower()
-        return "".join(ch for ch in romanized if ch in self.dictionary)
+        return "".join(ch for ch in romanized if ch in self.characters)
 
     def _emission(self, waveform):
         """Log-probabilities over the character dictionary, (frames, chars), for

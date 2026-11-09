@@ -138,9 +138,11 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
   (torchaudio's `MMS_FA` bundle: a 300M wav2vec2 CTC model trained on 1,100+
   languages). It is language-agnostic: each word is romanised with `uroman`
   (`Привет` -> `privet`, `ça` -> `sa`) and aligned character by character, so
-  it covers every language the ASR models can output. Its 1.2 GB float32
-  weights are fetched by torchaudio into the torch hub cache (`TORCH_HOME`),
-  not the Hugging Face cache.
+  it covers every language the ASR models can output. Tokens that romanise to
+  nothing (digits, times such as `06:30`, symbols) cannot be aligned and get a
+  zero-width stamp at the previous word's end. Its 1.2 GB float32 weights are
+  fetched by torchaudio into the torch hub cache (`TORCH_HOME`), not the
+  Hugging Face cache.
 - **Fallback (default).** `ALIGNER_FALLBACK_MODEL` (default `mms`) keeps the
   Qwen aligner for the requests it covers (its 11 tuned languages, audio up to
   its documented 5-minute limit) and routes the others to MMS: another language
