@@ -478,6 +478,53 @@ class TestTransformersAligners:
         assert [w["word"] for w in words] == ["Bonjour", "!"]
         assert words[1]["start"] == words[1]["end"] == words[0]["end"]
 
+    def test_fallback_routing(self, engine, monkeypatch):
+        """ALIGNER_FALLBACK_MODEL takes over when the primary aligner does not
+        cover the request: language outside its set, or audio over its limit.
+        Uses fake aligners, so no model is loaded."""
+        from types import SimpleNamespace
+
+        from linto_stt.engines.transformers.stt.processing import LazyLoadedModel
+
+        def fake(name, languages, max_duration):
+            def covers(language, duration=None):
+                if duration is not None and max_duration and duration > max_duration:
+                    return False
+                return language is None or language in languages
+
+            return SimpleNamespace(name=name, covers=covers, max_duration=max_duration)
+
+        fakes = {
+            "primary": fake("primary", {"fr", "en"}, 300.0),
+            "fallback": fake("fallback", None, None),
+        }
+        fakes["fallback"].covers = lambda language, duration=None: True
+        loaded = []
+
+        def load(self, name):
+            loaded.append(name)
+            return fakes[name]
+
+        monkeypatch.setattr(LazyLoadedModel, "_load_aligner", load)
+
+        def model(fallback):
+            return LazyLoadedModel(
+                "unused", device="cpu", dtype="float32", attn_implementation=None,
+                num_threads=None, aligner_model_name="primary",
+                fallback_aligner_model_name=fallback,
+            )
+
+        m = model("fallback")
+        assert m.aligner_for("fr", 10).name == "primary"
+        assert m.aligner_for(None, 10).name == "primary"  # auto-detect, unknown language
+        assert loaded == ["primary"]  # the fallback is not loaded until needed
+        assert m.aligner_for("nl", 10).name == "fallback"  # language not covered
+        assert m.aligner_for("fr", 400).name == "fallback"  # over the 5-minute limit
+        assert loaded == ["primary", "fallback"]
+        # Without a fallback the primary is always used.
+        m = model(None)
+        assert m.aligner_for("nl", 400).name == "primary"
+
 
 # ---------------------------------------------------------------------------
 # Docker - Celery task mode

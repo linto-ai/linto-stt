@@ -51,11 +51,12 @@ class LazyLoadedModel:
     in-process), whose `.transcribe()` turns a segment into
     (text, detected_language).
 
-    The companion forced aligner(s) (for word-level timestamps) are loaded
+    The companion forced aligner (for word-level timestamps) is loaded
     separately and even more lazily: only on the first request that asks for word
     timestamps. `aligner_model_name=None` disables alignment entirely;
-    `fallback_aligner_model_name` names a second aligner used for the languages
-    the primary one does not cover (see `aligner_for`)."""
+    `fallback_aligner_model_name` names a second aligner used for the requests
+    the primary one does not cover (see `aligner_for`), loaded only on the first
+    such request."""
 
     def __init__(self, model_name, device, dtype, attn_implementation, num_threads,
                  aligner_model_name=None, fallback_aligner_model_name=None):
@@ -98,10 +99,14 @@ class LazyLoadedModel:
             with FileLock(_lock_path(self.aligner_model_name)):
                 if self._aligner is None:
                     self._aligner = self._load_aligner(self.aligner_model_name)
-                    if self.fallback_aligner_model_name:
-                        self._fallback_aligner = self._load_aligner(
-                            self.fallback_aligner_model_name
-                        )
+
+    def check_fallback_aligner_loaded(self):
+        if self._fallback_aligner is None and self.fallback_aligner_model_name:
+            with FileLock(_lock_path(self.fallback_aligner_model_name)):
+                if self._fallback_aligner is None:
+                    self._fallback_aligner = self._load_aligner(
+                        self.fallback_aligner_model_name
+                    )
 
     def _load_aligner(self, name):
         logger.info(
@@ -110,17 +115,33 @@ class LazyLoadedModel:
         )
         return load_aligner(name, device=self.device, dtype=self.dtype)
 
-    def aligner_for(self, language):
-        """The aligner to use for `language`: the primary one when it covers the
-        language (or when no fallback is configured), else the fallback."""
+    def aligner_for(self, language, duration=None):
+        """The aligner to use for a request: the primary one when it covers the
+        language and the audio duration (in seconds), else the fallback (loaded
+        here on first need). With no fallback configured the primary is always
+        used (with a warning when the audio exceeds its documented limit)."""
         self.check_aligner_loaded()
-        if self._fallback_aligner is not None and not self._aligner.covers(language):
+        primary = self._aligner
+        if primary.covers(language, duration):
+            return primary
+        what = (
+            f"language {language!r}, {duration:.0f}s of audio" if duration is not None
+            else f"language {language!r}"
+        )
+        if self.fallback_aligner_model_name:
+            self.check_fallback_aligner_loaded()
             logger.info(
-                f"Language {language!r} is not covered by the {self._aligner.name} "
-                f"aligner: using the {self._fallback_aligner.name} fallback"
+                f"Request ({what}) is not covered by the {primary.name} aligner: "
+                f"using the {self._fallback_aligner.name} fallback"
             )
             return self._fallback_aligner
-        return self._aligner
+        if duration is not None and primary.max_duration and duration > primary.max_duration:
+            logger.warning(
+                f"Audio ({duration:.0f}s) exceeds the {primary.name} aligner's documented "
+                f"limit ({primary.max_duration:.0f}s); timestamps may degrade. Set "
+                f"ALIGNER_FALLBACK_MODEL=mms to align long audio with the MMS aligner."
+            )
+        return primary
 
     def check_num_threads(self):
         if not self.has_set_num_threads and self.num_threads:

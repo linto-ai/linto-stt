@@ -160,10 +160,11 @@ def _transcribe_long(model, audio, with_word_timestamps, language, prompt):
 
 
 def _align_words(model, audio, text, language):
-    """Word-level timestamps for `text` from the forced aligner that covers
-    `language` (primary or fallback, see aligners.py). Returns a list of
-    {word, start, end} dicts (times in seconds), one per whitespace token."""
-    aligner = model.aligner_for(language)
+    """Word-level timestamps for `text` from the forced aligner that covers the
+    request (language and audio duration; primary or fallback, see aligners.py).
+    Returns a list of {word, start, end} dicts (times in seconds), one per
+    whitespace token."""
+    aligner = model.aligner_for(language, duration=len(audio) / SAMPLE_RATE)
     start_t = time.time()
     words = aligner.align(audio, text, language)
     logger.info(f"Forced alignment complete with {aligner.name} (t={time.time() - start_t}s)")

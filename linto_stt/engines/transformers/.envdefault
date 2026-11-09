@@ -32,7 +32,9 @@ HOTWORDS=
 # (JSON / Celery task), never for the plain-text path. Set empty or "none" to
 # disable (words returned empty).
 # ALIGNER_MODEL=Qwen/Qwen3-ForcedAligner-0.6B-hf
-# Second aligner used for the languages the primary one does not cover.
+# Second aligner, loaded on first need, used when the primary one does not cover
+# a request: a language outside its set, or audio longer than its limit (5
+# minutes for Qwen). "none" to always use the primary aligner.
 # ALIGNER_FALLBACK_MODEL=mms
 
 ############################################

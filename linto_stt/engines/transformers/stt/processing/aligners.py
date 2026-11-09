@@ -1,16 +1,18 @@
 """Forced aligners: word-level timestamps for an existing transcript.
 
 Pluggable like the ASR backends. ``ALIGNER_MODEL`` selects the primary aligner
-and ``ALIGNER_FALLBACK_MODEL`` an optional second one, used for the languages
-the primary does not cover (see ``LazyLoadedModel.aligner_for``):
+and ``ALIGNER_FALLBACK_MODEL`` an optional second one, used for the requests the
+primary does not cover: a language outside its set, or audio longer than its
+limit (see ``LazyLoadedModel.aligner_for``):
 
 - a Qwen3-ForcedAligner checkpoint (default ``Qwen/Qwen3-ForcedAligner-0.6B-hf``):
   accurate, tuned for 11 languages, up to 5 minutes of audio per pass;
 - ``mms``: Meta's MMS CTC aligner (torchaudio's ``MMS_FA`` bundle, 300M
-  wav2vec2 trained on 1,100+ languages). Language-agnostic: the transcript is
-  romanised with ``uroman`` and aligned character by character.
+  wav2vec2 trained on 1,100+ languages). Language-agnostic and without a
+  duration limit: the transcript is romanised with ``uroman`` and aligned
+  character by character over windowed emissions.
 
-Every aligner exposes ``name``, ``covers(language)`` and
+Every aligner exposes ``name``, ``covers(language, duration)`` and
 ``align(audio, text, language) -> [{word, start, end}, ...]`` whose words are
 exactly ``text.split()`` (so they concatenate back to the transcript).
 """
@@ -42,6 +44,8 @@ class QwenForcedAligner:
     (prepare_forced_aligner_inputs -> forward -> decode_forced_alignment)."""
 
     name = "qwen"
+    # The model card states "up to 5 minutes of speech" per pass.
+    max_duration = 300.0
 
     def __init__(self, model_name, device, dtype="bfloat16"):
         from transformers import AutoModelForTokenClassification, AutoProcessor
@@ -53,9 +57,12 @@ class QwenForcedAligner:
         ).eval()
         self.languages = _qwen_aligner_languages()
 
-    def covers(self, language):
+    def covers(self, language, duration=None):
         """True for the languages the aligner is tuned for (and for auto-detect
-        with no known language, where the primary aligner is used as is)."""
+        with no known language, where the primary aligner is used as is) and
+        for audio within its documented duration limit."""
+        if duration is not None and duration > self.max_duration:
+            return False
         return language is None or language in self.languages
 
     def align(self, audio, text, language=None):
@@ -146,6 +153,7 @@ class MMSForcedAligner:
     audio duration."""
 
     name = "mms"
+    max_duration = None  # windowed emissions: no limit
     EMISSION_WINDOW_S = 30
 
     def __init__(self, device):
@@ -161,7 +169,7 @@ class MMSForcedAligner:
         self.uroman = uroman.Uroman()
         assert bundle.sample_rate == SAMPLE_RATE
 
-    def covers(self, language):
+    def covers(self, language, duration=None):
         return True
 
     def _normalize(self, token):

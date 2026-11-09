@@ -140,9 +140,17 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
   it covers every language the ASR models can output. Its 1.2 GB float32
   weights are fetched by torchaudio into the torch hub cache (`TORCH_HOME`),
   not the Hugging Face cache.
-- **Fallback.** `ALIGNER_FALLBACK_MODEL=mms` keeps the Qwen aligner for its 11
-  tuned languages and routes the other languages (forced or detected) to MMS.
-  Both aligners are loaded together on the first timestamped request.
+- **Fallback (default).** `ALIGNER_FALLBACK_MODEL` (default `mms`) keeps the
+  Qwen aligner for the requests it covers (its 11 tuned languages, audio up to
+  its documented 5-minute limit) and routes the others to MMS: another language
+  (forced or detected), or a file longer than 5 minutes (on the `vllm` backend
+  the whole file is aligned in one pass; MMS has no duration limit). The
+  fallback is loaded only on the first request that needs it, so deployments
+  that never hit such a request pay nothing; that first request waits for the
+  1.2 GB download unless the torch hub cache is already populated (the Docker
+  `~/.cache` mount covers it). Set `ALIGNER_FALLBACK_MODEL=none` to always use
+  the primary aligner (long audio is then still aligned with it, with a warning
+  in the logs).
 
 ## Running
 
