@@ -46,8 +46,22 @@ RUN if [ "$EXTRA_DEPS" = "recasepunc" ]; then \
         uv pip install --system --no-cache "transformers>=4.30.0"; \
     fi
 
-# Optional: install CUDA runtime libraries for GPU (cuBLAS + cuDNN for ctranslate2)
-RUN if [ -n "$GPU" ]; then \
+# The hf GPU image: vLLM pulls optional packages that ASR never uses (DeepSeek
+# MLA attention kernels, TileLang, an nvcc toolchain, the video codec); drop
+# them to save ~1 GB. CUTLASS, cuDNN frontend and OpenCV are kept (FlashInfer
+# paths on recent GPUs, Mistral/Voxtral tokenizers).
+RUN if [ "$STT_ENGINE" = "hf" ] && [ -n "$GPU" ]; then \
+        uv pip uninstall --system \
+            tokenspeed-mla tokenspeed-triton tilelang quack-kernels humming-kernels \
+            nvidia-cuda-nvcc nvidia-cuda-nvdisasm nvidia-cuda-crt nvidia-nvvm nvidia-cuda-cccl \
+            pynvvideocodec; \
+    fi
+
+# Optional: CUDA 12 runtime libraries for ctranslate2 (faster-whisper) on GPU.
+# Only the whisper engine needs them: torch-based engines ship their own CUDA
+# libraries, and nvidia-cudnn-cu12 would even overwrite torch's cuDNN (both
+# unpack into the same directory).
+RUN if [ -n "$GPU" ] && [ "$STT_ENGINE" = "whisper" ]; then \
         uv pip install --system --no-cache \
             "nvidia-cublas-cu12>=12.4,<13" \
             "nvidia-cudnn-cu12>=9,<10"; \

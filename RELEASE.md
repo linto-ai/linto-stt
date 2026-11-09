@@ -6,6 +6,8 @@
     - **More models via the `vllm` backend** (serve-only for now, from the [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) / [LINAGORA benchmark](https://linagora-labs.github.io/asr_benchmark/)): Whisper (`openai/whisper-large-v3`, `-turbo`), Voxtral (`mistralai/Voxtral-Mini-3B-2507`, `-Small-24B-2507`), Granite-Speech (`ibm-granite/granite-speech-4.1-2b`), MOSS-Transcribe-Diarize. They run on the `vllm` backend with no code change (capabilities auto-detected); their in-process `transformers` path is not wired
     - Swappable ASR backend via `BACKEND`, sharing language/hotwords/chunking and the forced-aligner timestamps: `vllm` (default; a managed `vllm serve` subprocess over HTTP, GPU, higher throughput, serves any vLLM-servable ASR model) and `transformers` (in-process HF, CPU-capable)
     - Efficient by default: `sdpa` attention (FlashAttention-2 kernels on supported GPUs) and bfloat16
+- Docker images (all engines):
+    - Smaller HF GPU image (from 10.8 GB to 8.2 GB): no CUDA 12 libraries outside Whisper, and no unused vLLM kernel, video or toolchain packages
 
 # 2.1.1
 - NeMo engine updates:
