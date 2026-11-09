@@ -6,7 +6,7 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STT_ENGINE` | `nemo` | STT engine to use (`nemo`, `whisper`, `kaldi`, `kyutai`, `transformers`). Used as Docker build arg and CLI default |
+| `STT_ENGINE` | `nemo` | STT engine to use (`nemo`, `whisper`, `kaldi`, `kyutai`, `hf`). Used as Docker build arg and CLI default |
 | `SERVICE_NAME` | `stt` | Celery queue/worker name in task mode. Defaults to the engine name when not set |
 | `SERVICE_MODE` | `http` | STT serving mode: `http`, `task`, `websocket` |
 | `PORT` | `80` (Docker) / `8080` (CLI) | Listening port |
@@ -103,14 +103,14 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `LOG_TRANSCRIPTS` | `false` | Debug logging for transcripts |
 | `LOG_VAD` | `false` | Debug logging for VAD |
 
-## Transformers-specific
+## HF-specific
 
-The `transformers` engine serves Hugging Face transformers-native ASR models
+The `hf` engine serves Hugging Face transformers-native ASR models
 (currently Qwen3-ASR, e.g. `Qwen/Qwen3-ASR-1.7B-hf`). See the engine README.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MODEL` | `Qwen/Qwen3-ASR-1.7B-hf` | Transformers-native ASR checkpoint, auto-detected by `model_type`: Qwen3-ASR (`qwen3_asr`, e.g. `Qwen/Qwen3-ASR-0.6B-hf`) or a seq2seq ASR (e.g. `cohere_asr`: `CohereLabs/cohere-transcribe-03-2026`). Seq2seq models require an explicit `LANGUAGE` (no auto-detect) and have no hotwords. Needs transformers ≥ 5.13 (the `transformers`/`vllm` extra) |
+| `MODEL` | `Qwen/Qwen3-ASR-1.7B-hf` | Transformers-native ASR checkpoint, auto-detected by `model_type`: Qwen3-ASR (`qwen3_asr`, e.g. `Qwen/Qwen3-ASR-0.6B-hf`) or a seq2seq ASR (e.g. `cohere_asr`: `CohereLabs/cohere-transcribe-03-2026`). Seq2seq models require an explicit `LANGUAGE` (no auto-detect) and have no hotwords. Needs transformers ≥ 5.13 (the `hf`/`hf-vllm` extra) |
 | `ALIGNER_MODEL` | `Qwen/Qwen3-ForcedAligner-0.6B-hf` | Forced aligner for word-level timestamps (Qwen3-ASR has none natively): a Qwen3-ForcedAligner checkpoint, or `mms` for Meta's language-agnostic MMS aligner (torchaudio `MMS_FA`, any language through romanisation; weights fetched into the torch hub cache, `TORCH_HOME`). Run only on metadata requests (JSON / Celery task), never on the plain-text path. Preloaded by the startup warmup on GPU (so the first timestamped request is not slow), loaded lazily on first use otherwise. Tuned for 11 languages (`zh, en, yue, fr, de, it, ja, ko, pt, ru, es`); other languages are aligned without a language hint (timestamps are still produced, accuracy not validated). Set empty or `none` to disable (then `words` is empty for metadata requests) |
 | `ALIGNER_FALLBACK_MODEL` | `mms` | Second aligner (same values as `ALIGNER_MODEL`) used for the requests the primary aligner does not cover: a language outside its set, or audio longer than its limit (5 minutes for the Qwen aligner). Loaded only on the first request that needs it (1.2 GB download for `mms` if not cached). Set to `none` to always use the primary aligner |
 | `DTYPE` | `bfloat16` | Model compute dtype (`bfloat16`, `float16`, `float32`, `auto`) |
@@ -118,7 +118,7 @@ The `transformers` engine serves Hugging Face transformers-native ASR models
 | `MAX_NEW_TOKENS` | `1280` | Cap on generated tokens per pass (per chunk for long audio). Only a safety cap: generation stops at the end-of-speech token, so a generous value is free for short audio; `1280` covers a dense 4-min chunk. Raise it (with the chunk length) if long/dense speech gets truncated |
 | `LONG_FILE_THRESHOLD` | `240` | Audio longer than this (seconds) is transcribed in consecutive chunks instead of one pass, to bound VRAM (it grows ~linearly with audio length) and avoid truncation. **Only the in-process `transformers` backend uses this**, and only for models that do not self-chunk (Qwen3-ASR); the `vllm` backend chunks server-side (~30 s) and seq2seq models (Cohere) self-chunk, so it has no effect there. Independent from NeMo's same-named variable |
 | `LONG_FILE_CHUNK_LEN` | `240` | Chunk length (seconds) when an audio exceeds `LONG_FILE_THRESHOLD` (same scope: `transformers` backend only). Non-overlapping; word timestamps are offset per chunk. ~4 min keeps the 1.7B footprint ~8 GB and stays under the aligner's ~5-min limit; raise it (with `MAX_NEW_TOKENS`) for fewer passes when VRAM allows |
-| `BACKEND` | `vllm` | Inference backend for ASR. `vllm` (default; a managed `vllm serve` subprocess talked to over HTTP; faster; serves any vLLM-servable ASR model; needs the `vllm` extra and a CUDA GPU). `transformers` (in-process HF; CPU-capable; the portable fallback; does not cover `vllm`-only models such as Whisper). **On CPU set `BACKEND=transformers`** (the default `vllm` needs a GPU). Word timestamps always use the transformers forced aligner regardless of backend |
+| `BACKEND` | `vllm` | Inference backend for ASR. `vllm` (default; a managed `vllm serve` subprocess talked to over HTTP; faster; serves any vLLM-servable ASR model; needs the `hf-vllm` extra and a CUDA GPU). `transformers` (in-process HF; CPU-capable; the portable fallback; does not cover `vllm`-only models such as Whisper). **On CPU set `BACKEND=transformers`** (the default `vllm` needs a GPU). Word timestamps always use the transformers forced aligner regardless of backend |
 | `VLLM_GPU_MEMORY_UTILIZATION` | `0.6` | (`BACKEND=vllm`) Fraction of total VRAM vLLM reserves (model + KV cache). Lower it on a shared GPU |
 | `VLLM_MAX_MODEL_LEN` | `16384` | (`BACKEND=vllm`) Context-window cap (vLLM uses PagedAttention, so this is a per-request max, not a pre-allocation), kept within each model's own limit (e.g. capped to Cohere's 1024). A model may advertise a huge default (Qwen3-ASR: 65536) whose KV cache does not fit a modest memory share; transcription needs far less. Raise it (with more VRAM) for longer context |
 | `VLLM_KV_CACHE_MEMORY_BYTES` | _(unset)_ | (`BACKEND=vllm`, optional) Absolute KV-cache budget in bytes (vLLM `kv_cache_memory_bytes`). When set, pins the KV cache size directly instead of deriving it from `VLLM_GPU_MEMORY_UTILIZATION`, preferable on unified-memory / shared GPUs where a relative fraction is awkward. `gpu_memory_utilization` still bounds the total reservation (weights + activations + KV) |

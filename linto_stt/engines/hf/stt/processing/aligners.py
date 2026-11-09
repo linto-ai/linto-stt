@@ -19,7 +19,7 @@ exactly ``text.split()`` (so they concatenate back to the transcript).
 
 import torch
 
-from linto_stt.engines.transformers.stt import logger
+from linto_stt.engines.hf.stt import logger
 
 from .utils import SAMPLE_RATE
 

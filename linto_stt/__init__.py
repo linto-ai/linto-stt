@@ -45,7 +45,7 @@ def main():
     parser.add_argument('-m', '--mode', required=True,
                         choices=['http', 'task', 'websocket'])
     parser.add_argument('-e', '--engine', required=False, choices=[
-                        'nemo', 'whisper', 'kaldi', 'kyutai', 'transformers'], default=os.environ.get("STT_ENGINE", 'nemo'))
+                        'nemo', 'whisper', 'kaldi', 'kyutai', 'hf'], default=os.environ.get("STT_ENGINE", 'nemo'))
     parser.add_argument('-p', '--port', required=False, default=8080, type=int)
     parser.add_argument('-i', '--host', required=False, default="127.0.0.1")
     parser.add_argument(

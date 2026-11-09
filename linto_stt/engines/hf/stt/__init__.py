@@ -17,9 +17,9 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 # Inference backend (see backends.py). One of:
 #   "vllm"          (default) a managed `vllm serve` subprocess, over HTTP
-#                   (Qwen3-ASR + Cohere); higher throughput, GPU + `vllm` extra.
+#                   (Qwen3-ASR + Cohere); higher throughput, GPU + `hf-vllm` extra.
 #   "transformers"  in-process Hugging Face transformers (Qwen3-ASR + Cohere);
-#                   the portable fallback (CPU-capable, `transformers` extra).
+#                   the portable fallback (CPU-capable, `hf` extra).
 #   "vllm_offline"  in-process `vllm.LLM` (Qwen3-ASR only); kept to benchmark
 #                   against the "vllm" serve backend.
 # A seam so the backend is swappable without touching the engine contract.

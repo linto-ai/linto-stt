@@ -4,7 +4,7 @@ import tempfile
 
 from filelock import FileLock
 
-from linto_stt.engines.transformers.stt import (
+from linto_stt.engines.hf.stt import (
     ALIGNER_FALLBACK_MODEL,
     ALIGNER_MODEL,
     ATTN_IMPLEMENTATION,

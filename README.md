@@ -14,7 +14,7 @@ The following STT engines are supported (see each README for engine-specific det
 | ---------------------------------------------- | ------------------------ | --------------------- |
 | [NeMo](linto_stt/engines/nemo/README.md)       | NVIDIA NeMo toolkit      | http, websocket, task |
 | [Whisper](linto_stt/engines/whisper/README.md) | OpenAI Whisper models    | http, websocket, task |
-| [Transformers](linto_stt/engines/transformers/README.md) | Hugging Face `transformers` ASR models (Qwen3-ASR, Cohere Transcribe, Whisper, Voxtral, ...), served with vLLM or in-process | http, task |
+| [HF](linto_stt/engines/hf/README.md) | Hugging Face ASR models (`transformers`-format checkpoints: Qwen3-ASR, Cohere Transcribe, Whisper, Voxtral, ...), served with vLLM or in-process | http, task |
 | [Kaldi](linto_stt/engines/kaldi/README.md)     | Kaldi/Vosk toolkit       | http, websocket, task |
 | [Kyutai](linto_stt/engines/kyutai/README.md)   | Kyutai Moshi STT wrapper | websocket only        |
 
@@ -27,8 +27,8 @@ apt install python3-pyaudio portaudio19-dev
 ```
 
 ```sh
-uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|transformers|vllm|kyutai|recasepunc]
-# transformers engine: `vllm` (GPU, default backend) or `transformers` (CPU-capable backend)
+uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|hf|hf-vllm|kyutai|recasepunc]
+# hf engine: `vllm` (GPU, default backend) or `transformers` (CPU-capable backend)
 ```
 
 ### Docker
@@ -83,10 +83,10 @@ docker run -e SERVICE_MODE=task -e STT_ENGINE=nemo \
 
 ```sh
 # HTTP / Websocket
-uv run main.py -m [http|websocket] -e [kaldi|whisper|nemo|transformers|kyutai] -p [listening_port] -i [listening_ip]
+uv run main.py -m [http|websocket] -e [kaldi|whisper|nemo|hf|kyutai] -p [listening_port] -i [listening_ip]
 
 # Celery
-uv run main.py -m task -e [kaldi|whisper|nemo|transformers]
+uv run main.py -m task -e [kaldi|whisper|nemo|hf]
 ```
 
 ## Serving Modes
@@ -143,7 +143,7 @@ Transcription endpoint.
 - **Content-Type**: `multipart/form-data`
 - **File**: Audio file (WAV 16bit 16kHz recommended)
 - **Language** (optional query param): Override the `LANGUAGE` environment variable
-- **Hotwords** (optional query param): Override the `HOTWORDS` environment variable (Whisper and Transformers engines)
+- **Hotwords** (optional query param): Override the `HOTWORDS` environment variable (Whisper and HF engines)
 
 Response (`Accept: application/json`):
 
@@ -277,7 +277,7 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 
 | Option             | Description                                                 |
 | ------------------ | ----------------------------------------------------------- |
-| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`, `transformers`) |
+| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`, `hf`) |
 | `--device`         | Target device: `cpu` (default) or `cuda`                    |
 | `--uv-only`        | Only run UV-based tests (skip Docker)                       |
 | `--docker-only`    | Only run Docker-based tests                                 |
@@ -292,8 +292,8 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 | `nemo`    | Engine NeMo                                 |
 | `whisper` | Engine Whisper                              |
 | `kaldi`   | Engine Kaldi                                |
-| `transformers` | Engine Transformers                    |
-| `vllm`    | Transformers engine on the vLLM backend (needs the `vllm` extra) |
+| `hf`      | Engine HF                                   |
+| `vllm`    | HF engine on the vLLM backend (needs the `hf-vllm` extra) |
 | `docker`  | Tests that build and run a Docker container |
 | `uv`      | Tests via UV subprocess                     |
 | `gpu`     | Requires CUDA                               |

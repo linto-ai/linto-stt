@@ -13,7 +13,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   git \
-  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ] || [ "$STT_ENGINE" = "transformers" ]; then \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ] || [ "$STT_ENGINE" = "hf" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential \
     portaudio19-dev \
@@ -25,13 +25,16 @@ WORKDIR /usr/src/app
 
 # Install Python dependencies (cached as long as pyproject.toml/uv.lock don't change)
 COPY pyproject.toml uv.lock ./
-# The transformers engine's default backend is vLLM, which needs a GPU. A GPU
-# build (GPU set) installs the `vllm` extra (a superset that also covers the
-# in-process `transformers` backend); a CPU build installs the lean `transformers`
-# extra (no vLLM), so such an image must run with BACKEND=transformers. Other
+# GPU builds pull multi-hundred-megabyte CUDA wheels; uv's default 30 s request
+# timeout makes such builds fail on a slow or busy connection.
+ENV UV_HTTP_TIMEOUT=600
+# The hf engine's default backend is vLLM, which needs a GPU. A GPU
+# build (GPU set) installs the `hf-vllm` extra (a superset that also covers the
+# in-process `transformers` backend); a CPU build installs the lean `hf` extra
+# (no vLLM), so such an image must run with BACKEND=transformers. Other
 # engines install their own extra.
-RUN if [ "$STT_ENGINE" = "transformers" ]; then \
-        if [ -n "$GPU" ]; then EXTRA="vllm"; else EXTRA="transformers"; fi; \
+RUN if [ "$STT_ENGINE" = "hf" ]; then \
+        if [ -n "$GPU" ]; then EXTRA="hf-vllm"; else EXTRA="hf"; fi; \
     else EXTRA="$STT_ENGINE"; fi && \
     uv export --extra "$EXTRA" --no-emit-project --no-hashes --frozen > requirements.txt && \
     uv pip install --system --no-cache -r requirements.txt
@@ -69,16 +72,16 @@ RUN apt-get update && \
   gosu \
   netcat-traditional \
   passwd \
-  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ] || [ "$STT_ENGINE" = "transformers" ]; then \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ] || [ "$STT_ENGINE" = "hf" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     libportaudio2 \
     libsndfile1; \
   fi \
-  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "transformers" ]; then \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "hf" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ffmpeg; \
   fi \
-  && if [ "$STT_ENGINE" = "transformers" ] && [ -n "$GPU" ]; then \
+  && if [ "$STT_ENGINE" = "hf" ] && [ -n "$GPU" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     gcc g++; \
   fi \

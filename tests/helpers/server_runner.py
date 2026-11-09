@@ -32,7 +32,7 @@ def _pgid_alive(pgid: int) -> bool:
 def _signal_and_drain_group(pgid: int, timeout: float = 25.0,
                             leader: subprocess.Popen = None) -> None:
     """SIGTERM the whole group, then WAIT for every process to exit, escalating to
-    SIGKILL. The transformers engine's vLLM backend spawns a `vllm serve`
+    SIGKILL. The hf engine's vLLM backend spawns a `vllm serve`
     grandchild (same group) that outlives `uv run`/main.py and keeps holding the
     GPU while it shuts down; if the next GPU test starts before that VRAM is
     released it can OOM. Draining the group here makes teardown fully release the
@@ -61,6 +61,10 @@ def _signal_and_drain_group(pgid: int, timeout: float = 25.0,
 
 # Markers in server logs that mean startup has fatally failed — used to fail a
 # health-check fast instead of waiting out the whole timeout.
+# Upper bound for one `docker build` (seconds): a cold GPU image build has to
+# download several GB of CUDA wheels, which can take well over 15 minutes.
+DOCKER_BUILD_TIMEOUT = 3600
+
 _FATAL_LOG_MARKERS = (
     "Traceback (most recent call last)",
     "Failed to load transcription model",
@@ -392,7 +396,17 @@ class DockerServerRunner:
             f"(output is captured)..."
         )
         build_start = time.monotonic()
-        result = subprocess.run(cmd, cwd=self.project_root, capture_output=True)
+        try:
+            # The per-test timeout (pytest-timeout, func_only) does not cover
+            # fixture setup, so bound the build here. A cold GPU build downloads
+            # several GB of CUDA wheels; later builds hit the layer cache.
+            result = subprocess.run(
+                cmd, cwd=self.project_root, capture_output=True, timeout=DOCKER_BUILD_TIMEOUT
+            )
+        except subprocess.TimeoutExpired as err:
+            raise RuntimeError(
+                f"Docker build of '{tag}' did not finish within {DOCKER_BUILD_TIMEOUT}s"
+            ) from err
         if result.returncode != 0:
             raise RuntimeError(
                 f"Docker build failed:\n{result.stderr.decode()}"
@@ -429,7 +443,7 @@ class DockerServerRunner:
 
         if self.use_gpu:
             cmd.extend(["--gpus", "all"])
-            # The transformers engine's default vLLM backend spawns EngineCore
+            # The hf engine's default vLLM backend spawns EngineCore
             # workers that talk over shared memory; the default 64MB /dev/shm is
             # too small and triggers bus errors, so enlarge it for GPU containers.
             cmd.extend(["--shm-size", "2g"])

@@ -1,9 +1,10 @@
-# Transformers engine
+# HF engine
 
-Speech-to-text with Hugging Face `transformers`-native ASR models, through a
-managed `vllm` server or an in-process `transformers` backend. The engine is named after the
-library (not a single model): it auto-detects each checkpoint's family and
-capabilities from its processor, so it supports several ASR models.
+Speech-to-text with Hugging Face ASR models (checkpoints in `transformers`
+format), through a managed `vllm` server or an in-process `transformers` backend.
+The engine is named after the model format, not after a single model or runtime:
+it auto-detects each checkpoint's family and capabilities from its processor, so
+it supports several ASR models.
 
 ## Supported models
 
@@ -35,7 +36,7 @@ capabilities from its processor, so it supports several ASR models.
 - **VRAM:** the bigger checkpoints need a big GPU (Voxtral-Small is 24B,
   Granite-3.3 is 8B); the Mini/2B ones fit a single mid-range GPU.
 
-All require **transformers >= 5.13** (the `transformers` / `vllm` extra); seq2seq
+All require **transformers >= 5.13** (the `hf` / `hf-vllm` extra); seq2seq
 models (Cohere, Whisper) also use `librosa` (included). The `vllm` backend can
 serve any vLLM-servable ASR model, so **more leaderboard models can be added by
 listing + validating them** (no code), e.g. MOSS-Transcribe-Diarize
@@ -51,17 +52,17 @@ The ASR step runs on a backend selected by `BACKEND`:
   **subprocess** that the engine starts and talks to over HTTP
   (`/v1/audio/transcriptions`), for higher throughput. One server per worker,
   started inside the container; no external service to run. Supports every
-  vLLM-servable ASR model. **CUDA GPU** only; install with `uv sync --extra vllm`.
+  vLLM-servable ASR model. **CUDA GPU** only; install with `uv sync --extra hf-vllm`.
 - `transformers`: in-process Hugging Face `transformers`. Runs on CPU too (the
   portable fallback), but does not cover `vllm`-only models such as Whisper.
-  Install with `uv sync --extra transformers`.
+  Install with `uv sync --extra hf`.
 
 > **On CPU you must set `BACKEND=transformers`.** The default backend is `vllm`,
 > which requires a CUDA GPU, so a CPU run (or a CPU Docker image, built without
 > `GPU=1`, which does not install vLLM) has to select the `transformers` backend
 > explicitly.
 
-The `vllm` backend installs with `uv sync --extra vllm` (vLLM is pinned to a
+The `vllm` backend installs with `uv sync --extra hf-vllm` (vLLM is pinned to a
 version that still allows the aligner's transformers). vLLM uses the non-`-hf`
 checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf` id automatically. Tune
 with `VLLM_GPU_MEMORY_UTILIZATION` (fraction of VRAM) or
@@ -157,8 +158,8 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
 Default backend (`vllm`, GPU):
 
 ```sh
-uv sync --extra vllm
-MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda uv run main.py -m http -e transformers -p 8080 -i 127.0.0.1
+uv sync --extra hf-vllm
+MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda uv run main.py -m http -e hf -p 8080 -i 127.0.0.1
 # transcribe:
 curl -s -X POST "http://127.0.0.1:8080/transcribe?language=fr" -F "file=@tests/bonjour.wav"
 ```
@@ -166,20 +167,20 @@ curl -s -X POST "http://127.0.0.1:8080/transcribe?language=fr" -F "file=@tests/b
 Transformers backend (in-process HF; runs on CPU too):
 
 ```sh
-uv sync --extra transformers
-MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=transformers uv run main.py -m http -e transformers -p 8080 -i 127.0.0.1
+uv sync --extra hf
+MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=transformers uv run main.py -m http -e hf -p 8080 -i 127.0.0.1
 ```
 
 Docker:
 
 ```sh
-docker build -t linto-stt-transformers --build-arg STT_ENGINE=transformers --build-arg GPU=1 .
+docker build -t linto-stt-hf --build-arg STT_ENGINE=hf --build-arg GPU=1 .
 ```
 
-A **GPU build** (`--build-arg GPU=1`) installs the `vllm` extra (a superset), so
+A **GPU build** (`--build-arg GPU=1`) installs the `hf-vllm` extra (a superset), so
 it runs the default `vllm` backend out of the box, and the in-process
 `transformers` backend works in the same image. A **CPU build** (no `GPU`) installs
-only the lean `transformers` extra (no vLLM), so that image **must** be run with
+only the lean `hf` extra (no vLLM), so that image **must** be run with
 `BACKEND=transformers` (vLLM needs a GPU).
 
 When running the GPU image with the `vllm` backend, give the container enough

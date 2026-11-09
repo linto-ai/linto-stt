@@ -1,6 +1,6 @@
 import time
 
-from linto_stt.engines.transformers.stt import (
+from linto_stt.engines.hf.stt import (
     HOTWORDS,
     LONG_FILE_CHUNK_LEN,
     LONG_FILE_THRESHOLD,

@@ -59,7 +59,7 @@ recasepunc = [
 kyutai = [
     "msgpack>=1.1.2",
 ]
-transformers = [
+hf = [
     # Transformers-native ASR models (e.g. Qwen3-ASR, checkpoint model type
     # 'qwen3_asr') need transformers >= 5.13. This conflicts with NeMo's
     # transformers, so the engine extras are declared mutually exclusive in
@@ -74,12 +74,12 @@ transformers = [
     "uroman>=1.3",  # romanisation for the MMS forced aligner (ALIGNER_MODEL=mms)
     "hf_xet",  # to speed up downloads from HuggingFace
 ]
-vllm = [
-    # The transformers engine's vLLM backends: BACKEND=vllm (a managed `vllm serve`
+hf-vllm = [
+    # The hf engine's vLLM backends: BACKEND=vllm (a managed `vllm serve`
     # subprocess talked to over HTTP, for Qwen3-ASR + Cohere) and BACKEND=vllm_offline
     # (in-process vllm.LLM, Qwen3-ASR only), plus the transformers deps both still
     # need (the forced aligner and prompt building). A self-contained alternative to
-    # the `transformers` extra; mutually exclusive with the other engine extras in
+    # the `hf` extra; mutually exclusive with the other engine extras in
     # [tool.uv] below.
     # torchaudio is left unpinned so it follows vLLM's torch; torchcodec is
     # omitted on purpose (not needed here, and it fails to load under vLLM's
@@ -104,9 +104,9 @@ test = [
 
 [tool.uv]
 # The engine extras are mutually exclusive (a deployment installs exactly one,
-# e.g. `uv sync --extra transformers`). Declaring them as conflicting lets uv
+# e.g. `uv sync --extra hf`). Declaring them as conflicting lets uv
 # resolve each independently instead of demanding one dependency set that
-# satisfies all. Required because the `transformers` extra pins
+# satisfies all. Required because the `hf` extra pins
 # transformers>=5.13 while `nemo` pins NeMo's (4.x) transformers; the two
 # cannot co-resolve.
 conflicts = [
@@ -116,8 +116,8 @@ conflicts = [
         { extra = "whisper-torch" },
         { extra = "kaldi" },
         { extra = "kyutai" },
-        { extra = "transformers" },
-        { extra = "vllm" },
+        { extra = "hf" },
+        { extra = "hf-vllm" },
     ],
 ]
 
@@ -156,12 +156,17 @@ markers = [
     "nemo: Backend NeMo",
     "whisper: Backend Whisper",
     "kaldi: Backend Kaldi",
-    "transformers: Backend Transformers (HF transformers-native ASR, e.g. Qwen3-ASR)",
-    "vllm: Transformers engine with the vLLM backend (needs the vllm extra)",
+    "hf: Engine HF (Hugging Face transformers-native ASR, e.g. Qwen3-ASR)",
+    "vllm: HF engine with the vLLM backend (needs the hf-vllm extra)",
     "slow: Tests > 2 minutes",
 ]
 addopts = "-v --tb=short"
 timeout = 900
+# The per-test timeout covers the test body only. Fixture setup has its own
+# explicit bounds (Docker image build: see tests/helpers/server_runner.py; server
+# startup: --server-timeout), and a cold GPU image build downloading several GB
+# of CUDA wheels can legitimately exceed 900 s.
+timeout_func_only = true
 # Stream log messages live so long waits (Docker build, model load, transcribe)
 # show progress as they happen, instead of only on failure.
 log_cli = true

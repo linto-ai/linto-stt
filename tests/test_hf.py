@@ -8,7 +8,7 @@ from helpers.transcription_client import transcribe_http
 # Config generators
 # ---------------------------------------------------------------------------
 
-# The `transformers` engine serves HF transformers-native ASR checkpoints. Tests
+# The `hf` engine serves HF transformers-native ASR checkpoints. Tests
 # use the smallest Qwen3-ASR family member (fastest to download and run); the
 # 1.7B default (Qwen/Qwen3-ASR-1.7B-hf) shares the same interface.
 TEST_MODEL = "Qwen/Qwen3-ASR-0.6B-hf"
@@ -35,7 +35,7 @@ def _config(device, env=None, id="default", mode="http"):
     if device:
         env["DEVICE"] = device
     return pytest.param(
-        {"engine": "transformers", "mode": mode, "port": 0, "env_overrides": env},
+        {"engine": "hf", "mode": mode, "port": 0, "env_overrides": env},
         id=id,
     )
 
@@ -43,7 +43,7 @@ def _config(device, env=None, id="default", mode="http"):
 def _cohere_config(language, id, backend="vllm"):
     env = {"MODEL": COHERE_MODEL, "LANGUAGE": language, "DEVICE": "cuda", "BACKEND": backend}
     return pytest.param(
-        {"engine": "transformers", "mode": "http", "port": 0, "env_overrides": env},
+        {"engine": "hf", "mode": "http", "port": 0, "env_overrides": env},
         id=id,
     )
 
@@ -59,9 +59,9 @@ def _vllm_installed():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.transformers
+@pytest.mark.hf
 @pytest.mark.uv
-class TestTransformersCapabilities:
+class TestHfCapabilities:
     """Model-capability detection from the processor signature (NOT the model
     name). Cheap: loads only the processors (no model weights, no GPU)."""
 
@@ -77,7 +77,7 @@ class TestTransformersCapabilities:
 
         from transformers import AutoProcessor
 
-        from linto_stt.engines.transformers.stt.processing.backends import (
+        from linto_stt.engines.hf.stt.processing.backends import (
             detect_capabilities,
         )
 
@@ -93,18 +93,18 @@ class TestTransformersCapabilities:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.transformers
+@pytest.mark.hf
 @pytest.mark.vllm
 @pytest.mark.uv
 @pytest.mark.gpu
 @pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
-class TestTransformersVllm:
+class TestHfVllm:
     """All features on the default backend (`vllm`, a managed `vllm serve`
     subprocess): automatic language detection, forced language (config + per
     request), and hotwords (env + per request). Qwen3-ASR affords every feature.
 
     The configs deliberately omit `BACKEND`, so these also assert the engine
-    default is vLLM. Needs the `vllm` extra (`uv sync --extra vllm --extra test`)
+    default is vLLM. Needs the `hf-vllm` extra (`uv sync --extra hf-vllm --extra test`)
     and a CUDA GPU; vLLM startup is slow, so use a generous `--server-timeout` on
     the first (uncached) run."""
 
@@ -187,13 +187,13 @@ class TestTransformersVllm:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.transformers
+@pytest.mark.hf
 @pytest.mark.vllm
 @pytest.mark.uv
 @pytest.mark.gpu
 @pytest.mark.slow
 @pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
-class TestTransformersCohere:
+class TestHfCohere:
     """Cohere (`cohere_asr`, a seq2seq ASR): proves the engine generalises beyond
     Qwen3-ASR. Integration is checked on BOTH backends (`vllm` and `transformers`).
     The capability guards are backend-independent (enforced in `decode` from the
@@ -236,8 +236,8 @@ class TestTransformersCohere:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.transformers
-class TestTransformersBackend:
+@pytest.mark.hf
+class TestHfBackend:
     """The in-process `transformers` backend (CPU-capable, the portable fallback),
     on one model (Qwen3-ASR). Feature matrix: with/without a forced language, and
     with/without hotwords. Plus one Docker container test validating the built
@@ -308,7 +308,7 @@ class TestTransformersBackend:
         [
             pytest.param(
                 {
-                    "engine": "transformers",
+                    "engine": "hf",
                     "mode": "http",
                     "port": 0,
                     "dockerfile": "Dockerfile",
@@ -337,9 +337,9 @@ class TestTransformersBackend:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.transformers
+@pytest.mark.hf
 @pytest.mark.uv
-class TestTransformersStreamingUnsupported:
+class TestHfStreamingUnsupported:
     """This engine does NOT support WebSocket streaming. There is therefore no
     positive streaming test; instead we assert the entry point fails loudly --
     wssDecode raises NotImplementedError -- so the unsupported mode can never
@@ -355,7 +355,7 @@ class TestTransformersStreamingUnsupported:
 
         import asyncio
 
-        from linto_stt.engines.transformers.stt.processing.streaming import wssDecode
+        from linto_stt.engines.hf.stt.processing.streaming import wssDecode
 
         with pytest.raises(NotImplementedError):
             asyncio.run(wssDecode(None, None))
@@ -366,9 +366,9 @@ class TestTransformersStreamingUnsupported:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.transformers
+@pytest.mark.hf
 @pytest.mark.uv
-class TestTransformersLongFileChunking:
+class TestHfLongFileChunking:
     """Unit-test the long-file chunk/merge logic without loading a model: the
     per-segment transcription is mocked, and we check chunk count, text
     concatenation, per-chunk timestamp offsets, and that the merged words still
@@ -382,9 +382,9 @@ class TestTransformersLongFileChunking:
 
         import numpy as np
 
-        from linto_stt.engines.transformers.stt import LONG_FILE_CHUNK_LEN
-        from linto_stt.engines.transformers.stt.processing import decoding
-        from linto_stt.engines.transformers.stt.processing.utils import SAMPLE_RATE
+        from linto_stt.engines.hf.stt import LONG_FILE_CHUNK_LEN
+        from linto_stt.engines.hf.stt.processing import decoding
+        from linto_stt.engines.hf.stt.processing.utils import SAMPLE_RATE
 
         calls = []
 
@@ -420,10 +420,10 @@ class TestTransformersLongFileChunking:
         assert text.replace(" ", "") == text_from_words.replace(" ", "")
 
 
-@pytest.mark.transformers
+@pytest.mark.hf
 @pytest.mark.uv
 @pytest.mark.slow
-class TestTransformersAligners:
+class TestHfAligners:
     """Run the real forced aligners on CPU on the 1.2s `bonjour.wav` clip."""
 
     @pytest.fixture
@@ -432,7 +432,7 @@ class TestTransformersAligners:
         monkeypatch.setenv("SERVICE_MODE", "http")
         monkeypatch.setenv("BACKEND", "transformers")
         pytest.importorskip("transformers")
-        from linto_stt.engines.transformers.stt.processing import aligners, utils
+        from linto_stt.engines.hf.stt.processing import aligners, utils
 
         return aligners, utils.load_audiofile("tests/bonjour.wav")
 
@@ -446,7 +446,7 @@ class TestTransformersAligners:
         timestamps for the others (the language is only a word-splitting hint)."""
         import logging
 
-        from linto_stt.engines.transformers.stt import ALIGNER_MODEL
+        from linto_stt.engines.hf.stt import ALIGNER_MODEL
 
         aligners, audio = engine
         aligner = aligners.load_aligner(ALIGNER_MODEL, device="cpu", dtype="float32")
@@ -484,7 +484,7 @@ class TestTransformersAligners:
         Uses fake aligners, so no model is loaded."""
         from types import SimpleNamespace
 
-        from linto_stt.engines.transformers.stt.processing import LazyLoadedModel
+        from linto_stt.engines.hf.stt.processing import LazyLoadedModel
 
         def fake(name, languages, max_duration):
             def covers(language, duration=None):
@@ -531,22 +531,22 @@ class TestTransformersAligners:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.transformers
+@pytest.mark.hf
 @pytest.mark.docker
 @pytest.mark.gpu
-class TestTransformersDockerCelery:
-    """transformers engine via Celery task mode (Docker container + Redis broker),
+class TestHfDockerCelery:
+    """hf engine via Celery task mode (Docker container + Redis broker),
     on the default `vllm` backend. Exercises the `-m task` serving path end to
     end: a task is sent to the worker, which loads the audio via the engine's
     utils and runs decode (with metadata, so the aligner runs too). The image
-    ships the `vllm` extra, so the default backend runs in-container (GPU)."""
+    ships the `hf-vllm` extra, so the default backend runs in-container (GPU)."""
 
     @pytest.mark.parametrize(
         "docker_server",
         [
             pytest.param(
                 {
-                    "engine": "transformers",
+                    "engine": "hf",
                     "mode": "task",
                     "port": 0,
                     "use_gpu": True,

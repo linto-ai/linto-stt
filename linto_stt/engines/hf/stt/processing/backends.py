@@ -1,4 +1,4 @@
-"""Swappable ASR backends for the transformers engine.
+"""Swappable ASR backends for the hf engine.
 
 The engine runs one pipeline (chunking, forced-alignment word timestamps,
 language/hotword handling, response assembly) around a pluggable ASR backend
@@ -18,7 +18,7 @@ import os
 
 import torch
 
-from linto_stt.engines.transformers.stt import MAX_NEW_TOKENS, logger
+from linto_stt.engines.hf.stt import MAX_NEW_TOKENS, logger
 
 from .utils import SAMPLE_RATE
 
