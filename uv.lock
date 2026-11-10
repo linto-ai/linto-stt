@@ -2898,10 +2898,12 @@ test = [
 whisper = [
     { name = "auditok" },
     { name = "faster-whisper" },
+    { name = "requests" },
     { name = "wavio" },
 ]
 whisper-torch = [
     { name = "auditok" },
+    { name = "requests" },
     { name = "torchaudio" },
     { name = "torchcodec" },
     { name = "wavio" },
@@ -2935,6 +2937,8 @@ requires-dist = [
     { name = "regex", specifier = ">=2025.11.3" },
     { name = "requests", marker = "extra == 'hf-vllm'", specifier = ">=2.31" },
     { name = "requests", marker = "extra == 'test'", specifier = ">=2.31" },
+    { name = "requests", marker = "extra == 'whisper'", specifier = ">=2.31" },
+    { name = "requests", marker = "extra == 'whisper-torch'", specifier = ">=2.31" },
     { name = "simple-websocket", marker = "extra == 'kaldi'", specifier = ">=1.1.0" },
     { name = "soundfile", marker = "extra == 'hf'", specifier = ">=0.12" },
     { name = "soundfile", marker = "extra == 'hf-vllm'", specifier = ">=0.12" },

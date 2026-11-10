@@ -37,6 +37,7 @@ whisper = [
     "faster-whisper==1.2.1+linto",  # LinTO fork; source pinned in [tool.uv.sources]
     "wavio>=0.0.9",
     "auditok>=0.3.0",
+    "requests>=2.31",  # imported by the alignment model loader; no longer pulled by huggingface-hub
 ]
 
 whisper-torch = [
@@ -45,6 +46,7 @@ whisper-torch = [
     "torchcodec>=0.9.1",
     "wavio>=0.0.9",
     "auditok>=0.3.0",
+    "requests>=2.31",  # imported by the alignment model loader; no longer pulled by huggingface-hub
 ]
 kaldi = [
     "simple-websocket>=1.1.0",
