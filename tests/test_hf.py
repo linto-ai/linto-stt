@@ -16,6 +16,8 @@ TEST_MODEL = "Qwen/Qwen3-ASR-0.6B-hf"
 # A second model family (Cohere, a Whisper-like seq2seq ASR): a different
 # processor API, no hotwords, a required language, its own long-audio chunking.
 COHERE_MODEL = "CohereLabs/cohere-transcribe-03-2026"
+# Whisper (served by the hf engine on both backends); only its processor is used here.
+WHISPER_MODEL = "openai/whisper-large-v3-turbo"
 
 # Hotwords biasing demo on Hotel20sec.wav: unprompted, the 0.6B model mis-hears
 # the spoken "chambre double" ("double room") as "chambre d'eau". Supplying
@@ -86,6 +88,10 @@ class TestHfCapabilities:
 
         cohere = detect_capabilities(AutoProcessor.from_pretrained(COHERE_MODEL))
         assert cohere == {"hotwords": False, "language_spec": True, "language_auto": False}
+        # Whisper takes the language as a decoder prompt (not a processor
+        # argument): it can be forced, and auto-detected otherwise.
+        whisper = detect_capabilities(AutoProcessor.from_pretrained(WHISPER_MODEL))
+        assert whisper == {"hotwords": False, "language_spec": True, "language_auto": True}
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +235,41 @@ class TestHfCohere:
         """Cohere needs a language -> forcing auto-detect (language='*') is rejected."""
         with pytest.raises(RuntimeError):
             transcribe_http(uv_server["url"], str(test_audio_bonjour), language="*")
+
+
+def _whisper_config(language, id, backend):
+    env = {"MODEL": WHISPER_MODEL, "LANGUAGE": language, "DEVICE": "cuda", "BACKEND": backend}
+    return pytest.param(
+        {"engine": "hf", "mode": "http", "port": 0, "env_overrides": env},
+        id=id,
+    )
+
+
+@pytest.mark.hf
+@pytest.mark.vllm
+@pytest.mark.uv
+@pytest.mark.gpu
+@pytest.mark.slow
+@pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
+class TestHfWhisper:
+    """Whisper on the hf engine, on BOTH backends: the language is a decoder
+    prompt (not a processor argument), so it must be accepted when forced and
+    detected otherwise. CUDA GPU; the ~0.8B turbo model downloads on first use."""
+
+    @pytest.mark.parametrize(
+        "uv_server",
+        [
+            _whisper_config("fr", "whisper-vllm-fr", backend="vllm"),
+            _whisper_config("fr", "whisper-transformers-fr", backend="transformers"),
+            _whisper_config("*", "whisper-transformers-auto", backend="transformers"),
+        ],
+        indirect=True,
+    )
+    def test_integration(self, uv_server, test_audio_bonjour):
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+            f"Unexpected transcription: {result}"
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ word timestamps (the forced aligner) and everything else stay backend-agnostic,
 so backends can be benchmarked against each other by flipping ``BACKEND``.
 """
 import inspect
+import re
 import os
 
 import torch
@@ -35,7 +36,9 @@ def detect_capabilities(processor):
     Qwen3-ASR exposes ``apply_transcription_request(audio, language=None,
     prompt=None)``; a seq2seq model (e.g. Cohere) exposes
     ``__call__(audio, language, ...)`` with no ``prompt`` and a required
-    ``language``.
+    ``language``. Whisper takes no ``language`` in its processor call: the
+    language goes into the decoder prompt (``get_decoder_prompt_ids``), so it can
+    be forced, and is auto-detected otherwise.
     """
     fn = getattr(processor, "apply_transcription_request", None) or processor.__call__
     params = inspect.signature(fn).parameters
@@ -45,9 +48,17 @@ def detect_capabilities(processor):
     )
     return {
         "hotwords": "prompt" in params,
-        "language_spec": has_language,
+        "language_spec": has_language or _is_whisper_processor(processor),
         "language_auto": (not has_language) or language_optional,
     }
+
+
+def _is_whisper_processor(processor):
+    """Whisper-style processor: the language is a decoder prompt, not an argument
+    of the processor call (Cohere also has get_decoder_prompt_ids, but takes the
+    language in its call, which detect_capabilities already reads)."""
+    call_params = inspect.signature(processor.__call__).parameters
+    return hasattr(processor, "get_decoder_prompt_ids") and "language" not in call_params
 
 # vLLM tuning (env). gpu_memory_utilization is the FRACTION of total VRAM vLLM
 # reserves (model + KV cache); keep it modest on a shared GPU. max_model_len caps
@@ -140,6 +151,9 @@ class TransformersASRBackend:
       ``processor(audio, language=...)`` -> ``generate`` -> ``processor.decode``.
       It has no hotword/prompt mechanism, requires an explicit language, and
       chunks long audio itself (``handles_long_audio``).
+    - **Whisper**: the language (optional) is passed to ``generate`` as a decoder
+      prompt, and audio longer than 30 s uses transformers' sequential long-form
+      decoding (``handles_long_audio``).
     """
 
     name = "transformers"
@@ -150,8 +164,9 @@ class TransformersASRBackend:
         # Qwen3-ASR exposes apply_transcription_request (chat + hotword prompt);
         # other transformers ASR (e.g. cohere_asr) use the plain seq2seq API.
         self._is_qwen = hasattr(processor, "apply_transcription_request")
-        # Seq2seq models (Cohere) split long audio internally, so the engine must
-        # NOT also chunk them.
+        self._is_whisper = _is_whisper_processor(processor)
+        # Seq2seq models (Cohere, Whisper) handle long audio themselves, so the
+        # engine must NOT also chunk them.
         self.handles_long_audio = not self._is_qwen
         caps = detect_capabilities(processor)
         self.supports_hotwords = caps["hotwords"]
@@ -162,6 +177,8 @@ class TransformersASRBackend:
         """Transcribe one 16 kHz mono float32 segment -> (text, detected_language)."""
         if self._is_qwen:
             return self._transcribe_qwen(audio, language, prompt)
+        if self._is_whisper:
+            return self._transcribe_whisper(audio, language)
         return self._transcribe_seq2seq(audio, language)
 
     def _transcribe_qwen(self, audio, language, prompt):
@@ -205,6 +222,42 @@ class TransformersASRBackend:
             language=language,
         )[0].strip()
         return text, language
+
+
+    def _transcribe_whisper(self, audio, language):
+        # Up to 30 s: one window. Longer: transformers' sequential long-form
+        # decoding, which needs the untruncated features, their attention mask
+        # and timestamp tokens (to know where each 30 s window ends).
+        long_form = len(audio) > 30 * SAMPLE_RATE
+        feature_kwargs = {"sampling_rate": SAMPLE_RATE, "return_tensors": "pt"}
+        if long_form:
+            feature_kwargs.update(truncation=False, padding="longest", return_attention_mask=True)
+        inputs = self.processor(audio, **feature_kwargs)
+        inputs = inputs.to(self.model.device, self.model.dtype)
+        with torch.inference_mode():
+            if not language:
+                # generate() returns only the text tokens, so detect the language
+                # explicitly (on the first 30 s window) and then force it, which
+                # also keeps every long-form window in the same language.
+                language = self._whisper_detect_language(inputs["input_features"])
+            generate_kwargs = {"task": "transcribe"}
+            if language:
+                generate_kwargs["language"] = language
+            if long_form:
+                generate_kwargs["return_timestamps"] = True
+            output_ids = self.model.generate(**inputs, **generate_kwargs)
+
+        text = self.processor.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+        return text, language
+
+    def _whisper_detect_language(self, input_features):
+        """ISO code of the language detected on the first 30 s window, or None
+        (Whisper language tokens are <|xx|> with 2 or 3 letters)."""
+        first_window = input_features[..., : self.processor.feature_extractor.nb_max_frames]
+        lang_ids = self.model.detect_language(input_features=first_window)
+        token = self.processor.tokenizer.convert_ids_to_tokens(lang_ids.flatten().tolist())[0]
+        match = re.fullmatch(r"<\|([a-z]{2,3})\|>", token or "")
+        return match.group(1) if match else None
 
 
 class VllmASRBackend:

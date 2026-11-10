@@ -15,15 +15,17 @@ it supports several ASR models.
 |---|---|:---:|:---:|:---:|
 | **Qwen3-ASR** (`qwen3_asr`) | `Qwen/Qwen3-ASR-1.7B-hf` (default), `Qwen/Qwen3-ASR-0.6B-hf` | ✅ | ✅ | ✅ |
 | **Cohere Transcribe** (`cohere_asr`) | `CohereLabs/cohere-transcribe-03-2026` | ❌ | ✅ | ❌ |
-| **Whisper** (`whisper`) \* | `openai/whisper-large-v3`, `openai/whisper-large-v3-turbo` | ✅ | ✅ | ❌ |
+| **Whisper** (`whisper`) | `openai/whisper-large-v3`, `openai/whisper-large-v3-turbo` | ✅ | ✅ | ❌ |
 | **Voxtral** (`voxtral`) \* | `mistralai/Voxtral-Mini-3B-2507`, `mistralai/Voxtral-Small-24B-2507` | ✅ | ✅ | ❌ |
 | **Granite-Speech** (`granite_speech`) \* | `ibm-granite/granite-speech-4.1-2b`, `ibm-granite/granite-speech-3.3-8b` | ✅ | ❌ | ❌ |
 
-- **Backends.** Qwen3-ASR and Cohere run on **both** the `transformers` and `vllm`
-  backends. The **\*-marked** models (Whisper, Voxtral, Granite-Speech) run on the
-  **`vllm` backend only** for now (their in-process `transformers` path is not
-  wired). vLLM serves them via the same transcription endpoint, so no code change
-  is needed to use them, only to list/validate them.
+- **Backends.** Qwen3-ASR, Cohere and Whisper run on **both** the `transformers`
+  and `vllm` backends (on `transformers`, Whisper decodes audio over 30 s with
+  transformers' sequential long-form decoding). The **\*-marked** models
+  (Voxtral, Granite-Speech) run on the **`vllm` backend only** for now (their
+  in-process `transformers` path is not wired). vLLM serves them via the same
+  transcription endpoint, so no code change is needed to use them, only to
+  list/validate them.
 - **Word-level timestamps** (via the forced aligner) work for *every* model.
 - **Capabilities are detected from the model's processor signature, not its
   name**, so a request asking for an unsupported feature (hotwords on a model
@@ -54,7 +56,7 @@ The ASR step runs on a backend selected by `BACKEND`:
   started inside the container; no external service to run. Supports every
   vLLM-servable ASR model. **CUDA GPU** only; install with `uv sync --extra hf-vllm`.
 - `transformers`: in-process Hugging Face `transformers`. Runs on CPU too (the
-  portable fallback), but does not cover `vllm`-only models such as Whisper.
+  portable fallback), but does not cover `vllm`-only models such as Voxtral.
   Install with `uv sync --extra hf`.
 
 > **On CPU you must set `BACKEND=transformers`.** The default backend is `vllm`,
