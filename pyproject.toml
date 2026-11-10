@@ -28,7 +28,6 @@ nemo = [
     "nemo-toolkit[asr]",
     "onnx==1.18",
     "torchaudio>=2.9.0",
-    "torchcodec>=0.9.1",
     "wavio>=0.0.9",
     "hf_xet", # to speedup downloads from HuggingFace"
 ]

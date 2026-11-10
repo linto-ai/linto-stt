@@ -13,8 +13,6 @@ if USE_CTRANSLATE2:
 else:
     import torch
 
-    import whisper
-
 if USE_TORCHAUDIO:
     import torchaudio
 
@@ -102,9 +100,10 @@ def load_audiofile(path):
         raise RuntimeError("Missing reading permission for: %s" % path)
     if USE_CTRANSLATE2:
         return faster_whisper.decode_audio(path, sampling_rate=SAMPLE_RATE)
-    audio = whisper.load_audio(path)
-    audio = torch.from_numpy(audio)
-    return audio
+    # Not whisper.load_audio: it shells out to the ffmpeg command, which the
+    # Docker image does not ship. Read WAV like the HTTP path does.
+    with open(path, "rb") as f:
+        return load_wave_buffer(f.read())
 
 
 def load_wave_buffer(file_buffer):

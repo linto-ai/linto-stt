@@ -9,7 +9,9 @@
 - Docker images (all engines):
     - Security: bump vulnerable Python dependencies (notably python-multipart, which fixes an arbitrary file write through the HTTP upload endpoint, plus Pillow, urllib3, anyio, certifi, msgpack, fsspec)
     - Smaller attack surface: no `uv`, no `pip` (kept for Whisper, which may install a model converter at runtime) and no setuid/setgid binaries in the runtime images; the HF GPU image keeps only the C compiler and C headers that vLLM's Triton kernels need
-    - Smaller HF GPU image (from 10.8 GB to 8.2 GB): no CUDA 12 libraries outside Whisper, and no unused vLLM kernel, video or toolchain packages
+    - No `ffmpeg`, system `libsndfile` or `netcat` in the runtime images. Celery tasks read audio files with libsndfile (WAV, FLAC, OGG, MP3); other formats (M4A/AAC, WebM...) must be converted to WAV upstream. This changes NeMo, which previously accepted any format through ffmpeg
+    - Fix Celery tasks of the `whisper-torch` variant, whose image lacked the `ffmpeg` command its file loading required
+    - Smaller HF GPU image (from 10.8 GB to about 7.6 GB): no CUDA 12 libraries outside Whisper, no unused vLLM kernel, video or toolchain packages, no `ffmpeg`
 
 # 2.1.1
 - NeMo engine updates:

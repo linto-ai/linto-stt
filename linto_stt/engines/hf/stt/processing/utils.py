@@ -98,10 +98,11 @@ def conform_audio(audio, sample_rate=SAMPLE_RATE):
 def _decode_audio_file(path):
     """Decode an audio file to a (channels, samples) float32 tensor + sample rate.
 
-    Prefer soundfile (libsndfile, bundled in its wheel): it needs no system
-    ffmpeg and avoids torchaudio.load, which on torch >= 2.11 routes through
-    torchcodec whose native library fails to load without a matching ffmpeg. Fall
-    back to torchaudio for any format libsndfile cannot read.
+    Prefer soundfile (libsndfile, bundled in its wheel): it reads WAV, FLAC,
+    OGG/Vorbis and MP3 without a system ffmpeg, and avoids torchaudio.load, which
+    on torch >= 2.11 routes through torchcodec whose native library needs a
+    matching ffmpeg. Fall back to torchaudio for other formats, which only works
+    where ffmpeg is installed (not in the Docker image, meant for WAV input).
     """
     try:
         import soundfile as sf
@@ -109,9 +110,15 @@ def _decode_audio_file(path):
         data, sample_rate = sf.read(path, dtype="float32", always_2d=True)
         # soundfile returns (frames, channels); conform_audio wants (channels, frames)
         return torch.from_numpy(data.T.copy()), sample_rate
-    except (ImportError, RuntimeError):
+    except (ImportError, RuntimeError) as sf_err:
         # RuntimeError covers soundfile.LibsndfileError (unsupported format).
-        audio, sample_rate = torchaudio.load(path)
+        try:
+            audio, sample_rate = torchaudio.load(path)
+        except Exception as ta_err:
+            raise RuntimeError(
+                f"Unsupported audio format for {path} (libsndfile: {sf_err}; "
+                f"torchaudio: {ta_err}). Convert the file to WAV."
+            ) from ta_err
         return audio, sample_rate
 
 

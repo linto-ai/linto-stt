@@ -199,6 +199,10 @@ shared memory (vLLM's workers use `/dev/shm`): add `--shm-size=2g` (or
   only that backend).
 - **No WebSocket/streaming** (it would need vLLM's realtime API, which is not
   wired here; the vLLM backends are used for offline transcription only).
+- **Audio input: WAV.** HTTP requests must send WAV. Celery tasks read files
+  with libsndfile, so WAV works, as do FLAC, OGG/Vorbis and MP3; the Docker image
+  ships no ffmpeg, so other containers (M4A/AAC, WebM, MP4...) are rejected
+  with an explicit error. Convert such files to WAV upstream.
 - **Word timestamps** come from the forced-alignment model (see above), which
   runs only on metadata requests. Disable it with `ALIGNER_MODEL=none`.
 - **Long audio**: handling depends on the backend.

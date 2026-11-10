@@ -1,5 +1,5 @@
 ################################################################################
-# Builder stage: compiles native extensions (PyAudio), installs all Python deps
+# Builder stage: compiles native extensions, installs all Python deps
 ################################################################################
 FROM python:3.12-slim AS builder
 
@@ -15,9 +15,12 @@ RUN apt-get update && \
   git \
   && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ] || [ "$STT_ENGINE" = "hf" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    build-essential \
-    portaudio19-dev \
-    libsndfile1; \
+    build-essential; \
+  fi \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ]; then \
+    # auditok (VAD) depends on PyAudio, compiled here against PortAudio.
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    portaudio19-dev; \
   fi \
   && rm -rf /var/lib/apt/lists/*
 
@@ -78,22 +81,20 @@ ARG STT_ENGINE=nemo
 ARG GPU=""
 ENV STT_ENGINE=${STT_ENGINE}
 
-# Runtime-only system dependencies
+# Runtime-only system dependencies. Audio is decoded in Python (wavio,
+# soundfile with its bundled libsndfile, PyAV for faster-whisper), so no system
+# ffmpeg or libsndfile is needed; wait-for-it.sh probes the broker with bash's
+# /dev/tcp, so no netcat either. PortAudio is the runtime library of PyAudio,
+# pulled in by auditok.
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   curl \
   gosu \
-  netcat-traditional \
   passwd \
-  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ] || [ "$STT_ENGINE" = "hf" ]; then \
+  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "whisper" ] || [ "$STT_ENGINE" = "whisper-torch" ]; then \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    libportaudio2 \
-    libsndfile1; \
-  fi \
-  && if [ "$STT_ENGINE" = "nemo" ] || [ "$STT_ENGINE" = "hf" ]; then \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    ffmpeg; \
+    libportaudio2; \
   fi \
   && if [ "$STT_ENGINE" = "hf" ] && [ -n "$GPU" ]; then \
     # Triton compiles small host-side launcher stubs at runtime and needs a C
