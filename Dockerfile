@@ -96,8 +96,12 @@ RUN apt-get update && \
     ffmpeg; \
   fi \
   && if [ "$STT_ENGINE" = "hf" ] && [ -n "$GPU" ]; then \
+    # Triton compiles small host-side launcher stubs at runtime and needs a C
+    # compiler with the C library headers (vLLM fails to start without them,
+    # even in eager mode); C++ is not needed, including for torch.compile and
+    # CUDA graphs.
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    gcc g++; \
+    gcc libc6-dev; \
   fi \
   && apt-get clean && \
   rm -rf /var/lib/apt/lists/*
@@ -105,6 +109,17 @@ RUN apt-get update && \
 # Copy Python environment from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Hardening: no package installers at runtime (uv only served the build; pip is
+# kept for the whisper engine, which can pip-install a converter on demand), and
+# no setuid/setgid binaries (su, mount, passwd...): the entrypoint starts as root
+# and drops privileges with gosu, which does not rely on a setuid bit.
+RUN rm -f /usr/local/bin/uv /usr/local/bin/uvx && \
+    if [ "$STT_ENGINE" != "whisper" ] && [ "$STT_ENGINE" != "whisper-torch" ]; then \
+        python -m pip uninstall -y -q pip && \
+        rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.12; \
+    fi && \
+    find / -xdev -type f -perm /6000 -exec chmod ug-s {} +
 
 # Configure CUDA library paths if GPU is enabled
 RUN if [ -n "$GPU" ]; then \

@@ -7,6 +7,8 @@
     - Swappable ASR backend via `BACKEND`, sharing language/hotwords/chunking and the forced-aligner timestamps: `vllm` (default; a managed `vllm serve` subprocess over HTTP, GPU, higher throughput, serves any vLLM-servable ASR model) and `transformers` (in-process HF, CPU-capable)
     - Efficient by default: `sdpa` attention (FlashAttention-2 kernels on supported GPUs) and bfloat16
 - Docker images (all engines):
+    - Security: bump vulnerable Python dependencies (notably python-multipart, which fixes an arbitrary file write through the HTTP upload endpoint, plus Pillow, urllib3, anyio, certifi, msgpack, fsspec)
+    - Smaller attack surface: no `uv`, no `pip` (kept for Whisper, which may install a model converter at runtime) and no setuid/setgid binaries in the runtime images; the HF GPU image keeps only the C compiler and C headers that vLLM's Triton kernels need
     - Smaller HF GPU image (from 10.8 GB to 8.2 GB): no CUDA 12 libraries outside Whisper, and no unused vLLM kernel, video or toolchain packages
 
 # 2.1.1
