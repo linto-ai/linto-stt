@@ -471,6 +471,13 @@ class VllmServeBackend:
         # Overridable: set VLLM_USE_FLASHINFER_SAMPLER yourself to keep it.
         env = {**os.environ}
         env.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
+        # vLLM's default limits on one audio (HTTP 400 beyond them) are below what
+        # the transcription service sends, segments of up to 20 minutes: 25 MB per
+        # upload (about 13 minutes of 16 kHz 16-bit WAV) and 600 s of audio. Raise
+        # them to 4 hours (460 MB of WAV, 0.9 GiB once decoded to float32).
+        env.setdefault("VLLM_MAX_AUDIO_CLIP_FILESIZE_MB", "512")
+        env.setdefault("VLLM_MAX_AUDIO_DECODE_DURATION_S", "14400")
+        env.setdefault("VLLM_MAX_AUDIO_DECODE_BYTES", str(1024 * 1024 * 1024))
         # Keep the subprocess in this process group (NO new session): when the
         # parent or its group is killed -- a container stop, or the test harness
         # signalling the whole group -- vLLM and its EngineCore workers are reaped
@@ -562,7 +569,11 @@ class VllmServeBackend:
             files={"file": ("audio.wav", buf, "audio/wav")},
             timeout=VLLM_SERVE_REQUEST_TIMEOUT,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            # Surface vLLM's own message (e.g. audio too large, context exceeded).
+            raise RuntimeError(
+                f"vLLM transcription failed (HTTP {resp.status_code}): {resp.text[:500]}"
+            )
         text = (resp.json().get("text") or "").strip()
         # The transcription endpoint does not return the auto-detected language;
         # report the forced one when given, else None (word timestamps and the

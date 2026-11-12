@@ -1,5 +1,7 @@
 import time
 
+import torch
+
 from linto_stt.engines.hf.stt import (
     HOTWORDS,
     LONG_FILE_CHUNK_LEN,
@@ -168,4 +170,9 @@ def _align_words(model, audio, text, language):
     start_t = time.time()
     words = aligner.align(audio, text, language)
     logger.info(f"Forced alignment complete with {aligner.name} (t={time.time() - start_t}s)")
+    # Give the alignment's working memory back to the GPU: PyTorch would otherwise
+    # keep it reserved (several GB after a long file), next to the vLLM server and
+    # any other worker sharing the card.
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     return words

@@ -66,12 +66,44 @@ The ASR step runs on a backend selected by `BACKEND`:
 
 The `vllm` backend installs with `uv sync --extra hf-vllm` (vLLM is pinned to a
 version that still allows the aligner's transformers). vLLM uses the non-`-hf`
-checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf` id automatically. Tune
-with `VLLM_GPU_MEMORY_UTILIZATION` (fraction of VRAM) or
-`VLLM_KV_CACHE_MEMORY_BYTES` (absolute KV-cache budget, better on unified-memory /
-shared GPUs), and `VLLM_MAX_MODEL_LEN` (context cap, kept within each model's own
-limit). The serve backend also reads `VLLM_SERVE_HOST` / `VLLM_SERVE_PORT` and
+checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf` id automatically. The
+serve backend also reads `VLLM_SERVE_HOST` / `VLLM_SERVE_PORT` and
 `VLLM_SERVE_EXTRA_ARGS` (see `ENV.md`).
+
+### GPU memory of the vllm backend
+
+vLLM reserves its memory at startup: the model weights plus a KV cache. By
+default the engine lets it take 60% of the card (`VLLM_GPU_MEMORY_UTILIZATION`),
+far more than transcription needs. On a shared GPU, pin the KV cache instead:
+
+```sh
+VLLM_KV_CACHE_MEMORY_BYTES=536870912   # 512 MiB of KV cache
+VLLM_MAX_MODEL_LEN=4096                # context cap per request
+```
+
+- When `VLLM_KV_CACHE_MEMORY_BYTES` is set, vLLM ignores
+  `VLLM_GPU_MEMORY_UTILIZATION` and reserves exactly that cache.
+- The cache must hold at least one request of `VLLM_MAX_MODEL_LEN` tokens,
+  otherwise vLLM refuses to start (Qwen3-ASR needs 1.75 GiB for the default
+  16384). vLLM decodes audio in 30 s windows, so 4096 tokens is ample; models
+  with a smaller own limit keep it (Whisper 448, Cohere 1024).
+- Larger caches (1 GiB, 2 GiB) added their size to the memory use and no
+  measurable speed, for one request at a time, on files of 30 s to 20 minutes.
+
+GPU memory of the whole worker with this setting (vLLM server plus the forced
+aligners, word timestamps on, files up to 20 minutes), measured on an RTX 4090
+Laptop GPU (16 GB), see `benchmark/`:
+
+| `MODEL` | After loading | Peak |
+|---|:--:|:--:|
+| `openai/whisper-large-v3-turbo` | 4.7 GB | 7.5 GB |
+| `openai/whisper-large-v3` | 6.3 GB | 9.1 GB |
+| `CohereLabs/cohere-transcribe-03-2026` | 7.4 GB | 10.9 GB |
+| `Qwen/Qwen3-ASR-1.7B-hf` | 8.5 GB | 13.6 GB |
+
+Voxtral-Mini-3B does not split audio into windows, so it needs a context (and a
+cache) sized for the whole file; with the cap above it fails beyond about 5
+minutes. It took 12.4 GB after loading in the same test.
 
 Everything else (language selection, hotwords, long-audio chunking, and word
 timestamps, always via the transformers forced aligner) is shared between the two
