@@ -60,19 +60,36 @@ def _is_whisper_processor(processor):
     call_params = inspect.signature(processor.__call__).parameters
     return hasattr(processor, "get_decoder_prompt_ids") and "language" not in call_params
 
-# vLLM tuning (env). gpu_memory_utilization is the FRACTION of total VRAM vLLM
-# reserves (model + KV cache); keep it modest on a shared GPU. max_model_len caps
-# the context window: the model advertises a huge default (65536) whose KV cache
-# does not fit a modest memory share, and transcription needs far less, so we cap
-# it (raise it for very long audio if VRAM allows).
-VLLM_GPU_MEMORY_UTILIZATION = float(os.environ.get("VLLM_GPU_MEMORY_UTILIZATION", "0.6"))
-VLLM_MAX_MODEL_LEN = int(os.environ.get("VLLM_MAX_MODEL_LEN", "16384"))
-# Optional ABSOLUTE KV-cache budget in bytes. When set, it pins the KV cache size
-# directly (vLLM's kv_cache_memory_bytes) instead of deriving it from the
-# gpu_memory_utilization fraction; preferable on unified-memory / shared GPUs
-# where a relative share is awkward. gpu_memory_utilization still bounds the total
-# reservation (weights + activations + KV).
+# vLLM memory (env). vLLM reserves its GPU memory at startup: the model weights
+# plus a KV cache. Two ways to size the cache:
+# - VLLM_KV_CACHE_MEMORY_BYTES: an ABSOLUTE KV-cache budget in bytes (vLLM's
+#   kv_cache_memory_bytes). This is the default of the serve backend (see
+#   VLLM_SERVE_KV_CACHE_MEMORY_BYTES); set it to 0 to size by fraction instead.
+# - VLLM_GPU_MEMORY_UTILIZATION: the FRACTION of the card vLLM may reserve
+#   (weights + KV cache), when the KV cache is not pinned (and in the offline
+#   backend). With a pinned KV cache, vLLM does not use it for sizing, only as
+#   a startup check: it refuses to start unless that fraction of the card is free.
+# VLLM_MAX_MODEL_LEN caps the context window of one request. The KV cache must
+# hold at least one request of that length, or vLLM refuses to start.
+_ENV_GPU_MEMORY_UTILIZATION = os.environ.get("VLLM_GPU_MEMORY_UTILIZATION") or None
+VLLM_GPU_MEMORY_UTILIZATION = float(_ENV_GPU_MEMORY_UTILIZATION or "0.6")
+_ENV_MAX_MODEL_LEN = os.environ.get("VLLM_MAX_MODEL_LEN") or None
+# Offline backend default: the engine sends it chunks of several minutes.
+VLLM_MAX_MODEL_LEN = int(_ENV_MAX_MODEL_LEN or "16384")
 VLLM_KV_CACHE_MEMORY_BYTES = os.environ.get("VLLM_KV_CACHE_MEMORY_BYTES") or None
+# Serve backend, pinned KV cache: fraction of the card that must be free at
+# startup when VLLM_GPU_MEMORY_UTILIZATION is not set. Kept low so that several
+# workers can share a card (vLLM's own default, 0.92, would refuse to start).
+VLLM_SERVE_MIN_FREE_FRACTION = 0.25
+# Serve backend defaults, chosen for a GPU shared with other workers. `vllm serve`
+# decodes audio in windows of about 30 s, so a request stays far below 4096
+# tokens, and 512 MiB of KV cache holds a 4096-token request of Qwen3-ASR-1.7B
+# (the largest per-token cache among the supported models; Cohere and Whisper
+# cap their context at 1024 and 448). Larger caches did not make transcription
+# faster (one request at a time, files of 30 s to 20 minutes). A model that
+# vLLM does not window (Voxtral) needs a larger context and cache for long files.
+VLLM_SERVE_MAX_MODEL_LEN = 4096
+VLLM_SERVE_KV_CACHE_MEMORY_BYTES = 512 * 1024 * 1024
 # Skip torch.compile + CUDA-graph capture. Uses less VRAM and starts almost
 # instantly (no ~minute-long compile), at some inference-throughput cost. Useful
 # on memory-tight GPUs; off by default so the graphs give best throughput.
@@ -317,7 +334,7 @@ class VllmASRBackend:
         }
         if VLLM_MAX_MODEL_LEN:
             llm_kwargs["max_model_len"] = int(VLLM_MAX_MODEL_LEN)
-        if VLLM_KV_CACHE_MEMORY_BYTES:
+        if VLLM_KV_CACHE_MEMORY_BYTES and int(VLLM_KV_CACHE_MEMORY_BYTES) > 0:
             llm_kwargs["kv_cache_memory_bytes"] = int(VLLM_KV_CACHE_MEMORY_BYTES)
         if VLLM_ENFORCE_EAGER:
             llm_kwargs["enforce_eager"] = True
@@ -427,19 +444,33 @@ class VllmServeBackend:
             vllm_bin, "serve", self.served_model,
             "--host", self.host,
             "--port", str(self.port),
-            "--gpu-memory-utilization", str(VLLM_GPU_MEMORY_UTILIZATION),
             "--dtype", dtype,
             "--trust-remote-code",
         ]
         # Cap the context at min(our cap, the model's own max): Qwen3-ASR's 65536
-        # default needs a KV cache too big for a modest GPU share, while Cohere
-        # caps at 1024 and rejects anything larger. VLLM_MAX_MODEL_LEN is the cap
-        # (16384 by default); the model's own max is never exceeded.
+        # default needs a KV cache too big for a shared GPU, while Cohere caps at
+        # 1024 and rejects anything larger. The model's own max is never exceeded.
+        cap = int(_ENV_MAX_MODEL_LEN) if _ENV_MAX_MODEL_LEN else VLLM_SERVE_MAX_MODEL_LEN
         derived = _model_derived_max_len(self.model_name)
-        effective = min(VLLM_MAX_MODEL_LEN, derived) if derived else VLLM_MAX_MODEL_LEN
+        effective = min(cap, derived) if derived else cap
         cmd += ["--max-model-len", str(effective)]
-        if VLLM_KV_CACHE_MEMORY_BYTES:
-            cmd += ["--kv-cache-memory-bytes", str(int(VLLM_KV_CACHE_MEMORY_BYTES))]
+        # Memory: the KV cache is pinned (default budget, or the one given) unless
+        # VLLM_KV_CACHE_MEMORY_BYTES=0, in which case the fraction sizes it.
+        kv_bytes = (
+            int(VLLM_KV_CACHE_MEMORY_BYTES)
+            if VLLM_KV_CACHE_MEMORY_BYTES is not None
+            else VLLM_SERVE_KV_CACHE_MEMORY_BYTES
+        )
+        if kv_bytes > 0:
+            fraction = (
+                VLLM_GPU_MEMORY_UTILIZATION
+                if _ENV_GPU_MEMORY_UTILIZATION
+                else VLLM_SERVE_MIN_FREE_FRACTION
+            )
+            cmd += ["--kv-cache-memory-bytes", str(kv_bytes)]
+        else:
+            fraction = VLLM_GPU_MEMORY_UTILIZATION
+        cmd += ["--gpu-memory-utilization", str(fraction)]
         if VLLM_ENFORCE_EAGER:
             cmd += ["--enforce-eager"]
         cmd += VLLM_SERVE_EXTRA_ARGS

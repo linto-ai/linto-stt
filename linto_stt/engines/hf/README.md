@@ -72,25 +72,30 @@ serve backend also reads `VLLM_SERVE_HOST` / `VLLM_SERVE_PORT` and
 
 ### GPU memory of the vllm backend
 
-vLLM reserves its memory at startup: the model weights plus a KV cache. By
-default the engine lets it take 60% of the card (`VLLM_GPU_MEMORY_UTILIZATION`),
-far more than transcription needs. On a shared GPU, pin the KV cache instead:
+vLLM reserves its memory at startup: the model weights plus a KV cache. The
+engine pins that cache by default, so that a worker takes what transcription
+needs and can share a GPU:
 
-```sh
-VLLM_KV_CACHE_MEMORY_BYTES=536870912   # 512 MiB of KV cache
-VLLM_MAX_MODEL_LEN=4096                # context cap per request
-```
+| Variable | Default | Role |
+|---|---|---|
+| `VLLM_KV_CACHE_MEMORY_BYTES` | `536870912` (512 MiB) | size of the KV cache |
+| `VLLM_MAX_MODEL_LEN` | `4096` | context cap per request, kept within the model's own limit (Whisper 448, Cohere 1024) |
+| `VLLM_GPU_MEMORY_UTILIZATION` | `0.25` with a pinned cache | startup check only: vLLM refuses to start unless this fraction of the card is free |
 
-- When `VLLM_KV_CACHE_MEMORY_BYTES` is set, vLLM ignores
-  `VLLM_GPU_MEMORY_UTILIZATION` and reserves exactly that cache.
+These defaults fit Qwen3-ASR-1.7B and Cohere Transcribe (and Whisper) on files
+of 30 s to 20 minutes. The reasoning:
+
 - The cache must hold at least one request of `VLLM_MAX_MODEL_LEN` tokens,
-  otherwise vLLM refuses to start (Qwen3-ASR needs 1.75 GiB for the default
-  16384). vLLM decodes audio in 30 s windows, so 4096 tokens is ample; models
-  with a smaller own limit keep it (Whisper 448, Cohere 1024).
+  otherwise vLLM refuses to start. vLLM decodes audio in windows of about 30 s,
+  so a request stays far below 4096 tokens, and 512 MiB holds a 4096-token
+  request of Qwen3-ASR-1.7B (which needs 1.75 GiB for 16384 tokens).
 - Larger caches (1 GiB, 2 GiB) added their size to the memory use and no
-  measurable speed, for one request at a time, on files of 30 s to 20 minutes.
+  measurable speed, for one request at a time.
+- To size the cache as a fraction of the card instead, set
+  `VLLM_KV_CACHE_MEMORY_BYTES=0`: vLLM then reserves
+  `VLLM_GPU_MEMORY_UTILIZATION` of the card (0.6 if unset) for weights and cache.
 
-GPU memory of the whole worker with this setting (vLLM server plus the forced
+GPU memory of the whole worker with these defaults (vLLM server plus the forced
 aligners, word timestamps on, files up to 20 minutes), measured on an RTX 4090
 Laptop GPU (16 GB), see `benchmark/`:
 
@@ -98,12 +103,13 @@ Laptop GPU (16 GB), see `benchmark/`:
 |---|:--:|:--:|
 | `openai/whisper-large-v3-turbo` | 4.7 GB | 7.5 GB |
 | `openai/whisper-large-v3` | 6.3 GB | 9.1 GB |
-| `CohereLabs/cohere-transcribe-03-2026` | 7.4 GB | 10.9 GB |
-| `Qwen/Qwen3-ASR-1.7B-hf` | 8.5 GB | 13.6 GB |
+| `CohereLabs/cohere-transcribe-03-2026` | 7.4 GB | 11.2 GB |
+| `Qwen/Qwen3-ASR-1.7B-hf` | 8.5 GB | 14.4 GB |
 
 Voxtral-Mini-3B does not split audio into windows, so it needs a context (and a
-cache) sized for the whole file; with the cap above it fails beyond about 5
-minutes. It took 12.4 GB after loading in the same test.
+cache) sized for the whole file: with the defaults it fails beyond about 5
+minutes. Raise `VLLM_MAX_MODEL_LEN` (16384) and `VLLM_KV_CACHE_MEMORY_BYTES`
+(2 GiB or more) for it. It took 12.4 GB after loading in the same test.
 
 Everything else (language selection, hotwords, long-audio chunking, and word
 timestamps, always via the transformers forced aligner) is shared between the two
