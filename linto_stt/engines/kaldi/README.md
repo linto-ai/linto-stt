@@ -66,7 +66,7 @@ docker run --rm -p 8080:80 \
 
 For streaming, use `-e SERVICE_MODE=websocket`. For Celery task mode, use `-e SERVICE_MODE=task` with `-v /shared/audio:/opt/audio`.
 
-For punctuation recovery, add a [recasepunc model](../../../README.md#punctuation-model-recasepunc):
+For punctuation recovery, add a [recasepunc model](https://github.com/linto-ai/linto-stt/blob/master/README.md#punctuation-model-recasepunc):
 
 ```sh
 -v /path/to/fr.24000:/opt/PUNCT -e PUNCTUATION_MODEL=/opt/PUNCT

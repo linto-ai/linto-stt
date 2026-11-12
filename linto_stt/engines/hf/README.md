@@ -1,10 +1,97 @@
-# HF engine
+# LinTO-STT-HF
 
-Speech-to-text with Hugging Face ASR models (checkpoints in `transformers`
-format), through a managed `vllm` server or an in-process `transformers` backend.
+ASR API based on Hugging Face ASR models ([Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-1.7B-hf), [Cohere Transcribe](https://huggingface.co/CohereLabs/cohere-transcribe-03-2026), ...), served with [vLLM](https://docs.vllm.ai) or in-process `transformers`. Supports offline transcription (HTTP and Celery task), with word timestamps.
+
+> See the [main README](https://github.com/linto-ai/linto-stt/blob/master/README.md) for API docs, Docker options, and serving modes.
+> See [ENV.md](https://github.com/linto-ai/linto-stt/blob/master/ENV.md) for all environment variables.
+
 The engine is named after the model format, not after a single model or runtime:
-it auto-detects each checkpoint's family and capabilities from its processor, so
-it supports several ASR models.
+it serves checkpoints in Hugging Face `transformers` format, and detects each
+checkpoint's family and capabilities from its processor.
+
+## Quick Start
+
+### Prerequisites
+
+- [Docker](https://www.Docker.com/products/Docker-desktop/)
+- A CUDA GPU with [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html): the default `vllm` backend needs one (see [GPU memory](#gpu-memory-of-the-vllm-backend)). On CPU, use `BACKEND=transformers`
+- About 8GB disk space for the GPU image, plus the downloaded models
+
+### Pull or Build
+
+```sh
+docker pull lintoai/linto-stt-hf
+```
+
+or
+
+```sh
+# GPU: vllm backend (default) and transformers backend
+docker build -t linto-stt-hf:latest --build-arg STT_ENGINE=hf --build-arg GPU=1 .
+
+# CPU: transformers backend only
+docker build -t linto-stt-hf-cpu:latest --build-arg STT_ENGINE=hf .
+```
+
+A **GPU build** (`--build-arg GPU=1`) installs the `hf-vllm` extra (a superset), so
+it runs the default `vllm` backend out of the box, and the in-process
+`transformers` backend works in the same image. A **CPU build** (no `GPU`) installs
+only the lean `hf` extra (no vLLM), so that image **must** be run with
+`BACKEND=transformers` (vLLM needs a GPU).
+
+### Run
+
+HTTP file transcription:
+
+```sh
+docker run -p 8080:80 --rm \
+  -e SERVICE_MODE=http \
+  -e MODEL=Qwen/Qwen3-ASR-1.7B-hf \
+  -e DEVICE=cuda \
+  --gpus all --shm-size=2g \
+  --env-file .env \
+  lintoai/linto-stt-hf
+```
+
+Celery task (needs a broker, see the [main README](https://github.com/linto-ai/linto-stt/blob/master/README.md)):
+
+```sh
+docker run --rm \
+  -e SERVICE_MODE=task \
+  -e SERVICES_BROKER=redis://172.17.0.1:6379 \
+  -e MODEL=Qwen/Qwen3-ASR-1.7B-hf \
+  -e DEVICE=cuda \
+  --gpus all --shm-size=2g \
+  --env-file .env \
+  lintoai/linto-stt-hf
+```
+
+Test with:
+
+```sh
+curl -X POST "http://localhost:8080/transcribe?language=fr" -H "accept: application/json" -F "file=@tests/bonjour.wav;type=audio/wav"
+```
+
+With the `vllm` backend, give the container enough shared memory (vLLM's
+workers use `/dev/shm`): `--shm-size=2g` (or `--ipc=host`), or it may fail with
+a bus error. Mount a cache folder to avoid re-downloading the models (see
+"Cache mount" in the [main README](https://github.com/linto-ai/linto-stt/blob/master/README.md)).
+
+### Run without Docker
+
+Default backend (`vllm`, GPU):
+
+```sh
+uv sync --extra hf-vllm
+MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda uv run main.py -m http -e hf -p 8080 -i 127.0.0.1
+```
+
+Transformers backend (in-process; runs on CPU too):
+
+```sh
+uv sync --extra hf
+MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=transformers uv run main.py -m http -e hf -p 8080 -i 127.0.0.1
+```
 
 ## Supported models
 
@@ -15,9 +102,9 @@ it supports several ASR models.
 |---|---|:---:|:---:|:---:|
 | **Qwen3-ASR** (`qwen3_asr`) | `Qwen/Qwen3-ASR-1.7B-hf` (default), `Qwen/Qwen3-ASR-0.6B-hf` | ✅ | ✅ | ✅ |
 | **Cohere Transcribe** (`cohere_asr`) | `CohereLabs/cohere-transcribe-03-2026` | ❌ | ✅ | ❌ |
-| **Whisper** (`whisper`) | `openai/whisper-large-v3`, `openai/whisper-large-v3-turbo` | ✅ | ✅ | ❌ |
 | **Voxtral** (`voxtral`) \* | `mistralai/Voxtral-Mini-3B-2507`, `mistralai/Voxtral-Small-24B-2507` | ✅ | ✅ | ❌ |
 | **Granite-Speech** (`granite_speech`) \* | `ibm-granite/granite-speech-4.1-2b`, `ibm-granite/granite-speech-3.3-8b` | ✅ | ❌ | ❌ |
+| **Whisper** (`whisper`) | `openai/whisper-large-v3`, `openai/whisper-large-v3-turbo` | ✅ | ✅ | ❌ |
 
 - **Backends.** Qwen3-ASR, Cohere and Whisper run on **both** the `transformers`
   and `vllm` backends (on `transformers`, Whisper decodes audio over 30 s with
@@ -46,7 +133,38 @@ listing + validating them** (no code), e.g. MOSS-Transcribe-Diarize
 [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard)
 and the [LINAGORA ASR benchmark](https://linagora-labs.github.io/asr_benchmark/).
 
-## Backends
+### Whisper: prefer the whisper engine
+
+Whisper runs on this engine, but for production use the dedicated
+[whisper engine](https://github.com/linto-ai/linto-stt/blob/master/linto_stt/engines/whisper/README.md) (image
+[`lintoai/linto-stt-whisper`](https://hub.docker.com/r/lintoai/linto-stt-whisper)),
+which is built around faster-whisper and offers what this engine lacks for Whisper:
+
+- **Voice activity detection** before decoding (`VAD`), which helps against
+  hallucinations on silence. Here the audio goes to the model as is.
+- **Beam search with temperature fallback** (`USE_ACCURATE`). Here decoding is
+  greedy only.
+- **Hotwords and initial prompt.** Here a request with hotwords is rejected for Whisper.
+- **Native word timestamps.** Here they come from a separate forced aligner,
+  which costs time and VRAM.
+- **Streaming** (WebSocket mode). Not available in this engine.
+
+Speed and VRAM, measured on an RTX 4090 Laptop GPU with word timestamps, on
+meeting recordings cut in segments of 30 to 80 s (RTFx = audio duration /
+processing time, higher is faster; see `benchmark/`):
+
+| Whisper model | whisper engine | this engine, `vllm` backend |
+|---|---|---|
+| large-v3-turbo | RTFx 31 (greedy) or 20 (beam 5), 1.5 GB | RTFx 31, 8.7 GB |
+| large-v3 | RTFx 6.5 (greedy) or 5.4 (beam 5), 3.3 GB | RTFx 20, 10.3 GB |
+
+So for turbo this engine brings no speed and costs about 6 times the VRAM. For
+large-v3 it is about 3 times faster, for 3 times the VRAM and without the
+features above; accuracy on spontaneous French was about 0.5 WER point worse.
+
+## HF-Specific Configuration
+
+### Backends
 
 The ASR step runs on a backend selected by `BACKEND`:
 
@@ -68,7 +186,7 @@ The `vllm` backend installs with `uv sync --extra hf-vllm` (vLLM is pinned to a
 version that still allows the aligner's transformers). vLLM uses the non-`-hf`
 checkpoint, so an `-hf` `MODEL` is mapped to its non-`-hf` id automatically. The
 serve backend also reads `VLLM_SERVE_HOST` / `VLLM_SERVE_PORT` and
-`VLLM_SERVE_EXTRA_ARGS` (see `ENV.md`).
+`VLLM_SERVE_EXTRA_ARGS` (see [ENV.md](https://github.com/linto-ai/linto-stt/blob/master/ENV.md)).
 
 ### GPU memory of the vllm backend
 
@@ -79,7 +197,7 @@ needs and can share a GPU:
 | Variable | Default | Role |
 |---|---|---|
 | `VLLM_KV_CACHE_MEMORY_BYTES` | `536870912` (512 MiB) | size of the KV cache |
-| `VLLM_MAX_MODEL_LEN` | `4096` | context cap per request, kept within the model's own limit (Whisper 448, Cohere 1024) |
+| `VLLM_MAX_MODEL_LEN` | `4096` | context cap per request, kept within the model's own limit (Cohere 1024, Whisper 448) |
 | `VLLM_GPU_MEMORY_UTILIZATION` | `0.25` with a pinned cache | startup check only: vLLM refuses to start unless this fraction of the card is free |
 
 These defaults fit Qwen3-ASR-1.7B and Cohere Transcribe (and Whisper) on files
@@ -101,10 +219,15 @@ Laptop GPU (16 GB), see `benchmark/`:
 
 | `MODEL` | After loading | Peak |
 |---|:--:|:--:|
-| `openai/whisper-large-v3-turbo` | 4.7 GB | 7.5 GB |
-| `openai/whisper-large-v3` | 6.3 GB | 9.1 GB |
-| `CohereLabs/cohere-transcribe-03-2026` | 7.4 GB | 11.2 GB |
-| `Qwen/Qwen3-ASR-1.7B-hf` | 8.5 GB | 14.4 GB |
+| `Qwen/Qwen3-ASR-1.7B-hf` | 8.5 GB | 14.6 GB |
+| `CohereLabs/cohere-transcribe-03-2026` | 7.4 GB | 12.7 GB |
+| `openai/whisper-large-v3` | 6.3 GB | 10.3 GB |
+| `openai/whisper-large-v3-turbo` | 4.7 GB | 8.7 GB |
+
+The peak depends on the order of the files: it is reached when a file of about
+5 minutes (the heaviest input of the main aligner) follows a 20-minute file
+(which brings the vLLM server to its largest size), with both aligners loaded.
+The figures above were measured on that sequence.
 
 Voxtral-Mini-3B is not cut into windows by vLLM: the engine cuts long files
 itself for it (see "Long audio" below), so the defaults above suit it too. It
@@ -114,7 +237,7 @@ Everything else (language selection, hotwords, long-audio chunking, and word
 timestamps, always via the transformers forced aligner) is shared between the two
 backends.
 
-## Language
+### Language
 
 - `LANGUAGE=*` (or unset): automatic detection; the model transcribes
   multilingually (only for models that support it, see the table above).
@@ -146,7 +269,7 @@ language, but their accuracy is only validated by Qwen for the 11 above. For a
 language-agnostic aligner see `ALIGNER_MODEL=mms` / `ALIGNER_FALLBACK_MODEL=mms`
 in the [Word timestamps](#word-timestamps) section.
 
-## Hotwords
+### Hotwords
 
 `HOTWORDS` biases the transcription toward given words (proper nouns, jargon).
 Give comma-separated entries (each may be a multi-word phrase, e.g.
@@ -159,7 +282,7 @@ Note: Qwen3-ASR's context prompt is soft LM conditioning (not literal token
 biasing like faster-whisper's hotwords), and the model normalises casing, so
 hotwords nudge *which* words are produced rather than forcing an exact spelling.
 
-## Word timestamps
+### Word timestamps
 
 Qwen3-ASR has no native word timestamps, so they are produced by a companion
 forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf)
@@ -196,41 +319,7 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
   the primary aligner (long audio is then still aligned with it, with a warning
   in the logs).
 
-## Running
-
-Default backend (`vllm`, GPU):
-
-```sh
-uv sync --extra hf-vllm
-MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda uv run main.py -m http -e hf -p 8080 -i 127.0.0.1
-# transcribe:
-curl -s -X POST "http://127.0.0.1:8080/transcribe?language=fr" -F "file=@tests/bonjour.wav"
-```
-
-Transformers backend (in-process HF; runs on CPU too):
-
-```sh
-uv sync --extra hf
-MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=transformers uv run main.py -m http -e hf -p 8080 -i 127.0.0.1
-```
-
-Docker:
-
-```sh
-docker build -t linto-stt-hf --build-arg STT_ENGINE=hf --build-arg GPU=1 .
-```
-
-A **GPU build** (`--build-arg GPU=1`) installs the `hf-vllm` extra (a superset), so
-it runs the default `vllm` backend out of the box, and the in-process
-`transformers` backend works in the same image. A **CPU build** (no `GPU`) installs
-only the lean `hf` extra (no vLLM), so that image **must** be run with
-`BACKEND=transformers` (vLLM needs a GPU).
-
-When running the GPU image with the `vllm` backend, give the container enough
-shared memory (vLLM's workers use `/dev/shm`): add `--shm-size=2g` (or
-`--ipc=host`) to `docker run`, or it may fail with a bus error.
-
-## Notes / limitations
+## Notes and Limitations
 
 - **GPU strongly recommended.** The model is an LLM-based ASR; CPU inference is
   slow. The default `vllm` backend requires a CUDA GPU, so **on CPU you must set
@@ -263,4 +352,16 @@ shared memory (vLLM's workers use `/dev/shm`): add `--shm-size=2g` (or
   kernels on supported GPUs, so it is efficient out of the box. Other knobs:
   `DTYPE`, `MAX_NEW_TOKENS`, and `ATTN_IMPLEMENTATION=flash_attention_2` (opt-in;
   requires separately installing the GPU-only `flash-attn` package). See
-  `ENV.md`.
+  [ENV.md](https://github.com/linto-ai/linto-stt/blob/master/ENV.md).
+
+## License
+
+AGPLv3 (see LICENSE).
+
+## Acknowledgments
+
+- [vLLM](https://github.com/vllm-project/vllm)
+- [HuggingFace Transformers](https://github.com/huggingface/transformers)
+- [Qwen3-ASR and Qwen3-ForcedAligner](https://github.com/QwenLM/Qwen3-ASR)
+- [Cohere Transcribe](https://huggingface.co/CohereLabs/cohere-transcribe-03-2026)
+- [MMS forced aligner](https://docs.pytorch.org/audio/stable/pipelines.html) (torchaudio) and [uroman](https://github.com/isi-nlp/uroman)
