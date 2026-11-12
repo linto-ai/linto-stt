@@ -602,6 +602,24 @@ class TestHfAligners:
         assert [w["word"] for w in words] == ["Bonjour", "!"]
         assert words[1]["start"] == words[1]["end"] == words[0]["end"]
 
+    def test_mms_audio_too_short_for_text(self, engine):
+        """CTC alignment needs at least one frame per character: on audio too
+        short for its text (a few tens of ms, or less than the encoder's 25 ms
+        input), the MMS aligner must still return ordered timestamps within the
+        audio instead of failing the request."""
+        pytest.importorskip("uroman")
+        aligners, audio = engine
+        aligner = aligners.load_aligner("mms", device="cpu")
+        text = "bonjour madame comment allez vous"
+        for n_samples in (1600, 160, 0):  # 100 ms, 10 ms, empty
+            clip = audio[:n_samples]
+            words = aligner.align(clip, text, "fr")
+            assert [w["word"] for w in words] == text.split()
+            ends = [w["end"] for w in words]
+            assert ends == sorted(ends)
+            for w in words:
+                assert 0 <= w["start"] <= w["end"] <= n_samples / 16000 + 1e-6
+
     def test_mms_long_audio_consistency(self, engine):
         """Quality check of the MMS aligner beyond the Qwen aligner's 5-minute
         limit: a 5+ minute file built from the two test clips (with silences) is

@@ -154,6 +154,9 @@ class MMSForcedAligner:
     # emission, so no frame is computed right at a window edge (without it,
     # words within ~1 s of a cut shift by up to 0.5 s).
     EMISSION_CONTEXT_S = 2
+    # Shortest input the wav2vec2 feature encoder accepts (its receptive field:
+    # 400 samples, 25 ms); shorter audio gets evenly spread timestamps.
+    MIN_SAMPLES = 400
 
     def __init__(self, device):
         import torchaudio
@@ -204,22 +207,57 @@ class MMSForcedAligner:
                 start = end
         return torch.cat(chunks)
 
+    def _ctc_spans(self, audio, texts):
+        """(start, end) in seconds for each romanised word, by CTC forced
+        alignment; None when the audio is too short for the text."""
+        waveform = torch.as_tensor(audio, dtype=torch.float32).reshape(1, -1)
+        if waveform.size(1) < self.MIN_SAMPLES:
+            return None
+        emission = self._emission(waveform)  # the CTC trellis runs on its device
+        targets = self.tokenizer(texts)
+        # CTC needs one frame per target character, plus one blank between two
+        # identical consecutive characters; very short audio (a few tens of ms
+        # for a word) has fewer frames than that.
+        flat = [c for word in targets for c in word]
+        repeats = sum(1 for a, b in zip(flat, flat[1:]) if a == b)
+        if emission.size(0) < len(flat) + repeats:
+            return None
+        seconds_per_frame = waveform.size(1) / emission.size(0) / SAMPLE_RATE
+        return [
+            (span[0].start * seconds_per_frame, span[-1].end * seconds_per_frame)
+            for span in self.aligner(emission, targets)
+        ]
+
+    @staticmethod
+    def _even_spans(duration, texts):
+        """Fallback when CTC alignment is impossible: the words share the audio
+        in proportion to their number of characters, in order."""
+        logger.warning(
+            f"Audio too short to align {len(texts)} word(s) in {duration:.2f}s: "
+            f"word timestamps spread evenly"
+        )
+        total = sum(len(t) for t in texts)
+        spans, start = [], 0.0
+        for t in texts:
+            end = start + duration * len(t) / total
+            spans.append((start, end))
+            start = end
+        return spans
+
     def align(self, audio, text, language=None):
         tokens = text.split()
         normalized = [self._normalize(token) for token in tokens]
         alignable = [i for i, norm in enumerate(normalized) if norm]
         spans = []
         if alignable:
-            waveform = torch.as_tensor(audio, dtype=torch.float32).reshape(1, -1)
-            emission = self._emission(waveform)  # the CTC trellis runs on its device
-            seconds_per_frame = waveform.size(1) / emission.size(0) / SAMPLE_RATE
-            token_spans = self.aligner(
-                emission, self.tokenizer([normalized[i] for i in alignable])
-            )
-            spans = [
-                (span[0].start * seconds_per_frame, span[-1].end * seconds_per_frame)
-                for span in token_spans
-            ]
+            texts = [normalized[i] for i in alignable]
+            try:
+                spans = self._ctc_spans(audio, texts)
+            except Exception as err:  # never fail a request for want of timestamps
+                logger.warning(f"MMS alignment failed ({err!r}): spreading the words evenly")
+                spans = None
+            if spans is None:
+                spans = self._even_spans(len(audio) / SAMPLE_RATE, texts)
 
         # Same contract as the Qwen aligner: one entry per whitespace token;
         # tokens with nothing to align (punctuation) get a zero-width stamp.
