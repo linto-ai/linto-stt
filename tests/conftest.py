@@ -54,6 +54,11 @@ def pytest_addoption(parser):
         help="Only run Docker-based tests",
     )
     parser.addoption(
+        "--long", action="store_true", default=False,
+        help="Also run the long-audio tests (marker `long`): files of more than "
+        "10 minutes, several minutes per test. Skipped by default",
+    )
+    parser.addoption(
         "--uv-only", action="store_true", default=False, help="Only run UV-based tests"
     )
     parser.addoption(
@@ -106,6 +111,10 @@ def pytest_collection_modifyitems(config, items):
         # Skip GPU tests on CPU
         if device == "cpu" and "gpu" in markers:
             item.add_marker(pytest.mark.skip(reason="GPU test skipped (--device=cpu)"))
+
+        # Long-audio tests only on request
+        if "long" in markers and not config.getoption("--long"):
+            item.add_marker(pytest.mark.skip(reason="long-audio test (use --long)"))
 
         # Docker/UV filtering
         if docker_only and "docker" not in markers:

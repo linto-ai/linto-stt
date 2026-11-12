@@ -160,6 +160,7 @@ markers = [
     "hf: Engine HF (Hugging Face transformers-native ASR, e.g. Qwen3-ASR)",
     "vllm: HF engine with the vLLM backend (needs the hf-vllm extra)",
     "slow: Tests > 2 minutes",
+    "long: Long-audio tests (files over 10 minutes), run only with --long",
 ]
 addopts = "-v --tb=short"
 timeout = 900

@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 import pytest
 
 from helpers.env_setup import get_expected_regex
@@ -92,6 +95,24 @@ class TestHfCapabilities:
         # argument): it can be forced, and auto-detected otherwise.
         whisper = detect_capabilities(AutoProcessor.from_pretrained(WHISPER_MODEL))
         assert whisper == {"hotwords": False, "language_spec": True, "language_auto": True}
+
+    def test_long_audio_handling_per_model(self, monkeypatch):
+        """On the vllm backend the engine sends the whole file, except for the
+        models vLLM does not cut into windows (Voxtral), which it chunks itself."""
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+
+        from linto_stt.engines.hf.stt.processing.backends import (
+            VllmServeBackend,
+            _model_type,
+        )
+
+        not_windowed = VllmServeBackend.MODEL_TYPES_NOT_WINDOWED_BY_VLLM
+        assert _model_type(VOXTRAL_MODEL) in not_windowed
+        for model in (TEST_MODEL, COHERE_MODEL, WHISPER_MODEL):
+            assert _model_type(model) not in not_windowed
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +290,65 @@ class TestHfWhisper:
         result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Long audio on the vllm backend (run with --long)
+# ---------------------------------------------------------------------------
+
+VOXTRAL_MODEL = "mistralai/Voxtral-Mini-3B-2507"
+LONG_AUDIO_REPEATS = 42  # x 20 s = 14 minutes, a 27 MB WAV
+
+
+@pytest.fixture(scope="module")
+def long_audio(tmp_path_factory):
+    """A 14-minute WAV: the 20 s hotel dialogue repeated. Long enough to exceed
+    vLLM's default limits on one audio (25 MB, 600 s) and to span several engine
+    chunks (LONG_FILE_CHUNK_LEN) and many vLLM windows."""
+    import numpy as np
+    import wavio
+
+    clip = wavio.read(str(Path(__file__).resolve().parent / "Hotel20sec.wav"))
+    path = tmp_path_factory.mktemp("long_audio") / "hotel_14min.wav"
+    wavio.write(str(path), np.tile(clip.data, (LONG_AUDIO_REPEATS, 1)), clip.rate,
+                sampwidth=clip.sampwidth)
+    return path
+
+
+def _long_config(model, id):
+    env = {"MODEL": model, "LANGUAGE": "fr", "DEVICE": "cuda", "BACKEND": "vllm"}
+    return pytest.param(
+        {"engine": "hf", "mode": "http", "port": 0, "env_overrides": env}, id=id
+    )
+
+
+@pytest.mark.hf
+@pytest.mark.vllm
+@pytest.mark.uv
+@pytest.mark.gpu
+@pytest.mark.slow
+@pytest.mark.long
+@pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
+class TestHfLongAudio:
+    """A file of 14 minutes on the vllm backend, with the default memory
+    settings. Two cases: a model that vLLM cuts into 30 s windows (Qwen3-ASR:
+    the engine sends the whole file) and one that it does not (Voxtral: the
+    engine cuts the file itself, else the request exceeds the context)."""
+
+    @pytest.mark.parametrize(
+        "uv_server",
+        [_long_config(TEST_MODEL, "long-qwen"), _long_config(VOXTRAL_MODEL, "long-voxtral")],
+        indirect=True,
+    )
+    def test_long_file(self, uv_server, long_audio):
+        result = transcribe_http(uv_server["url"], str(long_audio), timeout=900)
+        # The whole file must be transcribed, not a truncated part: the dialogue
+        # says "chambre" at least once per repetition (allow a few misses).
+        count = len(re.findall(r"chambre", result, flags=re.IGNORECASE))
+        assert count >= int(0.8 * LONG_AUDIO_REPEATS), (
+            f"'chambre' found {count} times for {LONG_AUDIO_REPEATS} repetitions: "
+            f"{result[:300]}..."
         )
 
 

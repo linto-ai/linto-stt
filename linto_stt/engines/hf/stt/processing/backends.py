@@ -156,6 +156,18 @@ def _model_derived_max_len(model_name):
     return max(values) if values else None
 
 
+def _model_type(model_name):
+    """The HF config `model_type` of a checkpoint (e.g. "qwen3_asr", "voxtral"),
+    or None when it cannot be read."""
+    from transformers import AutoConfig
+
+    try:
+        return getattr(AutoConfig.from_pretrained(model_name, trust_remote_code=True),
+                       "model_type", None)
+    except Exception:  # noqa: BLE001 -- unknown config
+        return None
+
+
 class TransformersASRBackend:
     """In-process Hugging Face transformers ASR, for any transformers-native ASR.
 
@@ -401,7 +413,12 @@ class VllmServeBackend:
     """
 
     name = "vllm"
-    handles_long_audio = True  # vLLM serve chunks long audio server-side
+    # `vllm serve` cuts long audio into windows of about 30 s itself, so the
+    # engine sends the whole file. Exceptions (HF config `model_type`): models
+    # that vLLM feeds whole, whose context grows with the audio duration. For
+    # those the engine cuts long files itself (LONG_FILE_THRESHOLD /
+    # LONG_FILE_CHUNK_LEN), like on the transformers backend.
+    MODEL_TYPES_NOT_WINDOWED_BY_VLLM = frozenset({"voxtral"})
 
     def __init__(self, model_name, device, dtype="bfloat16", **kwargs):
         if "cuda" not in str(device):
@@ -423,6 +440,9 @@ class VllmServeBackend:
         self.supports_hotwords = caps["hotwords"]
         self.supports_language_spec = caps["language_spec"]
         self.supports_language_auto = caps["language_auto"]
+        self.handles_long_audio = (
+            _model_type(model_name) not in self.MODEL_TYPES_NOT_WINDOWED_BY_VLLM
+        )
 
         self.host = VLLM_SERVE_HOST
         # Pin the port only if the user set VLLM_SERVE_PORT; otherwise pick a free

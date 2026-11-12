@@ -106,10 +106,9 @@ Laptop GPU (16 GB), see `benchmark/`:
 | `CohereLabs/cohere-transcribe-03-2026` | 7.4 GB | 11.2 GB |
 | `Qwen/Qwen3-ASR-1.7B-hf` | 8.5 GB | 14.4 GB |
 
-Voxtral-Mini-3B does not split audio into windows, so it needs a context (and a
-cache) sized for the whole file: with the defaults it fails beyond about 5
-minutes. Raise `VLLM_MAX_MODEL_LEN` (16384) and `VLLM_KV_CACHE_MEMORY_BYTES`
-(2 GiB or more) for it. It took 12.4 GB after loading in the same test.
+Voxtral-Mini-3B is not cut into windows by vLLM: the engine cuts long files
+itself for it (see "Long audio" below), so the defaults above suit it too. It
+took 12.4 GB after loading in the same test.
 
 Everything else (language selection, hotwords, long-audio chunking, and word
 timestamps, always via the transformers forced aligner) is shared between the two
@@ -248,7 +247,11 @@ shared memory (vLLM's workers use `/dev/shm`): add `--shm-size=2g` (or
 - **Long audio**: handling depends on the backend.
   - On the **`vllm`** backend, vLLM chunks long audio **server-side** (~30 s
     windows, split at quiet points with a short overlap), so `LONG_FILE_THRESHOLD`
-    / `LONG_FILE_CHUNK_LEN` have **no effect**.
+    / `LONG_FILE_CHUNK_LEN` have **no effect**. Exception: Voxtral, which vLLM
+    feeds whole (its context grows with the audio duration). For it the engine
+    cuts files longer than `LONG_FILE_THRESHOLD` into `LONG_FILE_CHUNK_LEN`
+    pieces itself, as on the `transformers` backend, so it works on any length
+    with the default memory settings.
   - On the **`transformers`** backend, only models that do not self-chunk
     (Qwen3-ASR) are chunked by the engine: files longer than `LONG_FILE_THRESHOLD`
     seconds are transcribed in consecutive non-overlapping chunks of

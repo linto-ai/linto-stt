@@ -280,6 +280,7 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 | `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`, `hf`) |
 | `--device`         | Target device: `cpu` (default) or `cuda`                    |
 | `--uv-only`        | Only run UV-based tests (skip Docker)                       |
+| `--long`           | Also run the long-audio tests (files over 10 minutes; skipped by default) |
 | `--docker-only`    | Only run Docker-based tests                                 |
 | `--server-timeout` | Timeout in seconds for server startup (default: 600)        |
 | `--kaldi-am-path`  | Path to Kaldi acoustic model                                |
@@ -298,6 +299,7 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 | `uv`      | Tests via UV subprocess                     |
 | `gpu`     | Requires CUDA                               |
 | `slow`    | Tests taking > 2 minutes                    |
+| `long`    | Long-audio tests, run only with `--long`    |
 
 ## Examples
 
