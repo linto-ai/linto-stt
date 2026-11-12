@@ -306,6 +306,16 @@ class VllmASRBackend:
     ``language <Name><asr_text><transcription>``, which we parse.
 
     GPU only. Word timestamps still come from the transformers forced aligner.
+
+    Why it is kept but not documented (not in the README nor ENV.md): it is
+    slower than ``BACKEND=vllm`` and supports fewer models (Qwen3-ASR only, where
+    ``vllm`` serves any vLLM-servable ASR model). Measured on an RTX 4090 Laptop
+    GPU (Qwen3-ASR-1.7B, ASR only, 2026-11-06): both backends are on par up to
+    20 s of audio, but beyond that this backend stays at about 35x real time
+    while ``vllm`` reaches 57x at 60 s and 108x at 120 s. Here the whole audio is
+    one sequence, while ``vllm serve`` cuts it into ~30 s windows decoded in
+    parallel. It is kept so that this comparison can be run again (e.g. after a
+    vLLM upgrade), by setting ``BACKEND=vllm_offline``.
     """
 
     name = "vllm_offline"

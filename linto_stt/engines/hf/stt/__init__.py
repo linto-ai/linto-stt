@@ -20,8 +20,10 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 #                   (Qwen3-ASR + Cohere); higher throughput, GPU + `hf-vllm` extra.
 #   "transformers"  in-process Hugging Face transformers (Qwen3-ASR + Cohere);
 #                   the portable fallback (CPU-capable, `hf` extra).
-#   "vllm_offline"  in-process `vllm.LLM` (Qwen3-ASR only); kept to benchmark
-#                   against the "vllm" serve backend.
+#   "vllm_offline"  in-process `vllm.LLM` (Qwen3-ASR only); undocumented on
+#                   purpose (slower than "vllm" beyond 20 s of audio, fewer
+#                   models), kept only to benchmark against the "vllm" serve
+#                   backend: see the `VllmASRBackend` docstring in backends.py.
 # A seam so the backend is swappable without touching the engine contract.
 BACKEND = os.environ.get("BACKEND", "vllm").lower()
 
