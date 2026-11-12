@@ -105,8 +105,9 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 
 ## HF-specific
 
-The `hf` engine serves Hugging Face transformers-native ASR models
-(currently Qwen3-ASR, e.g. `Qwen/Qwen3-ASR-1.7B-hf`). See the engine README.
+The `hf` engine serves Hugging Face ASR models in `transformers` format (Qwen3-ASR,
+Cohere Transcribe, Whisper, and on the `vllm` backend Voxtral, Granite Speech, ...).
+See the engine README.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -128,6 +129,10 @@ The `hf` engine serves Hugging Face transformers-native ASR models
 | `VLLM_SERVE_STARTUP_TIMEOUT` | `900` | (`BACKEND=vllm`) Seconds to wait for the server to become healthy (model load) before failing |
 | `VLLM_SERVE_REQUEST_TIMEOUT` | `600` | (`BACKEND=vllm`) Per-request HTTP timeout in seconds (long audio is chunked server-side) |
 | `VLLM_SERVE_EXTRA_ARGS` | _(unset)_ | (`BACKEND=vllm`, optional) Extra arguments appended verbatim to the `vllm serve` command line (e.g. `--max-num-seqs 8`) |
+| `VLLM_MAX_AUDIO_CLIP_FILESIZE_MB` | `512` | (`BACKEND=vllm`) vLLM's limit on the size of one uploaded audio (vLLM's own default, 25, rejects about 13 minutes of 16 kHz 16-bit WAV) |
+| `VLLM_MAX_AUDIO_DECODE_DURATION_S` | `14400` | (`BACKEND=vllm`) vLLM's limit on the duration of one audio in seconds (vLLM's own default, 600, rejects files over 10 minutes) |
+| `VLLM_MAX_AUDIO_DECODE_BYTES` | `1073741824` (1 GiB) | (`BACKEND=vllm`) vLLM's limit on the size of one audio once decoded (float32 samples) |
+| `VLLM_USE_FLASHINFER_SAMPLER` | `0` | (`BACKEND=vllm`) Disables vLLM's FlashInfer sampler, whose compilation at startup needs the CUDA toolkit (`nvcc`), absent from the image. No effect on the output (greedy decoding) |
 
 `LANGUAGE` and `HOTWORDS` behave as in the Common section (per-request overridable); `HOTWORDS` is passed to the model as a biasing prompt. WebSocket/streaming is not supported for this engine.
 

@@ -39,15 +39,19 @@ A single Dockerfile is used for all engines. Specify the engine with `--build-ar
 
 ```sh
 docker build -t linto-stt-nemo:latest --build-arg STT_ENGINE=nemo .
-docker build -t linto-stt-whisper:latest --build-arg STT_ENGINE=whisper .
 docker build -t linto-stt-kaldi:latest --build-arg STT_ENGINE=kaldi .
 docker build -t linto-stt-kyutai:latest --build-arg STT_ENGINE=kyutai .
 
-# Avec GPU (cuBLAS + cuDNN pour ctranslate2, ajoute ~1.3GB)
-docker build -t linto-stt-whisper-gpu:latest \
+# Whisper, GPU build (cuBLAS + cuDNN for ctranslate2, adds ~1.3GB)
+docker build -t linto-stt-whisper:latest \
   --build-arg STT_ENGINE=whisper --build-arg GPU=1 .
+# Whisper, CPU only
+docker build -t linto-stt-whisper-cpu:latest --build-arg STT_ENGINE=whisper .
 
-# Avec recasepunc (ponctuation + recasing, ajoute torch CPU ~1.2GB)
+# HF, GPU build (vllm backend, default); without GPU=1, only the transformers backend
+docker build -t linto-stt-hf:latest --build-arg STT_ENGINE=hf --build-arg GPU=1 .
+
+# With recasepunc (punctuation + recasing, adds torch CPU ~1.2GB)
 docker build -t linto-stt-kaldi-recasepunc:latest \
   --build-arg STT_ENGINE=kaldi --build-arg EXTRA_DEPS=recasepunc .
 ```
@@ -56,8 +60,8 @@ Or pull pre-built images:
 
 ```sh
 docker pull lintoai/linto-stt-nemo
-docker pull lintoai/linto-stt-whisper
-docker pull lintoai/linto-stt-whisper-gpu
+docker pull lintoai/linto-stt-whisper    # GPU build
+docker pull lintoai/linto-stt-hf         # GPU build
 docker pull lintoai/linto-stt-kaldi
 docker pull lintoai/linto-stt-kaldi-recasepunc
 ```
@@ -101,7 +105,7 @@ STT can be used in three ways:
 
 ## Docker Options
 
-- **GPU**: Add `--gpus all` and set `DEVICE=cuda`. For Whisper (ctranslate2), use the GPU image (`linto-stt-whisper-gpu`) which includes the CUDA runtime libraries (cuBLAS, cuDNN). On multi-GPU machines, use `CUDA_VISIBLE_DEVICES` to select a specific GPU.
+- **GPU**: Add `--gpus all` and set `DEVICE=cuda`. The published Whisper image (`lintoai/linto-stt-whisper`) is the GPU build, which includes the CUDA runtime libraries for ctranslate2 (cuBLAS, cuDNN). On multi-GPU machines, use `CUDA_VISIBLE_DEVICES` to select a specific GPU.
 - **Cache mount**: Mount a local cache folder to avoid re-downloading models each time:
   ```sh
   -v ~/.cache:/var/www/.cache
@@ -194,7 +198,7 @@ The celery tasks can be managed using [LinTO Transcription service](https://gith
 
 If your model outputs lower-case text without punctuation, you can use a recasepunc model (version 0.4+) to add punctuation marks to final results.
 
-> L'image doit être buildée avec `--build-arg EXTRA_DEPS=recasepunc`.
+> The image must be built with `--build-arg EXTRA_DEPS=recasepunc`.
 
 Available models trained on [Common Crawl](http://data.statmt.org/cc-100/):
 
@@ -264,7 +268,7 @@ uv run pytest -m nemo --uv-only
 uv run pytest -m docker
 
 # NeMo CPU, no Docker
-uv run pytest test/test_nemo.py -m "not docker and not gpu"
+uv run pytest tests/test_nemo.py -m "not docker and not gpu"
 
 # Whisper on GPU
 uv run pytest -m whisper --device cuda
