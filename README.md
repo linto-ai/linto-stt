@@ -275,6 +275,9 @@ uv run pytest -m whisper --device cuda
 
 # Kaldi (requires model paths)
 uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
+
+# Quick run: skip the tests that take minutes (vLLM servers, some Docker tests)
+uv run pytest -m "not slow" --device cuda
 ```
 
 **CLI options:**
@@ -302,7 +305,7 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 | `docker`  | Tests that build and run a Docker container |
 | `uv`      | Tests via UV subprocess                     |
 | `gpu`     | Requires CUDA                               |
-| `slow`    | Tests taking > 2 minutes                    |
+| `slow`    | Tests taking minutes (deselect with `-m "not slow"`) |
 | `long`    | Long-audio tests, run only with `--long`    |
 
 ## Examples

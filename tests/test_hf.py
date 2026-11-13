@@ -3,7 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from helpers.env_setup import get_expected_regex
+from helpers.env_setup import build_env_dict, get_expected_regex
+from helpers.server_runner import UVServerRunner
 from helpers.transcription_client import transcribe_http
 
 
@@ -46,11 +47,32 @@ def _config(device, env=None, id="default", mode="http"):
 
 
 def _cohere_config(language, id, backend="vllm"):
-    env = {"MODEL": COHERE_MODEL, "LANGUAGE": language, "DEVICE": "cuda", "BACKEND": backend}
+    env = {"MODEL": COHERE_MODEL, "LANGUAGE": language, "DEVICE": "cuda", "BACKEND": backend,
+           **(EAGER if backend == "vllm" else {})}
     return pytest.param(
         {"engine": "hf", "mode": "http", "port": 0, "env_overrides": env},
         id=id,
     )
+
+
+# vLLM startup is dominated by torch.compile and CUDA-graph capture: most vLLM
+# tests skip them (VLLM_ENFORCE_EAGER, same transcription), one server per
+# configuration keeps the production setting (compiled).
+EAGER = {"VLLM_ENFORCE_EAGER": "1"}
+
+
+def _class_server(project_root, server_timeout, env):
+    """A UV server shared by the tests of a class (a vLLM server takes minutes to
+    start, a request seconds). Generator body for a class-scoped fixture."""
+    runner = UVServerRunner(
+        project_root=project_root, engine="hf", mode="http", port=0,
+        env_dict=build_env_dict(project_root, "hf", env), timeout=server_timeout,
+    )
+    try:
+        url = runner.start()
+        yield {"url": url, "runner": runner, "engine": "hf", "mode": "http", "timeout": server_timeout}
+    finally:
+        runner.stop()
 
 
 def _vllm_installed():
@@ -120,15 +142,39 @@ class TestHfCapabilities:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(scope="class")
+def vllm_fr_server(project_root, server_timeout):
+    """LANGUAGE=fr, compiled (the production setting)."""
+    yield from _class_server(project_root, server_timeout,
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "fr", "DEVICE": "cuda"})
+
+
+@pytest.fixture(scope="class")
+def vllm_auto_server(project_root, server_timeout):
+    """LANGUAGE=* (automatic detection), eager."""
+    yield from _class_server(project_root, server_timeout,
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "*", "DEVICE": "cuda", **EAGER})
+
+
+@pytest.fixture(scope="class")
+def vllm_en_server(project_root, server_timeout):
+    """LANGUAGE=en (overridden per request), eager."""
+    yield from _class_server(project_root, server_timeout,
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "en", "DEVICE": "cuda", **EAGER})
+
+
 @pytest.mark.hf
 @pytest.mark.vllm
 @pytest.mark.uv
 @pytest.mark.gpu
+@pytest.mark.slow
 @pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
 class TestHfVllm:
     """All features on the default backend (`vllm`, a managed `vllm serve`
     subprocess): automatic language detection, forced language (config + per
-    request), and hotwords (env + per request). Qwen3-ASR affords every feature.
+    request), and hotwords (per request; the HOTWORDS env default is tested on
+    the transformers backend, the code path being the same). Qwen3-ASR affords
+    every feature. Three servers, each shared by the tests of its configuration.
 
     The configs deliberately omit `BACKEND`, so these also assert the engine
     default is vLLM. Needs the `hf-vllm` extra (`uv sync --extra hf-vllm --extra test`)
@@ -137,32 +183,23 @@ class TestHfVllm:
 
     # --- language ---
 
-    @pytest.mark.parametrize(
-        "uv_server", [_config("cuda", {"LANGUAGE": "fr"}, id="fr")], indirect=True
-    )
-    def test_integration_forced_language(self, uv_server, test_audio_bonjour):
-        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+    def test_integration_forced_language(self, vllm_fr_server, test_audio_bonjour):
+        result = transcribe_http(vllm_fr_server["url"], str(test_audio_bonjour))
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
         )
 
-    @pytest.mark.parametrize(
-        "uv_server", [_config("cuda", {"LANGUAGE": "*"}, id="auto")], indirect=True
-    )
-    def test_language_auto_detect(self, uv_server, test_audio_bonjour):
+    def test_language_auto_detect(self, vllm_auto_server, test_audio_bonjour):
         """LANGUAGE=* -> automatic detection; French audio still transcribes."""
-        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        result = transcribe_http(vllm_auto_server["url"], str(test_audio_bonjour))
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
         )
 
-    @pytest.mark.parametrize(
-        "uv_server", [_config("cuda", {"LANGUAGE": "en"}, id="lang-override")], indirect=True
-    )
-    def test_language_per_request_override(self, uv_server, test_audio_bonjour):
+    def test_language_per_request_override(self, vllm_en_server, test_audio_bonjour):
         """Config says en; the per-request language=fr overrides it."""
         result = transcribe_http(
-            uv_server["url"], str(test_audio_bonjour), language="fr"
+            vllm_en_server["url"], str(test_audio_bonjour), language="fr"
         )
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
@@ -170,12 +207,9 @@ class TestHfVllm:
 
     # --- hotwords ---
 
-    @pytest.mark.parametrize(
-        "uv_server", [_config("cuda", {"LANGUAGE": "fr"}, id="no-hotwords")], indirect=True
-    )
-    def test_hotwords_baseline(self, uv_server, test_audio_hotel):
+    def test_hotwords_baseline(self, vllm_fr_server, test_audio_hotel):
         """Control: without a hotword, the biased word is NOT produced."""
-        result = transcribe_http(uv_server["url"], str(test_audio_hotel))
+        result = transcribe_http(vllm_fr_server["url"], str(test_audio_hotel))
         assert get_expected_regex(str(test_audio_hotel), "fr").search(result), (
             f"Unexpected transcription: {result!r}"
         )
@@ -183,26 +217,11 @@ class TestHfVllm:
             f"Baseline unexpectedly already contains {BIASED_WORD!r}: {result!r}"
         )
 
-    @pytest.mark.parametrize(
-        "uv_server",
-        [_config("cuda", {"LANGUAGE": "fr", "HOTWORDS": HOTWORDS}, id="hotwords-env")],
-        indirect=True,
-    )
-    def test_hotwords_env(self, uv_server, test_audio_hotel):
-        """The HOTWORDS env default biases the transcription toward 'double'."""
-        result = transcribe_http(uv_server["url"], str(test_audio_hotel))
-        assert BIASED_WORD in result.lower(), (
-            f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
-        )
-
-    @pytest.mark.parametrize(
-        "uv_server", [_config("cuda", {"LANGUAGE": "fr"}, id="hotwords-request")], indirect=True
-    )
-    def test_hotwords_per_request(self, uv_server, test_audio_hotel):
+    def test_hotwords_per_request(self, vllm_fr_server, test_audio_hotel):
         """The per-request `hotwords` param biases toward 'double' with no env set,
         proving it overrides the (empty) default."""
         result = transcribe_http(
-            uv_server["url"], str(test_audio_hotel), hotwords=HOTWORDS
+            vllm_fr_server["url"], str(test_audio_hotel), hotwords=HOTWORDS
         )
         assert BIASED_WORD in result.lower(), (
             f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
@@ -223,9 +242,9 @@ class TestHfVllm:
 class TestHfCohere:
     """Cohere (`cohere_asr`, a seq2seq ASR): proves the engine generalises beyond
     Qwen3-ASR. Integration is checked on BOTH backends (`vllm` and `transformers`).
-    The capability guards are backend-independent (enforced in `decode` from the
-    detected capabilities): Cohere requires a language and has no hotwords. CUDA
-    GPU; the ~2B model downloads on first use (and pulls `librosa`)."""
+    Its capability guards (a required language, no hotwords) are enforced in
+    `decode`, whatever the backend: see TestHfCapabilityGuards. CUDA GPU; the
+    ~2B model downloads on first use (and pulls `librosa`)."""
 
     @pytest.mark.parametrize(
         "uv_server",
@@ -241,28 +260,62 @@ class TestHfCohere:
             f"Unexpected transcription: {result}"
         )
 
-    @pytest.mark.parametrize(
-        "uv_server", [_cohere_config("fr", "cohere-hotwords")], indirect=True
-    )
-    def test_hotwords_rejected(self, uv_server, test_audio_bonjour):
-        """Cohere has no hotwords -> a request with hotwords is rejected."""
-        with pytest.raises(RuntimeError):
-            transcribe_http(uv_server["url"], str(test_audio_bonjour), hotwords="test")
 
-    @pytest.mark.parametrize(
-        "uv_server", [_cohere_config("fr", "cohere-nolang")], indirect=True
-    )
-    def test_no_language_rejected(self, uv_server, test_audio_bonjour):
-        """Cohere needs a language -> forcing auto-detect (language='*') is rejected."""
-        with pytest.raises(RuntimeError):
-            transcribe_http(uv_server["url"], str(test_audio_bonjour), language="*")
+@pytest.mark.hf
+@pytest.mark.uv
+class TestHfCapabilityGuards:
+    """`decode` rejects, before any decoding, a request the model cannot serve
+    (capabilities detected from the processor, e.g. Cohere: a required language
+    and no hotwords). Checked with a stub backend: no model, no server (the HTTP
+    server turns the ValueError into an HTTP 400 for every engine)."""
+
+    @pytest.fixture
+    def decode(self, monkeypatch):
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+        from linto_stt.engines.hf.stt.processing.decoding import decode
+
+        return decode
+
+    @staticmethod
+    def _model(**caps):
+        from types import SimpleNamespace
+
+        asr = SimpleNamespace(supports_hotwords=caps.get("hotwords", False),
+                              supports_language_spec=caps.get("language_spec", True),
+                              supports_language_auto=caps.get("language_auto", False))
+        return SimpleNamespace(asr=asr)
+
+    def test_hotwords_rejected(self, decode):
+        """No hotword mechanism (Cohere) -> a request with hotwords is rejected."""
+        import numpy as np
+
+        with pytest.raises(ValueError, match="hotwords"):
+            decode(np.zeros(16000, dtype=np.float32), self._model(), False, language="fr", hotwords="test")
+
+    def test_no_language_rejected(self, decode):
+        """No language detection (Cohere) -> a request without a language is rejected."""
+        import numpy as np
+
+        with pytest.raises(ValueError, match="language detection"):
+            decode(np.zeros(16000, dtype=np.float32), self._model(), False, language="*")
+
+    def test_forced_language_rejected(self, decode):
+        """A model that takes no forced language -> forcing one is rejected."""
+        import numpy as np
+
+        model = self._model(language_spec=False, language_auto=True)
+        with pytest.raises(ValueError, match="forced language"):
+            decode(np.zeros(16000, dtype=np.float32), model, False, language="fr")
 
 
-def _whisper_config(language, id, backend):
+def _whisper_config(language, id, backend, marks=()):
     env = {"MODEL": WHISPER_MODEL, "LANGUAGE": language, "DEVICE": "cuda", "BACKEND": backend}
     return pytest.param(
         {"engine": "hf", "mode": "http", "port": 0, "env_overrides": env},
-        id=id,
+        id=id, marks=marks,
     )
 
 
@@ -280,7 +333,9 @@ class TestHfWhisper:
     @pytest.mark.parametrize(
         "uv_server",
         [
-            _whisper_config("fr", "whisper-vllm-fr", backend="vllm"),
+            # Whisper is served by the whisper engine in production: its vLLM
+            # case (a server start) only runs with --long.
+            _whisper_config("fr", "whisper-vllm-fr", backend="vllm", marks=pytest.mark.long),
             _whisper_config("fr", "whisper-transformers-fr", backend="transformers"),
             _whisper_config("*", "whisper-transformers-auto", backend="transformers"),
         ],
@@ -418,6 +473,20 @@ class TestHfBackend:
         result = transcribe_http(
             uv_server["url"], str(test_audio_hotel), hotwords=HOTWORDS
         )
+        assert BIASED_WORD in result.lower(), (
+            f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
+        )
+
+    @pytest.mark.uv
+    @pytest.mark.parametrize(
+        "uv_server",
+        [_config(None, {"BACKEND": "transformers", "LANGUAGE": "fr", "HOTWORDS": HOTWORDS},
+                 id="tf-hotwords-env")],
+        indirect=True,
+    )
+    def test_hotwords_env(self, uv_server, test_audio_hotel):
+        """The HOTWORDS env default biases the transcription toward 'double'."""
+        result = transcribe_http(uv_server["url"], str(test_audio_hotel))
         assert BIASED_WORD in result.lower(), (
             f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
         )
@@ -742,6 +811,7 @@ class TestHfAligners:
 @pytest.mark.hf
 @pytest.mark.docker
 @pytest.mark.gpu
+@pytest.mark.slow
 class TestHfDockerCelery:
     """hf engine via Celery task mode (Docker container + Redis broker),
     on the default `vllm` backend. Exercises the `-m task` serving path end to

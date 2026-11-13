@@ -210,6 +210,12 @@ def uv_server(request, project_root, server_timeout):
             **env_overrides,
             "DEVICE": request.config.getoption("--device"),
         }
+    # Kaldi: the LinTO acoustic model and decoding graph given on the command
+    # line (the Docker fixture mounts them at the engine's defaults instead).
+    if engine == "kaldi":
+        for option, var in (("--kaldi-am-path", "AM_PATH"), ("--kaldi-lm-path", "LM_PATH")):
+            if request.config.getoption(option):
+                env_overrides = {**env_overrides, var: request.config.getoption(option)}
 
     env_dict = build_env_dict(project_root, engine, env_overrides)
     runner = UVServerRunner(
@@ -277,6 +283,16 @@ def docker_server(request, project_root, server_timeout):
         # by the host user) — so it would re-download despite the mount.
         env_overrides.setdefault("USER_ID", str(os.getuid()))
         env_overrides.setdefault("GROUP_ID", str(os.getgid()))
+
+    # hf engine: keep vLLM's and Triton's caches (compiled graphs and kernels)
+    # across test runs, as a container otherwise starts from scratch each time.
+    # Outside the runtime user's home, like the HF cache (see above).
+    if engine == "hf":
+        for name, var in (("vllm", "VLLM_CACHE_ROOT"), ("triton", "TRITON_CACHE_DIR")):
+            host_dir = os.path.expanduser(f"~/.cache/linto-stt-tests/{name}")
+            os.makedirs(host_dir, exist_ok=True)
+            volumes.setdefault(host_dir, f"/opt/{name}_cache")
+            env_overrides.setdefault(var, f"/opt/{name}_cache")
 
     # For task mode, mount test dir as /opt/audio
     if mode == "task":
