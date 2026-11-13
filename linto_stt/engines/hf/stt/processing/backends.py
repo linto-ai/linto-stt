@@ -1,0 +1,672 @@
+"""Swappable ASR backends for the hf engine.
+
+The engine runs one pipeline (chunking, forced-alignment word timestamps,
+language/hotword handling, response assembly) around a pluggable ASR backend
+selected by the ``BACKEND`` environment variable:
+
+- ``vllm`` (default): a managed ``vllm serve`` subprocess reached over HTTP, for
+  higher throughput; serves any vLLM-servable ASR model (CUDA GPU only).
+- ``transformers``: in-process Hugging Face ``transformers`` (runs on CPU too).
+- ``vllm_offline``: in-process vLLM (``vllm.LLM``), Qwen3-ASR only (experimental).
+
+A backend only has to turn one audio segment into ``(text, detected_language)``;
+word timestamps (the forced aligner) and everything else stay backend-agnostic,
+so backends can be benchmarked against each other by flipping ``BACKEND``.
+"""
+import inspect
+import re
+import os
+
+import torch
+
+from linto_stt.engines.hf.stt import MAX_NEW_TOKENS, logger
+
+from .utils import SAMPLE_RATE
+
+
+def detect_capabilities(processor):
+    """Detect a model's ASR capabilities from its *processor's* transcription
+    signature (not from the model name), so it is robust across checkpoints:
+
+    - ``hotwords``: the transcription call takes a context/hotword ``prompt``.
+    - ``language_spec``: it takes a ``language`` argument at all.
+    - ``language_auto``: ``language`` is optional (auto-detection) rather than
+      required.
+
+    Qwen3-ASR exposes ``apply_transcription_request(audio, language=None,
+    prompt=None)``; a seq2seq model (e.g. Cohere) exposes
+    ``__call__(audio, language, ...)`` with no ``prompt`` and a required
+    ``language``. Whisper takes no ``language`` in its processor call: the
+    language goes into the decoder prompt (``get_decoder_prompt_ids``), so it can
+    be forced, and is auto-detected otherwise.
+    """
+    fn = getattr(processor, "apply_transcription_request", None) or processor.__call__
+    params = inspect.signature(fn).parameters
+    has_language = "language" in params
+    language_optional = (
+        has_language and params["language"].default is not inspect.Parameter.empty
+    )
+    return {
+        "hotwords": "prompt" in params,
+        "language_spec": has_language or _is_whisper_processor(processor),
+        "language_auto": (not has_language) or language_optional,
+    }
+
+
+def _is_whisper_processor(processor):
+    """Whisper-style processor: the language is a decoder prompt, not an argument
+    of the processor call (Cohere also has get_decoder_prompt_ids, but takes the
+    language in its call, which detect_capabilities already reads)."""
+    call_params = inspect.signature(processor.__call__).parameters
+    return hasattr(processor, "get_decoder_prompt_ids") and "language" not in call_params
+
+# vLLM memory (env). vLLM reserves its GPU memory at startup: the model weights
+# plus a KV cache. Two ways to size the cache:
+# - VLLM_KV_CACHE_MEMORY_BYTES: an ABSOLUTE KV-cache budget in bytes (vLLM's
+#   kv_cache_memory_bytes). This is the default of the serve backend (see
+#   VLLM_SERVE_KV_CACHE_MEMORY_BYTES); set it to 0 to size by fraction instead.
+# - VLLM_GPU_MEMORY_UTILIZATION: the FRACTION of the card vLLM may reserve
+#   (weights + KV cache), when the KV cache is not pinned (and in the offline
+#   backend). With a pinned KV cache, vLLM does not use it for sizing, only as
+#   a startup check: it refuses to start unless that fraction of the card is free.
+# VLLM_MAX_MODEL_LEN caps the context window of one request. The KV cache must
+# hold at least one request of that length, or vLLM refuses to start.
+_ENV_GPU_MEMORY_UTILIZATION = os.environ.get("VLLM_GPU_MEMORY_UTILIZATION") or None
+VLLM_GPU_MEMORY_UTILIZATION = float(_ENV_GPU_MEMORY_UTILIZATION or "0.6")
+_ENV_MAX_MODEL_LEN = os.environ.get("VLLM_MAX_MODEL_LEN") or None
+# Offline backend default: the engine sends it chunks of several minutes.
+VLLM_MAX_MODEL_LEN = int(_ENV_MAX_MODEL_LEN or "16384")
+VLLM_KV_CACHE_MEMORY_BYTES = os.environ.get("VLLM_KV_CACHE_MEMORY_BYTES") or None
+# Serve backend, pinned KV cache: fraction of the card that must be free at
+# startup when VLLM_GPU_MEMORY_UTILIZATION is not set. Kept low so that several
+# workers can share a card (vLLM's own default, 0.92, would refuse to start).
+VLLM_SERVE_MIN_FREE_FRACTION = 0.25
+# Serve backend defaults, chosen for a GPU shared with other workers. `vllm serve`
+# decodes audio in windows of about 30 s, so a request stays far below 4096
+# tokens, and 512 MiB of KV cache holds a 4096-token request of Qwen3-ASR-1.7B
+# (the largest per-token cache among the supported models; Cohere and Whisper
+# cap their context at 1024 and 448). Larger caches did not make transcription
+# faster (one request at a time, files of 30 s to 20 minutes). A model that
+# vLLM does not window (Voxtral) needs a larger context and cache for long files.
+VLLM_SERVE_MAX_MODEL_LEN = 4096
+VLLM_SERVE_KV_CACHE_MEMORY_BYTES = 512 * 1024 * 1024
+# Skip torch.compile + CUDA-graph capture. Uses less VRAM and starts almost
+# instantly (no ~minute-long compile), at some inference-throughput cost. Useful
+# on memory-tight GPUs; off by default so the graphs give best throughput.
+VLLM_ENFORCE_EAGER = os.environ.get("VLLM_ENFORCE_EAGER", "").strip().lower() in (
+    "1", "true", "yes",
+)
+# --- vLLM "serve" backend (BACKEND=vllm): a managed `vllm serve` subprocess that
+# the engine talks to over HTTP (/v1/audio/transcriptions). Unlike the in-process
+# offline backend, this one runs vLLM in its own process (no transformers-registry
+# pollution) and works for every vLLM-servable ASR model (Qwen3-ASR and Cohere).
+VLLM_SERVE_HOST = os.environ.get("VLLM_SERVE_HOST", "127.0.0.1")
+# Port for the managed `vllm serve`. Unset (the default) picks a free port per
+# server at startup, so a leftover/orphaned server never blocks a new one; set it
+# to pin a fixed port.
+VLLM_SERVE_PORT = os.environ.get("VLLM_SERVE_PORT") or None
+# How long to wait for the subprocess to become healthy (model load + warmup).
+VLLM_SERVE_STARTUP_TIMEOUT = int(os.environ.get("VLLM_SERVE_STARTUP_TIMEOUT", "900"))
+# Per-request HTTP timeout (long audio is chunked server-side, so keep generous).
+VLLM_SERVE_REQUEST_TIMEOUT = int(os.environ.get("VLLM_SERVE_REQUEST_TIMEOUT", "600"))
+# Extra raw args appended verbatim to the `vllm serve` command line.
+VLLM_SERVE_EXTRA_ARGS = os.environ.get("VLLM_SERVE_EXTRA_ARGS", "").split()
+
+
+def _find_free_port(host="127.0.0.1"):
+    """Ask the OS for a currently-free TCP port on `host`."""
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return sock.getsockname()[1]
+
+
+def _model_derived_max_len(model_name):
+    """Best-effort read of a model's own maximum sequence length from its config.
+
+    Used to cap ``--max-model-len`` at ``min(our cap, the model's own max)``: a
+    model may advertise a huge context (Qwen3-ASR: 65536) whose KV cache does not
+    fit a modest GPU share, while another caps low (Cohere: 1024) and rejects any
+    larger value. Scans the common length keys on the top config and its text /
+    decoder sub-configs; returns the largest found (ignoring the tiny audio-tower
+    value), or None when it cannot tell.
+    """
+    from transformers import AutoConfig
+
+    try:
+        config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+    except Exception:  # noqa: BLE001 -- unknown config -> fall back to our cap
+        return None
+    keys = (
+        "max_position_embeddings", "n_positions", "max_seq_len", "seq_length",
+        "max_sequence_length", "max_seq_length", "model_max_length",
+        "max_target_positions",  # Whisper's decoder limit (448); not max_source_positions
+    )
+    sub_names = ("text_config", "thinker_config", "decoder_config", "llm_config")
+    configs = [config] + [
+        getattr(config, s) for s in sub_names if getattr(config, s, None) is not None
+    ]
+    values = [
+        v
+        for cfg in configs
+        for k in keys
+        if isinstance((v := getattr(cfg, k, None)), int) and 0 < v < 10_000_000
+    ]
+    return max(values) if values else None
+
+
+def _model_type(model_name):
+    """The HF config `model_type` of a checkpoint (e.g. "qwen3_asr", "voxtral"),
+    or None when it cannot be read."""
+    from transformers import AutoConfig
+
+    try:
+        return getattr(AutoConfig.from_pretrained(model_name, trust_remote_code=True),
+                       "model_type", None)
+    except Exception:  # noqa: BLE001 -- unknown config
+        return None
+
+
+class TransformersASRBackend:
+    """In-process Hugging Face transformers ASR, for any transformers-native ASR.
+
+    Two model families are supported, auto-detected from the processor:
+
+    - **Qwen3-ASR** (processor exposes ``apply_transcription_request``): an LLM-
+      style model. The context ``prompt`` carries hotwords and the language is
+      forced via an assistant prefill; long audio is chunked by the engine.
+    - **Seq2seq ASR** (e.g. ``cohere_asr``): a Whisper-like encoder-decoder.
+      ``processor(audio, language=...)`` -> ``generate`` -> ``processor.decode``.
+      It has no hotword/prompt mechanism, requires an explicit language, and
+      chunks long audio itself (``handles_long_audio``).
+    - **Whisper**: the language (optional) is passed to ``generate`` as a decoder
+      prompt, and audio longer than 30 s uses transformers' sequential long-form
+      decoding (``handles_long_audio``).
+    """
+
+    name = "transformers"
+
+    def __init__(self, processor, model):
+        self.processor = processor
+        self.model = model
+        # Qwen3-ASR exposes apply_transcription_request (chat + hotword prompt);
+        # other transformers ASR (e.g. cohere_asr) use the plain seq2seq API.
+        self._is_qwen = hasattr(processor, "apply_transcription_request")
+        self._is_whisper = _is_whisper_processor(processor)
+        # Seq2seq models (Cohere, Whisper) handle long audio themselves, so the
+        # engine must NOT also chunk them.
+        self.handles_long_audio = not self._is_qwen
+        caps = detect_capabilities(processor)
+        self.supports_hotwords = caps["hotwords"]
+        self.supports_language_spec = caps["language_spec"]
+        self.supports_language_auto = caps["language_auto"]
+
+    def transcribe(self, audio, language=None, prompt=None):
+        """Transcribe one 16 kHz mono float32 segment -> (text, detected_language)."""
+        if self._is_qwen:
+            return self._transcribe_qwen(audio, language, prompt)
+        if self._is_whisper:
+            return self._transcribe_whisper(audio, language)
+        return self._transcribe_seq2seq(audio, language)
+
+    def _transcribe_qwen(self, audio, language, prompt):
+        request_kwargs = {}
+        if language:
+            request_kwargs["language"] = language
+        if prompt:
+            request_kwargs["prompt"] = prompt
+
+        inputs = self.processor.apply_transcription_request(audio=audio, **request_kwargs)
+        inputs = inputs.to(self.model.device, self.model.dtype)
+        input_len = inputs["input_ids"].shape[1]
+
+        with torch.inference_mode():
+            output_ids = self.model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS)
+
+        parsed = self.processor.decode(
+            output_ids[:, input_len:], return_format="parsed"
+        )[0]
+        text = (parsed.get("transcription") or "").strip()
+        return text, parsed.get("language")
+
+    def _transcribe_seq2seq(self, audio, language):
+        # Seq2seq ASR (e.g. Cohere): language is required and there is no hotword
+        # mechanism; both are validated upstream (decode) from the capabilities.
+        inputs = self.processor(
+            audio=audio, sampling_rate=SAMPLE_RATE, return_tensors="pt", language=language
+        )
+        # The feature extractor splits long audio into chunks; decode reassembles
+        # them using audio_chunk_index.
+        audio_chunk_index = inputs.get("audio_chunk_index")
+        inputs = inputs.to(self.model.device, self.model.dtype)
+
+        with torch.inference_mode():
+            output_ids = self.model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS)
+
+        text = self.processor.decode(
+            output_ids,
+            skip_special_tokens=True,
+            audio_chunk_index=audio_chunk_index,
+            language=language,
+        )[0].strip()
+        return text, language
+
+
+    def _transcribe_whisper(self, audio, language):
+        # Up to 30 s: one window. Longer: transformers' sequential long-form
+        # decoding, which needs the untruncated features, their attention mask
+        # and timestamp tokens (to know where each 30 s window ends).
+        long_form = len(audio) > 30 * SAMPLE_RATE
+        feature_kwargs = {"sampling_rate": SAMPLE_RATE, "return_tensors": "pt"}
+        if long_form:
+            feature_kwargs.update(truncation=False, padding="longest", return_attention_mask=True)
+        inputs = self.processor(audio, **feature_kwargs)
+        inputs = inputs.to(self.model.device, self.model.dtype)
+        with torch.inference_mode():
+            if not language:
+                # generate() returns only the text tokens, so detect the language
+                # explicitly (on the first 30 s window) and then force it, which
+                # also keeps every long-form window in the same language.
+                language = self._whisper_detect_language(inputs["input_features"])
+            generate_kwargs = {"task": "transcribe"}
+            if language:
+                generate_kwargs["language"] = language
+            if long_form:
+                generate_kwargs["return_timestamps"] = True
+            output_ids = self.model.generate(**inputs, **generate_kwargs)
+
+        text = self.processor.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+        return text, language
+
+    def _whisper_detect_language(self, input_features):
+        """ISO code of the language detected on the first 30 s window, or None
+        (Whisper language tokens are <|xx|> with 2 or 3 letters)."""
+        first_window = input_features[..., : self.processor.feature_extractor.nb_max_frames]
+        lang_ids = self.model.detect_language(input_features=first_window)
+        token = self.processor.tokenizer.convert_ids_to_tokens(lang_ids.flatten().tolist())[0]
+        match = re.fullmatch(r"<\|([a-z]{2,3})\|>", token or "")
+        return match.group(1) if match else None
+
+
+class VllmASRBackend:
+    """In-process vLLM ASR (``vllm.LLM``), loaded lazily. Selected by
+    ``BACKEND=vllm_offline`` (the HTTP ``vllm serve`` backend below is ``vllm``).
+
+    Qwen3-ASR only: it builds that model's decoder-only prompt, which does not fit
+    an encoder-decoder model such as Cohere (use ``BACKEND=vllm`` or
+    ``transformers`` for those).
+
+    vLLM uses the non-``-hf`` checkpoint layout (``Qwen/Qwen3-ASR-1.7B``), so an
+    ``-hf`` ``MODEL`` is mapped to its non-``-hf`` id. Transcription builds the
+    chat/transcription prompt with the HF processor's chat template (system =
+    context/hotwords prompt, user = audio, optional assistant prefill
+    ``language <Name><asr_text>`` to force the language) and feeds it to
+    ``LLM.generate`` with the raw audio as ``multi_modal_data``. The model emits
+    ``language <Name><asr_text><transcription>``, which we parse.
+
+    GPU only. Word timestamps still come from the transformers forced aligner.
+
+    Why it is kept but not documented (not in the README nor ENV.md): it is
+    slower than ``BACKEND=vllm`` and supports fewer models (Qwen3-ASR only, where
+    ``vllm`` serves any vLLM-servable ASR model). Measured on an RTX 4090 Laptop
+    GPU (Qwen3-ASR-1.7B, ASR only, 2026-11-06): both backends are on par up to
+    20 s of audio, but beyond that this backend stays at about 35x real time
+    while ``vllm`` reaches 57x at 60 s and 108x at 120 s. Here the whole audio is
+    one sequence, while ``vllm serve`` cuts it into ~30 s windows decoded in
+    parallel. It is kept so that this comparison can be run again (e.g. after a
+    vLLM upgrade), by setting ``BACKEND=vllm_offline``.
+    """
+
+    name = "vllm_offline"
+    handles_long_audio = False  # Qwen via vLLM: the engine chunks long audio
+    supports_hotwords = True  # vLLM backend is Qwen3-ASR only (guarded below)
+    supports_language_auto = True
+    supports_language_spec = True
+
+    def __init__(self, model_name, device, dtype="bfloat16", **kwargs):
+        if "cuda" not in str(device):
+            raise RuntimeError(
+                "The vLLM backend requires a CUDA device (set DEVICE=cuda)."
+            )
+        # vLLM wants the non-`-hf` checkpoint (the `-hf` repo targets transformers).
+        self.vllm_model = model_name.removesuffix("-hf")
+
+        from transformers import AutoProcessor
+        from vllm import LLM, SamplingParams
+
+        self._SamplingParams = SamplingParams
+        self.processor = AutoProcessor.from_pretrained(self.vllm_model)
+        # The vLLM path builds Qwen3-ASR's chat/transcription prompt, so it only
+        # fits that family. Other transformers ASR (e.g. the Cohere seq2seq model,
+        # which vLLM runs as an encoder-decoder) need a different prompt API that
+        # is not wired here, so fail clearly rather than emit a wrong prompt.
+        if not hasattr(self.processor, "apply_transcription_request"):
+            raise NotImplementedError(
+                f"The vLLM backend currently supports only the Qwen3-ASR family; "
+                f"{model_name!r} is not supported. Use BACKEND=transformers for it."
+            )
+
+        llm_kwargs = {
+            "model": self.vllm_model,
+            "runner": "generate",
+            "gpu_memory_utilization": VLLM_GPU_MEMORY_UTILIZATION,
+            "dtype": dtype,
+            "trust_remote_code": True,
+        }
+        if VLLM_MAX_MODEL_LEN:
+            llm_kwargs["max_model_len"] = int(VLLM_MAX_MODEL_LEN)
+        if VLLM_KV_CACHE_MEMORY_BYTES and int(VLLM_KV_CACHE_MEMORY_BYTES) > 0:
+            llm_kwargs["kv_cache_memory_bytes"] = int(VLLM_KV_CACHE_MEMORY_BYTES)
+        if VLLM_ENFORCE_EAGER:
+            llm_kwargs["enforce_eager"] = True
+        logger.info(
+            f"Loading vLLM model {self.vllm_model} (gpu_mem_util="
+            f"{VLLM_GPU_MEMORY_UTILIZATION}"
+            + (f", kv_cache_memory_bytes={VLLM_KV_CACHE_MEMORY_BYTES}"
+               if VLLM_KV_CACHE_MEMORY_BYTES else "")
+            + ")..."
+        )
+        self.llm = LLM(**llm_kwargs)
+
+    def transcribe(self, audio, language=None, prompt=None):
+        from .utils import language_code_to_name
+
+        messages = []
+        if prompt:
+            messages.append({"role": "system", "content": [{"type": "text", "text": prompt}]})
+        messages.append({"role": "user", "content": [{"type": "audio", "audio": audio}]})
+        prompt_str = self.processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        forced_name = language_code_to_name(language) or language if language else None
+        if forced_name:
+            # Force the language by prefilling the transcription header so the
+            # model emits only the transcript. The chat template does not keep a
+            # trailing assistant turn, so append the header to the prompt string
+            # directly (vs continue_final_message, which the template rejects).
+            prompt_str += f"language {forced_name}<asr_text>"
+
+        sp = self._SamplingParams(temperature=0.0, max_tokens=MAX_NEW_TOKENS)
+        out = self.llm.generate(
+            {"prompt": prompt_str, "multi_modal_data": {"audio": (audio, 16000)}},
+            sp,
+        )
+        text = out[0].outputs[0].text
+        detected = forced_name
+        # When the language is not forced, the model emits the full
+        # "language <Name><asr_text><transcription>" string; split it out.
+        if "<asr_text>" in text:
+            head, text = text.split("<asr_text>", 1)
+            head = head.strip()
+            if head.startswith("language"):
+                detected = head[len("language"):].strip() or detected
+        return text.strip(), detected
+
+
+class VllmServeBackend:
+    """vLLM ASR served by a managed ``vllm serve`` subprocess, over HTTP.
+
+    Selected by ``BACKEND=vllm``. On load it starts ``vllm serve <model>`` as a
+    child process (one per worker, inside the container) and talks to it through
+    the OpenAI-compatible ``/v1/audio/transcriptions`` endpoint. Unlike the
+    in-process offline backend (``BACKEND=vllm_offline``), vLLM runs in its own
+    process, so it does not patch the parent's transformers registry and it works
+    for every vLLM-servable ASR family, including encoder-decoder models such as
+    Cohere. vLLM chunks long audio server-side, so the engine does not re-chunk.
+
+    GPU only. Word timestamps still come from the transformers forced aligner.
+    Per-request capabilities (hotwords / language) are detected from the HF
+    processor, as for the transformers backend, and passed through as the OpenAI
+    ``prompt`` (context/hotwords) and ``language`` (forced language) fields.
+    """
+
+    name = "vllm"
+    # `vllm serve` cuts long audio into windows of about 30 s itself, so the
+    # engine sends the whole file. Exceptions (HF config `model_type`): models
+    # that vLLM feeds whole, whose context grows with the audio duration. For
+    # those the engine cuts long files itself (LONG_FILE_THRESHOLD /
+    # LONG_FILE_CHUNK_LEN), like on the transformers backend.
+    MODEL_TYPES_NOT_WINDOWED_BY_VLLM = frozenset({"voxtral"})
+
+    def __init__(self, model_name, device, dtype="bfloat16", **kwargs):
+        if "cuda" not in str(device):
+            raise RuntimeError(
+                "The vLLM backend requires a CUDA device (set DEVICE=cuda)."
+            )
+        self.model_name = model_name
+        # vLLM wants the non-`-hf` checkpoint for Qwen (the `-hf` repo targets
+        # transformers); a no-op for models without that suffix (e.g. Cohere).
+        self.served_model = model_name.removesuffix("-hf")
+
+        # Capabilities from the HF processor (name-independent, same rule as the
+        # transformers backend). Loading the processor is cheap and does not pull
+        # the model weights.
+        from transformers import AutoProcessor
+
+        processor = AutoProcessor.from_pretrained(model_name)
+        caps = detect_capabilities(processor)
+        self.supports_hotwords = caps["hotwords"]
+        self.supports_language_spec = caps["language_spec"]
+        self.supports_language_auto = caps["language_auto"]
+        self.handles_long_audio = (
+            _model_type(model_name) not in self.MODEL_TYPES_NOT_WINDOWED_BY_VLLM
+        )
+
+        self.host = VLLM_SERVE_HOST
+        # Pin the port only if the user set VLLM_SERVE_PORT; otherwise pick a free
+        # one, so an orphaned/leftover server can never block a new one.
+        self.port = int(VLLM_SERVE_PORT) if VLLM_SERVE_PORT else _find_free_port(self.host)
+        self.base_url = f"http://{self.host}:{self.port}"
+        self._proc = None
+        self._log = None
+        self._start_server(dtype)
+
+    def _build_command(self, dtype):
+        import shutil
+        import sys
+
+        vllm_bin = shutil.which("vllm") or os.path.join(
+            os.path.dirname(sys.executable), "vllm"
+        )
+        cmd = [
+            vllm_bin, "serve", self.served_model,
+            "--host", self.host,
+            "--port", str(self.port),
+            "--dtype", dtype,
+            "--trust-remote-code",
+        ]
+        # Cap the context at min(our cap, the model's own max): Qwen3-ASR's 65536
+        # default needs a KV cache too big for a shared GPU, while Cohere caps at
+        # 1024 and rejects anything larger. The model's own max is never exceeded.
+        cap = int(_ENV_MAX_MODEL_LEN) if _ENV_MAX_MODEL_LEN else VLLM_SERVE_MAX_MODEL_LEN
+        derived = _model_derived_max_len(self.model_name)
+        effective = min(cap, derived) if derived else cap
+        cmd += ["--max-model-len", str(effective)]
+        # Memory: the KV cache is pinned (default budget, or the one given) unless
+        # VLLM_KV_CACHE_MEMORY_BYTES=0, in which case the fraction sizes it.
+        kv_bytes = (
+            int(VLLM_KV_CACHE_MEMORY_BYTES)
+            if VLLM_KV_CACHE_MEMORY_BYTES is not None
+            else VLLM_SERVE_KV_CACHE_MEMORY_BYTES
+        )
+        if kv_bytes > 0:
+            fraction = (
+                VLLM_GPU_MEMORY_UTILIZATION
+                if _ENV_GPU_MEMORY_UTILIZATION
+                else VLLM_SERVE_MIN_FREE_FRACTION
+            )
+            cmd += ["--kv-cache-memory-bytes", str(kv_bytes)]
+        else:
+            fraction = VLLM_GPU_MEMORY_UTILIZATION
+        cmd += ["--gpu-memory-utilization", str(fraction)]
+        if VLLM_ENFORCE_EAGER:
+            cmd += ["--enforce-eager"]
+        cmd += VLLM_SERVE_EXTRA_ARGS
+        return cmd
+
+    def _start_server(self, dtype):
+        import atexit
+        import subprocess
+        import tempfile
+
+        # Fail (with a clear message) if the port stays occupied, instead of
+        # silently binding to a stale/orphaned server and getting confusing 404s
+        # from a mismatched process. Tolerate a brief window where a just-killed
+        # previous server is still releasing the port.
+        self._wait_port_free(timeout=15)
+        cmd = self._build_command(dtype)
+        log_path = os.path.join(
+            tempfile.gettempdir(), f"vllm_serve_{self.port}.log"
+        )
+        logger.info(
+            f"Starting vLLM server for {self.served_model} on {self.base_url} "
+            f"(logs: {log_path}): {' '.join(cmd)}"
+        )
+        self._log = open(log_path, "wb")
+        # vLLM would JIT-compile FlashInfer's top-k/top-p sampler at startup, which
+        # needs the CUDA toolkit (nvcc) that a slim runtime image does not ship. We
+        # decode greedily (temperature=0), so the native PyTorch sampler is
+        # equivalent -- disable the FlashInfer sampler to drop the nvcc dependency.
+        # Overridable: set VLLM_USE_FLASHINFER_SAMPLER yourself to keep it.
+        env = {**os.environ}
+        env.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
+        # vLLM's default limits on one audio (HTTP 400 beyond them) are below what
+        # the transcription service sends, segments of up to 20 minutes: 25 MB per
+        # upload (about 13 minutes of 16 kHz 16-bit WAV) and 600 s of audio. Raise
+        # them to 4 hours (460 MB of WAV, 0.9 GiB once decoded to float32).
+        env.setdefault("VLLM_MAX_AUDIO_CLIP_FILESIZE_MB", "512")
+        env.setdefault("VLLM_MAX_AUDIO_DECODE_DURATION_S", "14400")
+        env.setdefault("VLLM_MAX_AUDIO_DECODE_BYTES", str(1024 * 1024 * 1024))
+        # Keep the subprocess in this process group (NO new session): when the
+        # parent or its group is killed -- a container stop, or the test harness
+        # signalling the whole group -- vLLM and its EngineCore workers are reaped
+        # too, instead of orphaning a server that keeps holding the port and GPU.
+        self._proc = subprocess.Popen(
+            cmd, stdout=self._log, stderr=subprocess.STDOUT, env=env
+        )
+        atexit.register(self.shutdown)
+        self._wait_until_ready(log_path)
+
+    def _port_in_use(self):
+        import socket
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            return sock.connect_ex((self.host, self.port)) == 0
+
+    def _wait_port_free(self, timeout=15):
+        import time
+
+        deadline = time.time() + timeout
+        while self._port_in_use():
+            if time.time() >= deadline:
+                raise RuntimeError(
+                    f"Port {self.port} on {self.host} is still in use after "
+                    f"{timeout}s (an orphaned vLLM server may still be running). "
+                    f"Free it, or set a different VLLM_SERVE_PORT."
+                )
+            time.sleep(1)
+
+    def _wait_until_ready(self, log_path):
+        import time
+
+        import requests
+
+        deadline = time.time() + VLLM_SERVE_STARTUP_TIMEOUT
+        health = f"{self.base_url}/health"
+        while time.time() < deadline:
+            if self._proc.poll() is not None:
+                returncode = self._proc.returncode
+                self.shutdown()  # release the log handle, drop the atexit hook
+                raise RuntimeError(
+                    f"vLLM server exited (code {returncode}) during "
+                    f"startup. Last log lines:\n{self._tail_log(log_path)}"
+                )
+            try:
+                if requests.get(health, timeout=2).status_code == 200:
+                    logger.info(f"vLLM server ready on {self.base_url}")
+                    return
+            except requests.RequestException:
+                pass
+            time.sleep(2)
+        self.shutdown()
+        raise RuntimeError(
+            f"vLLM server did not become ready within {VLLM_SERVE_STARTUP_TIMEOUT}s. "
+            f"Last log lines:\n{self._tail_log(log_path)}"
+        )
+
+    @staticmethod
+    def _tail_log(log_path, n=20):
+        try:
+            with open(log_path, "r", errors="replace") as f:
+                return "".join(f.readlines()[-n:])
+        except OSError:
+            return "(no log)"
+
+    def transcribe(self, audio, language=None, prompt=None):
+        import io
+
+        import requests
+        import soundfile as sf
+
+        buf = io.BytesIO()
+        sf.write(buf, audio, SAMPLE_RATE, format="WAV", subtype="PCM_16")
+        buf.seek(0)
+
+        data = {"model": self.served_model, "temperature": "0", "response_format": "json"}
+        if language:
+            data["language"] = language
+        if prompt:
+            # Qwen3-ASR uses the OpenAI `prompt` field as its context/hotwords
+            # prompt; models without a prompt mechanism ignore it (hotwords are
+            # rejected upstream for them anyway, from the detected capabilities).
+            data["prompt"] = prompt
+
+        resp = requests.post(
+            f"{self.base_url}/v1/audio/transcriptions",
+            data=data,
+            files={"file": ("audio.wav", buf, "audio/wav")},
+            timeout=VLLM_SERVE_REQUEST_TIMEOUT,
+        )
+        if not resp.ok:
+            # Surface vLLM's own message (e.g. audio too large, context exceeded).
+            raise RuntimeError(
+                f"vLLM transcription failed (HTTP {resp.status_code}): {resp.text[:500]}"
+            )
+        text = (resp.json().get("text") or "").strip()
+        # The transcription endpoint does not return the auto-detected language;
+        # report the forced one when given, else None (word timestamps and the
+        # response language fall back accordingly).
+        return text, language
+
+    def shutdown(self):
+        """Stop the vLLM server (idempotent; runs at exit). SIGTERM lets vLLM reap
+        its own EngineCore workers; escalate to SIGKILL if it does not exit."""
+        proc = self._proc
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=30)
+            except Exception:  # noqa: BLE001 -- escalate to SIGKILL on any wait issue
+                proc.kill()
+                try:
+                    proc.wait(timeout=5)
+                except Exception:  # noqa: BLE001
+                    pass
+        if self._log is not None:
+            try:
+                self._log.close()
+            except OSError:
+                pass
+            self._log = None
+        import atexit
+
+        atexit.unregister(self.shutdown)
+
+    def __del__(self):
+        try:
+            self.shutdown()
+        except Exception:  # noqa: BLE001
+            pass

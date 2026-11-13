@@ -6,12 +6,12 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STT_ENGINE` | `nemo` | STT engine to use (`nemo`, `whisper`, `kaldi`, `kyutai`). Used as Docker build arg and CLI default |
+| `STT_ENGINE` | `nemo` | STT engine to use (`nemo`, `whisper`, `kaldi`, `kyutai`, `hf`). Used as Docker build arg and CLI default |
 | `SERVICE_NAME` | `stt` | Celery queue/worker name in task mode. Defaults to the engine name when not set |
 | `SERVICE_MODE` | `http` | STT serving mode: `http`, `task`, `websocket` |
 | `PORT` | `80` (Docker) / `8080` (CLI) | Listening port |
 | `IP` | `0.0.0.0` (Docker) / `127.0.0.1` (CLI) | Bind address |
-| `LANGUAGE` | `*` (auto-detect) | Language to recognize. `*` for automatic detection, or a language code (`fr`, `en`), BCP-47 code (`fr-FR`), or language name (`French`) |
+| `LANGUAGE` | `*` (auto-detect) | Default language to recognize. `*` for automatic detection, or a language code (`fr`, `en`), BCP-47 code (`fr-FR`), or language name (`French`). Can be overridden per request with the `language` query parameter (HTTP) or task argument |
 | `DEVICE` | `cuda` if available, else `cpu` | Device to use for the model (`cpu`, `cuda`). By default, GPU/CUDA is used if available, CPU otherwise |
 | `CUDA_VISIBLE_DEVICES` | _(all)_ | GPU device index to use when running on GPU/CUDA. Recommended to also set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines |
 | `NUM_THREADS` | `torch.get_num_threads()` | Number of threads (maximum) to speed up transcription when running on CPU. Falls back to `OMP_NUM_THREADS` |
@@ -76,7 +76,7 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 |----------|---------|-------------|
 | `MODEL` | `large-v3` | Path to a Whisper model, type of Whisper model used, or HuggingFace identifier |
 | `PROMPT` | _(none)_ | Initial prompt for the Whisper model (faster-whisper's `initial_prompt`): free text prepended as previous context to encourage a certain transcription style |
-| `HOTWORDS` | _(none)_ | Free-text hint phrases/words to bias the transcription toward a given spelling (e.g. proper nouns, jargon). Only supported with the CTranslate2/faster-whisper backend; ignored by the `whisper_timestamped` backend |
+| `HOTWORDS` | _(none)_ | Default free-text hint phrases/words to bias the transcription toward a given spelling (e.g. proper nouns, jargon). Can be overridden per request with the `hotwords` query parameter (HTTP) or task argument. Only supported with the CTranslate2/faster-whisper backend; ignored by the `whisper_timestamped` backend |
 | `ALIGNMENT_MODEL` | _(none)_ | (Deprecated) Path to a wav2vec model for word alignment, or HuggingFace repository name or torchaudio pipeline |
 | `USE_ACCURATE` | `true` | Use more expensive parameters for better transcriptions (but slower). Uses beam_size=5 |
 | `ENABLE_STREAMING` | `false` | (Legacy) For the HTTP mode, redirects to websocket mode if enabled |
@@ -85,8 +85,10 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MODEL_TYPE` | _(required)_ | Type of STT model used: `lin` (LinTO acoustic + language models) or `vosk` (Vosk all-in-one model) |
+| `MODEL_TYPE` | _(detected)_ | Type of STT model used: `lin` (LinTO acoustic model and decoding graph, converted to the Vosk format at startup) or `vosk` (Vosk all-in-one model). Unset: `lin` when `MODEL_PATH` holds no Vosk model and both `AM_PATH` and `LM_PATH` exist, `vosk` otherwise |
 | `MODEL_PATH` | `/opt/model` | Path to the Vosk model (when `MODEL_TYPE=vosk`) |
+| `AM_PATH` | `/opt/AM` | Path to the LinTO acoustic model (when `MODEL_TYPE=lin`) |
+| `LM_PATH` | `/opt/LM` | Path to the LinTO decoding graph (when `MODEL_TYPE=lin`) |
 
 ## Kyutai-specific
 
@@ -102,6 +104,39 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `FINAL_TRANSCRIPT_DELAY` | `1.5` | Delay before sending final transcript (seconds) |
 | `LOG_TRANSCRIPTS` | `false` | Debug logging for transcripts |
 | `LOG_VAD` | `false` | Debug logging for VAD |
+
+## HF-specific
+
+The `hf` engine serves Hugging Face ASR models in `transformers` format (Qwen3-ASR,
+Cohere Transcribe, Whisper, and on the `vllm` backend Voxtral, Granite Speech, ...).
+See the engine README.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MODEL` | `Qwen/Qwen3-ASR-1.7B-hf` | Transformers-native ASR checkpoint, auto-detected by `model_type`: Qwen3-ASR (`qwen3_asr`, e.g. `Qwen/Qwen3-ASR-0.6B-hf`) or a seq2seq ASR (e.g. `cohere_asr`: `CohereLabs/cohere-transcribe-03-2026`). Seq2seq models require an explicit `LANGUAGE` (no auto-detect) and have no hotwords. Needs transformers ≥ 5.13 (the `hf`/`hf-vllm` extra) |
+| `ALIGNER_MODEL` | `Qwen/Qwen3-ForcedAligner-0.6B-hf` | Forced aligner for word-level timestamps (Qwen3-ASR has none natively): a Qwen3-ForcedAligner checkpoint, or `mms` for Meta's language-agnostic MMS aligner (torchaudio `MMS_FA`, any language through romanisation; weights fetched into the torch hub cache, `TORCH_HOME`). Run only on metadata requests (JSON / Celery task), never on the plain-text path. Preloaded by the startup warmup on GPU (so the first timestamped request is not slow), loaded lazily on first use otherwise. Tuned for 11 languages (`zh, en, yue, fr, de, it, ja, ko, pt, ru, es`); other languages are aligned without a language hint (timestamps are still produced, accuracy not validated). Set empty or `none` to disable (then `words` is empty for metadata requests) |
+| `ALIGNER_FALLBACK_MODEL` | `mms` | Second aligner (same values as `ALIGNER_MODEL`) used for the requests the primary aligner does not cover: a language outside its set, or audio longer than its limit (5 minutes for the Qwen aligner). Loaded only on the first request that needs it (1.2 GB download for `mms` if not cached). Set to `none` to always use the primary aligner |
+| `DTYPE` | `bfloat16` | Model compute dtype (`bfloat16`, `float16`, `float32`, `auto`) |
+| `ATTN_IMPLEMENTATION` | _(transformers default: `sdpa`)_ | Attention kernel. The default `sdpa` already dispatches to Flash-Attention kernels on supported GPUs (bf16/fp16) via PyTorch (efficient out of the box), and it also works on CPU. Set `flash_attention_2` only if you have separately installed the `flash-attn` package (GPU-only, heavy build); gains over `sdpa` for short-audio ASR inference are usually small |
+| `MAX_NEW_TOKENS` | `1280` | Cap on generated tokens per pass (per chunk for long audio). Only a safety cap: generation stops at the end-of-speech token, so a generous value is free for short audio; `1280` covers a dense 4-min chunk. Raise it (with the chunk length) if long/dense speech gets truncated |
+| `LONG_FILE_THRESHOLD` | `240` | Audio longer than this (seconds) is transcribed in consecutive chunks instead of one pass, to bound VRAM and context (they grow with the audio length) and avoid truncation. Only for models that do not split long audio themselves: Qwen3-ASR on the in-process `transformers` backend, and Voxtral on the `vllm` backend (vLLM feeds it whole). No effect otherwise: the `vllm` backend chunks the other models server-side (~30 s) and seq2seq models (Cohere, Whisper) self-chunk. Independent from NeMo's same-named variable |
+| `LONG_FILE_CHUNK_LEN` | `240` | Chunk length (seconds) when an audio exceeds `LONG_FILE_THRESHOLD` (same scope). Non-overlapping; word timestamps are offset per chunk. ~4 min keeps the Qwen 1.7B footprint ~8 GB in-process, stays under the aligner's ~5-min limit and within the default 4096-token context of the `vllm` backend for Voxtral; raise it (with `MAX_NEW_TOKENS`) for fewer passes when VRAM allows |
+| `BACKEND` | `vllm` | Inference backend for ASR. `vllm` (default; a managed `vllm serve` subprocess talked to over HTTP; faster; serves any vLLM-servable ASR model; needs the `hf-vllm` extra and a CUDA GPU). `transformers` (in-process HF; CPU-capable; the portable fallback; does not cover `vllm`-only models such as Voxtral). **On CPU set `BACKEND=transformers`** (the default `vllm` needs a GPU). Word timestamps always use the transformers forced aligner regardless of backend |
+| `VLLM_GPU_MEMORY_UTILIZATION` | `0.25` (pinned cache) / `0.6` | (`BACKEND=vllm`) With the KV cache pinned (the default), only a startup check: vLLM refuses to start unless this fraction of the card is free (0.25 by default, low enough for workers to share a card). With `VLLM_KV_CACHE_MEMORY_BYTES=0`, the fraction of the card vLLM reserves for weights and KV cache (0.6 by default) |
+| `VLLM_MAX_MODEL_LEN` | `4096` | (`BACKEND=vllm`) Context-window cap of one request, kept within each model's own limit (Whisper 448, Cohere 1024). vLLM decodes audio in windows of about 30 s, far below 4096 tokens. The KV cache must hold at least one request of this length. Raise it, with the KV cache, for a model that vLLM does not window (Voxtral) |
+| `VLLM_KV_CACHE_MEMORY_BYTES` | `536870912` (512 MiB) | (`BACKEND=vllm`) Absolute KV-cache budget in bytes (vLLM `kv_cache_memory_bytes`): vLLM takes the model weights plus exactly this cache, whatever the size of the card. The default fits Qwen3-ASR-1.7B and Cohere Transcribe; larger caches did not make transcription faster. Set to `0` to size the cache with `VLLM_GPU_MEMORY_UTILIZATION` instead (see the engine README, "GPU memory of the vllm backend") |
+| `VLLM_ENFORCE_EAGER` | `false` | (`BACKEND=vllm`, optional) Skip torch.compile + CUDA-graph capture. Uses less VRAM and starts almost instantly (no ~minute compile) at some throughput cost, useful on memory-tight GPUs |
+| `VLLM_SERVE_HOST` | `127.0.0.1` | (`BACKEND=vllm`) Host the managed `vllm serve` subprocess binds to (loopback by default; the engine talks to it in-process) |
+| `VLLM_SERVE_PORT` | _(auto)_ | (`BACKEND=vllm`) Port for the managed `vllm serve` subprocess. Unset picks a free port per server (so a leftover/orphaned server never blocks a new one); set it to pin a fixed port |
+| `VLLM_SERVE_STARTUP_TIMEOUT` | `900` | (`BACKEND=vllm`) Seconds to wait for the server to become healthy (model load) before failing |
+| `VLLM_SERVE_REQUEST_TIMEOUT` | `600` | (`BACKEND=vllm`) Per-request HTTP timeout in seconds (long audio is chunked server-side) |
+| `VLLM_SERVE_EXTRA_ARGS` | _(unset)_ | (`BACKEND=vllm`, optional) Extra arguments appended verbatim to the `vllm serve` command line (e.g. `--max-num-seqs 8`) |
+| `VLLM_MAX_AUDIO_CLIP_FILESIZE_MB` | `512` | (`BACKEND=vllm`) vLLM's limit on the size of one uploaded audio (vLLM's own default, 25, rejects about 13 minutes of 16 kHz 16-bit WAV) |
+| `VLLM_MAX_AUDIO_DECODE_DURATION_S` | `14400` | (`BACKEND=vllm`) vLLM's limit on the duration of one audio in seconds (vLLM's own default, 600, rejects files over 10 minutes) |
+| `VLLM_MAX_AUDIO_DECODE_BYTES` | `1073741824` (1 GiB) | (`BACKEND=vllm`) vLLM's limit on the size of one audio once decoded (float32 samples) |
+| `VLLM_USE_FLASHINFER_SAMPLER` | `0` | (`BACKEND=vllm`) Disables vLLM's FlashInfer sampler, whose compilation at startup needs the CUDA toolkit (`nvcc`), absent from the image. No effect on the output (greedy decoding) |
+
+`LANGUAGE` and `HOTWORDS` behave as in the Common section (per-request overridable); `HOTWORDS` is passed to the model as a biasing prompt. WebSocket/streaming is not supported for this engine.
 
 ## Hardcoded (not configurable)
 

@@ -1,0 +1,76 @@
+############################################
+# SERVING PARAMETERS
+############################################
+# "http" or "task" (websocket/streaming is not supported for this engine)
+SERVICE_MODE=http
+
+# Below: used when SERVICE_MODE=task
+SERVICE_NAME=stt
+SERVICES_BROKER=redis://172.17.0.1:6379
+BROKER_PASS=
+
+############################################
+# STT MODELING PARAMETERS
+############################################
+
+# Transformers-native Qwen3-ASR checkpoint (model type 'qwen3_asr').
+# Other sizes of the same family also work, e.g. Qwen/Qwen3-ASR-0.6B-hf.
+MODEL=Qwen/Qwen3-ASR-1.7B-hf
+
+# Default language. "*" (or unset) = automatic detection / multilingual.
+# Otherwise an ISO code (fr, en, ...) or full English name (French, English).
+# Overridable per request with the `language` query parameter / task argument.
+LANGUAGE=*
+
+# Default hotwords/keywords to bias the transcription (proper nouns, jargon).
+# Overridable per request with the `hotwords` query parameter / task argument.
+HOTWORDS=
+
+# Forced aligner for word-level timestamps (Qwen3-ASR has none natively): a
+# Qwen3-ForcedAligner checkpoint (tuned for 11 languages) or "mms" (Meta's
+# language-agnostic MMS aligner). Loaded and run only for metadata requests
+# (JSON / Celery task), never for the plain-text path. Set empty or "none" to
+# disable (words returned empty).
+# ALIGNER_MODEL=Qwen/Qwen3-ForcedAligner-0.6B-hf
+# Second aligner, loaded on first need, used when the primary one does not cover
+# a request: a language outside its set, or audio longer than its limit (5
+# minutes for Qwen). "none" to always use the primary aligner.
+# ALIGNER_FALLBACK_MODEL=mms
+
+############################################
+# EFFICIENCY PARAMETERS
+############################################
+
+# Device: "cuda" (GPU, recommended) or "cpu". Empty = cuda if available, else cpu.
+DEVICE=
+
+# Inference backend: "vllm" (default; a managed `vllm serve` subprocess, CUDA GPU
+# only) or "transformers" (in-process Hugging Face transformers, runs on CPU too).
+# On CPU you must set BACKEND=transformers.
+# BACKEND=vllm
+
+# Model compute dtype: bfloat16 (default), float16, float32, or auto.
+DTYPE=bfloat16
+
+# Attention kernel. "flash_attention_2" is faster (needs flash-attn + bf16/fp16);
+# leave unset to use the transformers default ("sdpa").
+# ATTN_IMPLEMENTATION=flash_attention_2
+
+# Cap on generated tokens per pass (per chunk for long audio). Only a safety cap
+# (generation stops at end-of-speech), so a generous value is free for short
+# audio; ~1280 covers a dense 4-minute chunk.
+MAX_NEW_TOKENS=1280
+
+# Long-audio handling: audio longer than LONG_FILE_THRESHOLD seconds is
+# transcribed in consecutive chunks of LONG_FILE_CHUNK_LEN seconds (VRAM grows
+# ~linearly with length). The 4-minute default keeps the per-pass footprint
+# modest and under the aligner's ~5-minute limit. Raise these together with
+# MAX_NEW_TOKENS for fewer/larger passes when VRAM allows.
+# LONG_FILE_THRESHOLD=240
+# LONG_FILE_CHUNK_LEN=240
+
+# Number of CPU threads (when DEVICE=cpu).
+# NUM_THREADS=4
+
+# Concurrency (number of workers in task mode).
+CONCURRENCY=1

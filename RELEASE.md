@@ -1,3 +1,14 @@
+# 2.2.0
+- Hotwords are now a **per-request** parameter (the `hotwords` HTTP query parameter / Celery task argument) in addition to the `HOTWORDS` environment default, mirroring the existing per-request `language` handling (previously Whisper-only and settable only via the environment)
+- New **HF** engine (`STT_ENGINE=hf`, HTTP and Celery task modes): Hugging Face ASR models, served with vLLM (default) or in-process `transformers`, with word timestamps. Supported models: Qwen3-ASR, Cohere Transcribe, Whisper, and on the vLLM backend Voxtral and Granite Speech. See the [engine README](linto_stt/engines/hf/README.md)
+- NeMo and Whisper engines: the model-load lock file is created in the temp directory instead of the working directory
+- Kaldi engine: fix LinTO models (`MODEL_TYPE=lin`, acoustic model and decoding graph), which were no longer converted to the Vosk format since 2.0.0; the conversion now runs in the engine (Docker and local runs), `MODEL_TYPE` is detected when unset, and new `AM_PATH` / `LM_PATH` variables locate the models. Also fix the word list and confidence score of Kaldi transcriptions (always empty / 0)
+- Docker images (all engines):
+    - Security: bump vulnerable Python dependencies (notably python-multipart, which fixes an arbitrary file write through the HTTP upload endpoint, plus Pillow, urllib3, anyio, certifi, msgpack, fsspec)
+    - Smaller attack surface: no `uv`, no `pip` (kept for Whisper, which may install a model converter at runtime) and no setuid/setgid binaries in the runtime images; the HF GPU image keeps only the C compiler and C headers that vLLM's Triton kernels need
+    - No `ffmpeg`, system `libsndfile` or `netcat` in the runtime images. Celery tasks read audio files with libsndfile (WAV, FLAC, OGG, MP3); other formats (M4A/AAC, WebM...) must be converted to WAV upstream. This changes NeMo, which previously accepted any format through ffmpeg
+    - Fix Celery tasks of the `whisper-torch` variant, whose image lacked the `ffmpeg` command its file loading required
+
 # 2.1.1
 - NeMo engine updates:
     - Add asymmetric local attention support. Configurable attention context via `ATT_CONTEXT_SIZE` (left) and the new `ATT_CONTEXT_SIZE_RIGHT` (right/look-ahead), with model-dependent defaults

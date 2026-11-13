@@ -14,6 +14,7 @@ The following STT engines are supported (see each README for engine-specific det
 | ---------------------------------------------- | ------------------------ | --------------------- |
 | [NeMo](linto_stt/engines/nemo/README.md)       | NVIDIA NeMo toolkit      | http, websocket, task |
 | [Whisper](linto_stt/engines/whisper/README.md) | OpenAI Whisper models    | http, websocket, task |
+| [HF](linto_stt/engines/hf/README.md) | Hugging Face ASR models (`transformers`-format checkpoints: Qwen3-ASR, Cohere Transcribe, Whisper, Voxtral, ...), served with vLLM or in-process | http, task |
 | [Kaldi](linto_stt/engines/kaldi/README.md)     | Kaldi/Vosk toolkit       | http, websocket, task |
 | [Kyutai](linto_stt/engines/kyutai/README.md)   | Kyutai Moshi STT wrapper | websocket only        |
 
@@ -26,7 +27,8 @@ apt install python3-pyaudio portaudio19-dev
 ```
 
 ```sh
-uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|kyutai|recasepunc]
+uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|hf|hf-vllm|kyutai|recasepunc]
+# hf engine: `vllm` (GPU, default backend) or `transformers` (CPU-capable backend)
 ```
 
 ### Docker
@@ -37,15 +39,19 @@ A single Dockerfile is used for all engines. Specify the engine with `--build-ar
 
 ```sh
 docker build -t linto-stt-nemo:latest --build-arg STT_ENGINE=nemo .
-docker build -t linto-stt-whisper:latest --build-arg STT_ENGINE=whisper .
 docker build -t linto-stt-kaldi:latest --build-arg STT_ENGINE=kaldi .
 docker build -t linto-stt-kyutai:latest --build-arg STT_ENGINE=kyutai .
 
-# Avec GPU (cuBLAS + cuDNN pour ctranslate2, ajoute ~1.3GB)
-docker build -t linto-stt-whisper-gpu:latest \
+# Whisper, GPU build (cuBLAS + cuDNN for ctranslate2, adds ~1.3GB)
+docker build -t linto-stt-whisper:latest \
   --build-arg STT_ENGINE=whisper --build-arg GPU=1 .
+# Whisper, CPU only
+docker build -t linto-stt-whisper-cpu:latest --build-arg STT_ENGINE=whisper .
 
-# Avec recasepunc (ponctuation + recasing, ajoute torch CPU ~1.2GB)
+# HF, GPU build (vllm backend, default); without GPU=1, only the transformers backend
+docker build -t linto-stt-hf:latest --build-arg STT_ENGINE=hf --build-arg GPU=1 .
+
+# With recasepunc (punctuation + recasing, adds torch CPU ~1.2GB)
 docker build -t linto-stt-kaldi-recasepunc:latest \
   --build-arg STT_ENGINE=kaldi --build-arg EXTRA_DEPS=recasepunc .
 ```
@@ -54,8 +60,8 @@ Or pull pre-built images:
 
 ```sh
 docker pull lintoai/linto-stt-nemo
-docker pull lintoai/linto-stt-whisper
-docker pull lintoai/linto-stt-whisper-gpu
+docker pull lintoai/linto-stt-whisper    # GPU build
+docker pull lintoai/linto-stt-hf         # GPU build
 docker pull lintoai/linto-stt-kaldi
 docker pull lintoai/linto-stt-kaldi-recasepunc
 ```
@@ -81,10 +87,10 @@ docker run -e SERVICE_MODE=task -e STT_ENGINE=nemo \
 
 ```sh
 # HTTP / Websocket
-uv run main.py -m [http|websocket] -e [kaldi|whisper|nemo|kyutai] -p [listening_port] -i [listening_ip]
+uv run main.py -m [http|websocket] -e [kaldi|whisper|nemo|hf|kyutai] -p [listening_port] -i [listening_ip]
 
 # Celery
-uv run main.py -m task -e [kaldi|whisper|nemo]
+uv run main.py -m task -e [kaldi|whisper|nemo|hf]
 ```
 
 ## Serving Modes
@@ -99,7 +105,7 @@ STT can be used in three ways:
 
 ## Docker Options
 
-- **GPU**: Add `--gpus all` and set `DEVICE=cuda`. For Whisper (ctranslate2), use the GPU image (`linto-stt-whisper-gpu`) which includes the CUDA runtime libraries (cuBLAS, cuDNN). On multi-GPU machines, use `CUDA_VISIBLE_DEVICES` to select a specific GPU.
+- **GPU**: Add `--gpus all` and set `DEVICE=cuda`. The published Whisper image (`lintoai/linto-stt-whisper`) is the GPU build, which includes the CUDA runtime libraries for ctranslate2 (cuBLAS, cuDNN). On multi-GPU machines, use `CUDA_VISIBLE_DEVICES` to select a specific GPU.
 - **Cache mount**: Mount a local cache folder to avoid re-downloading models each time:
   ```sh
   -v ~/.cache:/var/www/.cache
@@ -141,6 +147,7 @@ Transcription endpoint.
 - **Content-Type**: `multipart/form-data`
 - **File**: Audio file (WAV 16bit 16kHz recommended)
 - **Language** (optional query param): Override the `LANGUAGE` environment variable
+- **Hotwords** (optional query param): Override the `HOTWORDS` environment variable (Whisper and HF engines)
 
 Response (`Accept: application/json`):
 
@@ -191,7 +198,7 @@ The celery tasks can be managed using [LinTO Transcription service](https://gith
 
 If your model outputs lower-case text without punctuation, you can use a recasepunc model (version 0.4+) to add punctuation marks to final results.
 
-> L'image doit être buildée avec `--build-arg EXTRA_DEPS=recasepunc`.
+> The image must be built with `--build-arg EXTRA_DEPS=recasepunc`.
 
 Available models trained on [Common Crawl](http://data.statmt.org/cc-100/):
 
@@ -261,22 +268,26 @@ uv run pytest -m nemo --uv-only
 uv run pytest -m docker
 
 # NeMo CPU, no Docker
-uv run pytest test/test_nemo.py -m "not docker and not gpu"
+uv run pytest tests/test_nemo.py -m "not docker and not gpu"
 
 # Whisper on GPU
 uv run pytest -m whisper --device cuda
 
 # Kaldi (requires model paths)
 uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
+
+# Quick run: skip the tests that take minutes (vLLM servers, some Docker tests)
+uv run pytest -m "not slow" --device cuda
 ```
 
 **CLI options:**
 
 | Option             | Description                                                 |
 | ------------------ | ----------------------------------------------------------- |
-| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`) |
+| `--engine`         | Only run tests for this engine (`nemo`, `whisper`, `kaldi`, `hf`) |
 | `--device`         | Target device: `cpu` (default) or `cuda`                    |
 | `--uv-only`        | Only run UV-based tests (skip Docker)                       |
+| `--long`           | Also run the long-audio tests (files over 10 minutes; skipped by default) |
 | `--docker-only`    | Only run Docker-based tests                                 |
 | `--server-timeout` | Timeout in seconds for server startup (default: 600)        |
 | `--kaldi-am-path`  | Path to Kaldi acoustic model                                |
@@ -289,10 +300,13 @@ uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 | `nemo`    | Engine NeMo                                 |
 | `whisper` | Engine Whisper                              |
 | `kaldi`   | Engine Kaldi                                |
+| `hf`      | Engine HF                                   |
+| `vllm`    | HF engine on the vLLM backend (needs the `hf-vllm` extra) |
 | `docker`  | Tests that build and run a Docker container |
 | `uv`      | Tests via UV subprocess                     |
 | `gpu`     | Requires CUDA                               |
-| `slow`    | Tests taking > 2 minutes                    |
+| `slow`    | Tests taking minutes (deselect with `-m "not slow"`) |
+| `long`    | Long-audio tests, run only with `--long`    |
 
 ## Examples
 

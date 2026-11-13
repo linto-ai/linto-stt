@@ -97,6 +97,7 @@ pipeline {
         DOCKER_HUB_REPO_WHISPER = "lintoai/linto-stt-whisper"
         DOCKER_HUB_REPO_WHISPER_CPU = "lintoai/linto-stt-whisper-cpu"
         DOCKER_HUB_REPO_NEMO    = "lintoai/linto-stt-nemo"
+        DOCKER_HUB_REPO_HF = "lintoai/linto-stt-hf"
         DOCKER_HUB_REPO_KYUTAI  = "lintoai/linto-stt-kyutai"
         DOCKER_HUB_REPO_KALDI_RECASEPUNC = "lintoai/linto-stt-kaldi-recasepunc"
     }
@@ -121,6 +122,7 @@ pipeline {
                     buildDockerImage('nemo',    env.DOCKER_HUB_REPO_NEMO,    version, changedFiles, commit_sha)
                     // buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_CPU, version, changedFiles, commit_sha)
                     buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, '', true)
+                    buildDockerImage('hf', env.DOCKER_HUB_REPO_HF, version, changedFiles, commit_sha, '', true)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI,   version, changedFiles, commit_sha)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, 'recasepunc')
                     // buildDockerImage('kyutai',  env.DOCKER_HUB_REPO_KYUTAI,  version, changedFiles, commit_sha)
@@ -144,6 +146,7 @@ pipeline {
                     buildDockerImage('nemo',    env.DOCKER_HUB_REPO_NEMO,    version, changedFiles, commit_sha)
                     // buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER_CPU, version, changedFiles, commit_sha)
                     buildDockerImage('whisper', env.DOCKER_HUB_REPO_WHISPER, version, changedFiles, commit_sha, '', true)
+                    buildDockerImage('hf', env.DOCKER_HUB_REPO_HF, version, changedFiles, commit_sha, '', true)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI,   version, changedFiles, commit_sha)
                     buildDockerImage('kaldi',   env.DOCKER_HUB_REPO_KALDI_RECASEPUNC, version, changedFiles, commit_sha, 'recasepunc')
                     // buildDockerImage('kyutai',  env.DOCKER_HUB_REPO_KYUTAI,  version, changedFiles, commit_sha)

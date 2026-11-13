@@ -4,7 +4,7 @@ on:
     branches:
       - master
     paths:
-      - README.md
+      - linto_stt/engines/*/README.md
       - .github/workflows/dockerhub-description.yml
 jobs:
   dockerHubDescriptionKaldi:
@@ -40,3 +40,14 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           repository: lintoai/linto-stt-nemo
           readme-filepath: ./linto_stt/engines/nemo/README.md
+  dockerHubDescriptionHf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          repository: lintoai/linto-stt-hf
+          readme-filepath: ./linto_stt/engines/hf/README.md

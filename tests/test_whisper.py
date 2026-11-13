@@ -246,6 +246,38 @@ class TestWhisperHotwords:
             f"Expected hotword spelling 'BonJour' in transcription: {result!r}"
         )
 
+    @pytest.mark.parametrize(
+        "uv_server",
+        [
+            pytest.param(
+                {
+                    "engine": "whisper",
+                    "mode": "http",
+                    "port": 0,
+                    "env_overrides": {
+                        "MODEL": "tiny",
+                        "LANGUAGE": "fr",
+                        "VAD": "false",
+                        # HOTWORDS deliberately NOT set: the biasing must come
+                        # from the per-request `hotwords` query parameter.
+                    },
+                },
+                id="hotwords-per-request-bonjour",
+            ),
+        ],
+        indirect=True,
+    )
+    def test_hotwords_per_request(self, uv_server, test_audio_bonjour):
+        """The per-request `hotwords` query param should bias the spelling toward
+        'BonJour' even with no HOTWORDS env set, proving it overrides the default."""
+        result = transcribe_http(
+            uv_server["url"], str(test_audio_bonjour),
+            hotwords="BonJour AuRevoir PourquoiPas",
+        )
+        assert "BonJour" in result, (
+            f"Expected request hotword spelling 'BonJour' in transcription: {result!r}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # UV tests - Streaming (WebSocket)
