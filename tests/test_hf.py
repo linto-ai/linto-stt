@@ -579,6 +579,9 @@ class TestHfAligners:
 
         assert "without a language hint" in caplog.text
         self._check_bonjour(words_nl, audio)
+        # A language outside Qwen3-ASR's 30 (Kurdish) is rejected by the processor
+        # with another message: it must be aligned without a hint as well.
+        self._check_bonjour(aligner.align(audio, "Bonjour.", "ku"), audio)
         # Same model, same word splitting for a whitespace language: identical result.
         assert words_nl == words_fr
 

@@ -67,16 +67,19 @@ class QwenForcedAligner:
                 audio=audio, transcript=text, language=language
             )
         except ValueError as err:
-            if language is None or "not supported by the forced aligner" not in str(err):
+            if language is None:
                 raise
             # The aligner is tuned for 11 languages, but the language is only a
             # hint for splitting the transcript into words (dedicated
             # Japanese/Korean tokenizers; otherwise CJK characters and
             # whitespace-separated words): the same model aligns any transcript.
-            # So align without the hint rather than refuse word timestamps.
+            # So align without the hint rather than refuse word timestamps. The
+            # processor rejects a language outside the aligner's 11 ("not
+            # supported by the forced aligner") or outside Qwen3-ASR's 30
+            # ("Unsupported language"); any other error is raised again below.
             logger.warning(
-                f"Language {language!r} is outside the forced aligner's tuned set; "
-                f"aligning without a language hint (accuracy not validated)"
+                f"Language {language!r} is outside the forced aligner's tuned set "
+                f"({err}); aligning without a language hint (accuracy not validated)"
             )
             inputs, word_lists = processor.prepare_forced_aligner_inputs(
                 audio=audio, transcript=text, language=None
