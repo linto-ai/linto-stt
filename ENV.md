@@ -85,8 +85,10 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MODEL_TYPE` | _(required)_ | Type of STT model used: `lin` (LinTO acoustic + language models) or `vosk` (Vosk all-in-one model) |
+| `MODEL_TYPE` | _(detected)_ | Type of STT model used: `lin` (LinTO acoustic model and decoding graph, converted to the Vosk format at startup) or `vosk` (Vosk all-in-one model). Unset: `lin` when `MODEL_PATH` holds no Vosk model and both `AM_PATH` and `LM_PATH` exist, `vosk` otherwise |
 | `MODEL_PATH` | `/opt/model` | Path to the Vosk model (when `MODEL_TYPE=vosk`) |
+| `AM_PATH` | `/opt/AM` | Path to the LinTO acoustic model (when `MODEL_TYPE=lin`) |
+| `LM_PATH` | `/opt/LM` | Path to the LinTO decoding graph (when `MODEL_TYPE=lin`) |
 
 ## Kyutai-specific
 

@@ -1,20 +1,24 @@
 import json
-import re
 from typing import Tuple
 
 from vosk import KaldiRecognizer, Model
 
+from linto_stt.engines.kaldi.stt import logger
+
 try:
     from linto_stt.punctuation.recasepunc import apply_recasepunc
 except ImportError:
-    apply_recasepunc = lambda config, text, **kw: text
+    def apply_recasepunc(config, text, **kw):
+        return text
 
 def decode(audio: Tuple[bytes, int], model: Model, with_metadata: bool, language=None, hotwords=None) -> dict:
     """Transcribe the audio data using the vosk library with the defined model."""
     decoder_result = {"text": "", "confidence-score": 0.0, "words": []}
 
-    if language:
-        raise NotImplementedError("Language selection is not implemented for kaldi.")
+    if language and language != "*":
+        # A Kaldi model is monolingual: the language of a request (always sent by
+        # the transcription service, for instance) cannot change it.
+        logger.warning(f"Language {language!r} ignored: a Kaldi model transcribes its own language")
     
     audio_data, sampling_rate = audio
 
@@ -36,10 +40,8 @@ def decode(audio: Tuple[bytes, int], model: Model, with_metadata: bool, language
 
     decoder_result = apply_recasepunc(punctuation_model, decoder_result)
 
-    if "decoder_result" in decoder_result:
-        decoder_result["words"] = [w for w in decoder_result["decoder_result"] if w["word"] != "<unk>"]
-        if decoder_result["words"]:
-            decoder_result["confidence-score"] = sum([w["conf"] for w in decoder_result["words"]]) / len(
-                decoder_result["words"]
-            )
+    # Vosk lists the words (with SetWords) under "result"; the API calls them "words".
+    words = [w for w in decoder_result.pop("result", []) if w["word"] != "<unk>"]
+    decoder_result["words"] = words
+    decoder_result["confidence-score"] = sum(w["conf"] for w in words) / len(words) if words else 0.0
     return decoder_result

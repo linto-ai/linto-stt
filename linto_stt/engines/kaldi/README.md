@@ -20,8 +20,10 @@ LinTO-STT-Kaldi accepts two kinds of models:
 **LinTO models** (acoustic + language model separately):
 
 - Download from [dl.linto.ai](https://doc.linto.ai/docs/developpers/apis/ASR/models)
-- Set `MODEL_TYPE=lin`
-- Mount volumes: `-v <AM_PATH>:/opt/AM -v <LM_PATH>:/opt/LM`
+- Mount volumes: `-v <AM_PATH>:/opt/AM -v <LM_PATH>:/opt/LM` (or set `AM_PATH` and `LM_PATH`)
+- `MODEL_TYPE=lin` (detected when only these two folders are given)
+- They are converted to the Vosk format at startup (links to the original files,
+  in the temporary directory)
 
 **Vosk models** (all-in-one):
 
