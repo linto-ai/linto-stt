@@ -61,6 +61,13 @@ def main():
     os.environ["STT_ENGINE"] = args.engine
     mode = args.mode
 
+    # Refuse an unsupported combination before anything is loaded, rather than
+    # loading the model and then failing on every connection.
+    if args.engine == 'hf' and mode == 'websocket':
+        parser.error(
+            "the hf engine does not support the websocket (streaming) mode; "
+            "use the http or task mode")
+
     if mode == 'websocket':
         run_websocket_server(args.host, args.port)
 

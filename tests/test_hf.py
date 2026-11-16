@@ -311,6 +311,20 @@ class TestHfCapabilityGuards:
             decode(np.zeros(16000, dtype=np.float32), model, False, language="fr")
 
 
+def test_websocket_mode_refused():
+    """The hf engine has no streaming: the server refuses to start in websocket
+    mode, before loading anything."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    result = subprocess.run([sys.executable, "main.py", "-m", "websocket", "-e", "hf"],
+                            cwd=Path(__file__).resolve().parent.parent,
+                            capture_output=True, text=True, timeout=120)
+    assert result.returncode != 0
+    assert "does not support the websocket" in result.stderr
+
+
 class TestHfConfidence:
     """The models served by the hf engine expose no usable confidence: the
     transcript and every word get a constant 1.0. Stub backend and aligner."""

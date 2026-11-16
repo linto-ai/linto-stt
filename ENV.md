@@ -136,7 +136,7 @@ See the engine README.
 | `VLLM_MAX_AUDIO_DECODE_BYTES` | `1073741824` (1 GiB) | (`BACKEND=vllm`) vLLM's limit on the size of one audio once decoded (float32 samples) |
 | `VLLM_USE_FLASHINFER_SAMPLER` | `0` | (`BACKEND=vllm`) Disables vLLM's FlashInfer sampler, whose compilation at startup needs the CUDA toolkit (`nvcc`), absent from the image. No effect on the output (greedy decoding) |
 
-`LANGUAGE` and `HOTWORDS` behave as in the Common section (per-request overridable); `HOTWORDS` is passed to the model as a biasing prompt. WebSocket/streaming is not supported for this engine.
+`LANGUAGE` and `HOTWORDS` behave as in the Common section (per-request overridable); `HOTWORDS` is passed to the model as a biasing prompt. WebSocket/streaming is not supported for this engine: the server refuses to start with `SERVICE_MODE=websocket`.
 
 ## Hardcoded (not configurable)
 

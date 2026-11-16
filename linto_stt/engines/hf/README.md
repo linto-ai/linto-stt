@@ -147,7 +147,8 @@ which is built around faster-whisper and offers what this engine lacks for Whisp
 - **Hotwords and initial prompt.** Here a request with hotwords is rejected for Whisper.
 - **Native word timestamps.** Here they come from a separate forced aligner,
   which costs time and VRAM.
-- **Streaming** (WebSocket mode). Not available in this engine.
+- **Streaming** (WebSocket mode). Not supported by this engine: the server
+  refuses to start in that mode.
 
 Speed and VRAM, measured on an RTX 4090 Laptop GPU with word timestamps, on
 meeting recordings cut in segments of 30 to 80 s (RTFx = audio duration /
@@ -325,8 +326,10 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
   slow. The default `vllm` backend requires a CUDA GPU, so **on CPU you must set
   `BACKEND=transformers`** (and a CPU Docker image, built without `GPU=1`, has
   only that backend).
-- **No WebSocket/streaming** (it would need vLLM's realtime API, which is not
-  wired here; the vLLM backends are used for offline transcription only).
+- **No WebSocket/streaming.** Only the `http` and `task` modes are supported:
+  with `SERVICE_MODE=websocket` (or `-m websocket`) the server refuses to start.
+  Streaming would need vLLM's realtime API, which is not wired here (the vLLM
+  backends are used for offline transcription only).
 - **Audio input: WAV.** HTTP requests must send WAV. Celery tasks read files
   with libsndfile, so WAV works, as do FLAC, OGG/Vorbis and MP3; the Docker image
   ships no ffmpeg, so other containers (M4A/AAC, WebM, MP4...) are rejected

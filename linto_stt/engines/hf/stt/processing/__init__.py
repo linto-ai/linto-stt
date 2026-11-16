@@ -56,7 +56,7 @@ class LazyLoadedModel:
     (text, detected_language).
 
     The companion forced aligners (for word-level timestamps) are loaded
-    separately: by `warmup()` at startup (GPU or websocket mode), otherwise on the
+    separately: by `warmup()` at startup (on GPU), otherwise on the
     first request that needs them. `aligner_model_name=None` disables alignment
     entirely; `fallback_aligner_model_name` names a second aligner used for the
     requests the primary one does not cover (see `aligner_for`)."""
@@ -220,9 +220,10 @@ try:
         fallback_aligner_model_name=ALIGNER_FALLBACK_MODEL,
     )
 
-    # Warm up (force the load + one decode) on GPU or websocket mode. On http+cpu
-    # the server would freeze during a synchronous load, so defer to first use.
-    if USE_GPU or os.environ.get("SERVICE_MODE", "http") == "websocket":
+    # Warm up (force the load + one decode) on GPU. On CPU the HTTP server would
+    # freeze during a synchronous load, so defer to first use. (No websocket
+    # mode for this engine: main() refuses it at startup.)
+    if USE_GPU:
         warmup()
 except Exception as err:
     import traceback
