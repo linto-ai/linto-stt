@@ -39,6 +39,7 @@ class QwenForcedAligner:
     (prepare_forced_aligner_inputs -> forward -> decode_forced_alignment)."""
 
     name = "qwen"
+    covers_everything = False  # 11 tuned languages, 5 minutes of audio
     # The model card states "up to 5 minutes of speech" per pass.
     max_duration = 300.0
 
@@ -151,6 +152,7 @@ class MMSForcedAligner:
     audio duration."""
 
     name = "mms"
+    covers_everything = True  # any language, any duration: a fallback is never needed
     max_duration = None  # windowed emissions: no limit
     EMISSION_WINDOW_S = 30
     # Context given to each window on both sides and then dropped from its

@@ -63,10 +63,10 @@ HOTWORDS = os.environ.get("HOTWORDS") or None
 # asks for metadata (word timestamps); plain-text requests never touch it, so it
 # adds no cost to the fast path. Set ALIGNER_MODEL empty / "none" to disable
 # alignment (the `words` list is then returned empty for metadata requests).
-# ALIGNER_FALLBACK_MODEL names a second aligner, loaded on first need, used for
-# the requests the primary one does not cover (a language outside its set, audio
-# over its duration limit): "mms" by default behind the Qwen aligner; "none" to
-# always use the primary aligner.
+# ALIGNER_FALLBACK_MODEL names a second aligner (loaded at startup with the
+# primary one), used for the requests the primary one does not cover (a language
+# outside its set, audio over its duration limit): "mms" by default behind the
+# Qwen aligner; "none" to always use the primary aligner.
 
 
 def _optional_model(name):

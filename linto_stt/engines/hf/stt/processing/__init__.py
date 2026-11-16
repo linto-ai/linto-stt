@@ -40,8 +40,12 @@ def _lock_path(model_name):
 def warmup():
     MODEL.check_loaded()
     audio = load_audiofile("tests/bonjour.wav")
-    transcription = decode(audio, MODEL, True)
+    transcription = decode(audio, MODEL, True)  # also loads the primary aligner
     logger.info(f"Warmup result: {transcription}")
+    # Load the fallback aligner now too, rather than on the first request that
+    # needs it: that request would otherwise wait for the load (and the download
+    # if the model is not cached), and the GPU memory would grow after startup.
+    MODEL.check_fallback_aligner_loaded()
 
 
 class LazyLoadedModel:
@@ -51,12 +55,11 @@ class LazyLoadedModel:
     in-process), whose `.transcribe()` turns a segment into
     (text, detected_language).
 
-    The companion forced aligner (for word-level timestamps) is loaded
-    separately and even more lazily: only on the first request that asks for word
-    timestamps. `aligner_model_name=None` disables alignment entirely;
-    `fallback_aligner_model_name` names a second aligner used for the requests
-    the primary one does not cover (see `aligner_for`), loaded only on the first
-    such request."""
+    The companion forced aligners (for word-level timestamps) are loaded
+    separately: by `warmup()` at startup (GPU or websocket mode), otherwise on the
+    first request that needs them. `aligner_model_name=None` disables alignment
+    entirely; `fallback_aligner_model_name` names a second aligner used for the
+    requests the primary one does not cover (see `aligner_for`)."""
 
     def __init__(self, model_name, device, dtype, attn_implementation, num_threads,
                  aligner_model_name=None, fallback_aligner_model_name=None):
@@ -70,6 +73,7 @@ class LazyLoadedModel:
         self._asr = None
         self._aligner = None
         self._fallback_aligner = None
+        self._fallback_skip_logged = False
         self.has_set_num_threads = False
 
     def check_loaded(self):
@@ -86,6 +90,7 @@ class LazyLoadedModel:
                     # does not patch this process, so only "vllm_offline" needs it.
                     if BACKEND == "vllm_offline" and self.aligner_model_name:
                         self.check_aligner_loaded()
+                        self.check_fallback_aligner_loaded()
                     self._asr = load_asr_backend(
                         BACKEND,
                         self.model_name,
@@ -101,12 +106,31 @@ class LazyLoadedModel:
                     self._aligner = self._load_aligner(self.aligner_model_name)
 
     def check_fallback_aligner_loaded(self):
-        if self._fallback_aligner is None and self.fallback_aligner_model_name:
-            with FileLock(_lock_path(self.fallback_aligner_model_name)):
-                if self._fallback_aligner is None:
-                    self._fallback_aligner = self._load_aligner(
-                        self.fallback_aligner_model_name
-                    )
+        """Load the fallback aligner, unless it can never be used: no fallback
+        configured, alignment disabled (ALIGNER_MODEL=none), or a primary aligner
+        that covers every language and duration (MMS). A fallback naming the same
+        model as the primary reuses the primary's instance."""
+        if self._fallback_aligner is not None or not self.fallback_aligner_model_name:
+            return
+        if not self.has_aligner:
+            return
+        self.check_aligner_loaded()
+        primary = self._aligner
+        if getattr(primary, "covers_everything", False):
+            if not self._fallback_skip_logged:
+                logger.info(
+                    f"The {primary.name} aligner covers every language and duration: "
+                    f"the fallback aligner ({self.fallback_aligner_model_name}) is not used "
+                    f"and not loaded"
+                )
+                self._fallback_skip_logged = True
+            return
+        if self.fallback_aligner_model_name == self.aligner_model_name:
+            self._fallback_aligner = primary
+            return
+        with FileLock(_lock_path(self.fallback_aligner_model_name)):
+            if self._fallback_aligner is None:
+                self._fallback_aligner = self._load_aligner(self.fallback_aligner_model_name)
 
     def _load_aligner(self, name):
         logger.info(
@@ -118,8 +142,9 @@ class LazyLoadedModel:
     def aligner_for(self, language, duration=None):
         """The aligner to use for a request: the primary one when it covers the
         language and the audio duration (in seconds), else the fallback (loaded
-        here on first need). With no fallback configured the primary is always
-        used (with a warning when the audio exceeds its documented limit)."""
+        here if the warmup did not load it; a warning when it does not cover the
+        request either). With no usable fallback the primary is always used (with
+        a warning when the audio exceeds its documented limit)."""
         self.check_aligner_loaded()
         primary = self._aligner
         if primary.covers(language, duration):
@@ -128,13 +153,22 @@ class LazyLoadedModel:
             f"language {language!r}, {duration:.0f}s of audio" if duration is not None
             else f"language {language!r}"
         )
-        if self.fallback_aligner_model_name:
-            self.check_fallback_aligner_loaded()
-            logger.info(
-                f"Request ({what}) is not covered by the {primary.name} aligner: "
-                f"using the {self._fallback_aligner.name} fallback"
-            )
-            return self._fallback_aligner
+        self.check_fallback_aligner_loaded()
+        fallback = self._fallback_aligner
+        if fallback is not None and fallback is not primary:
+            if fallback.covers(language, duration):
+                logger.info(
+                    f"Request ({what}) is not covered by the {primary.name} aligner: "
+                    f"using the {fallback.name} fallback"
+                )
+            else:
+                logger.warning(
+                    f"Request ({what}) is covered by neither the {primary.name} aligner "
+                    f"nor the {fallback.name} fallback: using the fallback anyway; "
+                    f"timestamps may degrade. ALIGNER_FALLBACK_MODEL=mms covers any "
+                    f"language and duration."
+                )
+            return fallback
         if duration is not None and primary.max_duration and duration > primary.max_duration:
             logger.warning(
                 f"Audio ({duration:.0f}s) exceeds the {primary.name} aligner's documented "

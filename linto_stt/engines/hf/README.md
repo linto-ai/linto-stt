@@ -292,8 +292,8 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
   word timestamps, i.e. HTTP `Accept: application/json` and the Celery task (both
   go through the metadata path). Plain-text requests (`Accept: text/plain`) never
   run it, so that fast path keeps the best RTF. On GPU the startup warmup
-  preloads it (so the first timestamped request is not slow); otherwise it is
-  loaded lazily on first use.
+  preloads it, and the fallback aligner below (so no request waits for an
+  aligner to load); otherwise they are loaded on first use.
 - Set `ALIGNER_MODEL=` (empty) or `ALIGNER_MODEL=none` to disable alignment; the
   `words` field is then returned empty for metadata requests.
 - **MMS aligner.** `ALIGNER_MODEL=mms` selects Meta's MMS forced aligner instead
@@ -312,9 +312,9 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
   its documented 5-minute limit) and routes the others to MMS: another language
   (forced or detected), or a file longer than 5 minutes (on the `vllm` backend
   the whole file is aligned in one pass; MMS has no duration limit). The
-  fallback is loaded only on the first request that needs it, so deployments
-  that never hit such a request pay nothing; that first request waits for the
-  1.2 GB download unless the torch hub cache is already populated (the Docker
+  fallback is loaded at startup with the primary aligner (on GPU), so the
+  worker's GPU memory does not grow later; the first start downloads its
+  1.2 GB unless the torch hub cache is already populated (the Docker
   `~/.cache` mount covers it). Set `ALIGNER_FALLBACK_MODEL=none` to always use
   the primary aligner (long audio is then still aligned with it, with a warning
   in the logs).

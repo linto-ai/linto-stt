@@ -674,6 +674,38 @@ class TestHfAligners:
         assert [w["word"] for w in words] == ["Bonjour", "!"]
         assert words[1]["start"] == words[1]["end"] == words[0]["end"]
 
+    def test_warmup_loads_the_fallback_aligner(self, monkeypatch):
+        """The startup warmup loads the fallback aligner too, so that no request
+        waits for it (and the GPU memory does not grow after startup)."""
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+        from linto_stt.engines.hf.stt import processing
+
+        calls = []
+
+        class FakeModel:
+            def check_loaded(self):
+                calls.append("asr")
+
+            def check_fallback_aligner_loaded(self):
+                calls.append("fallback")
+
+        monkeypatch.setattr(processing, "MODEL", FakeModel())
+        monkeypatch.setattr(processing, "decode", lambda *a, **k: calls.append("decode") or {})
+        processing.warmup()
+        assert calls == ["asr", "decode", "fallback"]
+
+        # Without a fallback, or with alignment disabled, nothing is loaded.
+        for primary, fallback in ((processing.ALIGNER_MODEL, None), (None, "mms")):
+            model = processing.LazyLoadedModel("unused", device="cpu", dtype="float32",
+                                               attn_implementation=None, num_threads=1,
+                                               aligner_model_name=primary,
+                                               fallback_aligner_model_name=fallback)
+            model.check_fallback_aligner_loaded()
+            assert model._fallback_aligner is None
+
     def test_mms_audio_too_short_for_text(self, engine):
         """CTC alignment needs at least one frame per character: on audio too
         short for its text (a few tens of ms, or less than the encoder's 25 ms
@@ -801,6 +833,72 @@ class TestHfAligners:
         # Without a fallback the primary is always used.
         m = model(None)
         assert m.aligner_for("nl", 400).name == "primary"
+
+    def test_fallback_loading_cases(self, monkeypatch, caplog):
+        """Which fallback is loaded (at startup or on first need), for every
+        combination of primary and fallback aligners. Fake aligners: no model is
+        loaded."""
+        import logging
+        from types import SimpleNamespace
+
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+        from linto_stt.engines.hf.stt.processing import LazyLoadedModel
+
+        def qwen_like(name):
+            return SimpleNamespace(
+                name=name, max_duration=300.0, covers_everything=False,
+                covers=lambda language, duration=None: (duration is None or duration <= 300)
+                and language in (None, "fr", "en"))
+
+        def mms_like(name):
+            return SimpleNamespace(name=name, max_duration=None, covers_everything=True,
+                                   covers=lambda language, duration=None: True)
+
+        loaded = []
+
+        def load(self, name):
+            loaded.append(name)
+            return mms_like(name) if name == "mms" else qwen_like(name)
+
+        monkeypatch.setattr(LazyLoadedModel, "_load_aligner", load)
+
+        def model(primary, fallback):
+            loaded.clear()
+            return LazyLoadedModel("unused", device="cpu", dtype="float32", attn_implementation=None,
+                                   num_threads=None, aligner_model_name=primary,
+                                   fallback_aligner_model_name=fallback)
+
+        # Default: Qwen aligner, MMS fallback, both loaded.
+        m = model("qwen", "mms")
+        m.check_fallback_aligner_loaded()
+        assert loaded == ["qwen", "mms"]
+        # MMS primary covers everything: the fallback (MMS or Qwen) is never loaded.
+        for fallback in ("mms", "qwen"):
+            m = model("mms", fallback)
+            with caplog.at_level(logging.INFO):
+                m.check_fallback_aligner_loaded()
+            assert loaded == ["mms"] and m._fallback_aligner is None
+            assert "not used and not loaded" in caplog.text
+            assert m.aligner_for("nl", 4000).name == "mms"
+        # Same model as fallback: the primary's instance is reused.
+        m = model("qwen", "qwen")
+        m.check_fallback_aligner_loaded()
+        assert loaded == ["qwen"] and m._fallback_aligner is m._aligner
+        assert m.aligner_for("nl", 10).name == "qwen"
+        # Two different Qwen-like aligners: a request neither covers goes to the
+        # fallback, with a warning.
+        m = model("qwen", "qwen-b")
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            assert m.aligner_for("fr", 400).name == "qwen-b"
+        assert "covered by neither" in caplog.text
+        # Alignment disabled: nothing is loaded, whatever the fallback.
+        m = model(None, "mms")
+        m.check_fallback_aligner_loaded()
+        assert loaded == []
 
 
 # ---------------------------------------------------------------------------
