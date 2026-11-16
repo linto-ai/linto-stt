@@ -142,25 +142,30 @@ class TestHfCapabilities:
 # ---------------------------------------------------------------------------
 
 
+# The three servers below live together until the end of TestHfVllm (class
+# scope), so each gets its own vLLM port.
 @pytest.fixture(scope="class")
 def vllm_fr_server(project_root, server_timeout):
     """LANGUAGE=fr, compiled (the production setting)."""
     yield from _class_server(project_root, server_timeout,
-                             {"MODEL": TEST_MODEL, "LANGUAGE": "fr", "DEVICE": "cuda"})
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "fr", "DEVICE": "cuda",
+                              "VLLM_SERVE_PORT": "8001"})
 
 
 @pytest.fixture(scope="class")
 def vllm_auto_server(project_root, server_timeout):
     """LANGUAGE=* (automatic detection), eager."""
     yield from _class_server(project_root, server_timeout,
-                             {"MODEL": TEST_MODEL, "LANGUAGE": "*", "DEVICE": "cuda", **EAGER})
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "*", "DEVICE": "cuda", **EAGER,
+                              "VLLM_SERVE_PORT": "8002"})
 
 
 @pytest.fixture(scope="class")
 def vllm_en_server(project_root, server_timeout):
     """LANGUAGE=en (overridden per request), eager."""
     yield from _class_server(project_root, server_timeout,
-                             {"MODEL": TEST_MODEL, "LANGUAGE": "en", "DEVICE": "cuda", **EAGER})
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "en", "DEVICE": "cuda", **EAGER,
+                              "VLLM_SERVE_PORT": "8003"})
 
 
 @pytest.mark.hf
@@ -309,20 +314,6 @@ class TestHfCapabilityGuards:
         model = self._model(language_spec=False, language_auto=True)
         with pytest.raises(ValueError, match="forced language"):
             decode(np.zeros(16000, dtype=np.float32), model, False, language="fr")
-
-
-def test_websocket_mode_refused():
-    """The hf engine has no streaming: the server refuses to start in websocket
-    mode, before loading anything."""
-    import subprocess
-    import sys
-    from pathlib import Path
-
-    result = subprocess.run([sys.executable, "main.py", "-m", "websocket", "-e", "hf"],
-                            cwd=Path(__file__).resolve().parent.parent,
-                            capture_output=True, text=True, timeout=120)
-    assert result.returncode != 0
-    assert "does not support the websocket" in result.stderr
 
 
 class TestHfConfidence:
@@ -590,6 +581,19 @@ class TestHfStreamingUnsupported:
 
         with pytest.raises(NotImplementedError):
             asyncio.run(wssDecode(None, None))
+
+    def test_websocket_mode_refused(self):
+        """The hf engine has no streaming: the server refuses to start in websocket
+        mode, before loading anything."""
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        result = subprocess.run([sys.executable, "main.py", "-m", "websocket", "-e", "hf"],
+                                cwd=Path(__file__).resolve().parent.parent,
+                                capture_output=True, text=True, timeout=120)
+        assert result.returncode != 0
+        assert "does not support the websocket" in result.stderr
 
 
 # ---------------------------------------------------------------------------

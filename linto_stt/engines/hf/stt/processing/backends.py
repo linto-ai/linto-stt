@@ -101,25 +101,16 @@ VLLM_ENFORCE_EAGER = os.environ.get("VLLM_ENFORCE_EAGER", "").strip().lower() in
 # offline backend, this one runs vLLM in its own process (no transformers-registry
 # pollution) and works for every vLLM-servable ASR model (Qwen3-ASR and Cohere).
 VLLM_SERVE_HOST = os.environ.get("VLLM_SERVE_HOST", "127.0.0.1")
-# Port for the managed `vllm serve`. Unset (the default) picks a free port per
-# server at startup, so a leftover/orphaned server never blocks a new one; set it
-# to pin a fixed port.
-VLLM_SERVE_PORT = os.environ.get("VLLM_SERVE_PORT") or None
+# Port for the managed `vllm serve` (one server per worker, one worker per
+# container). If it is still taken at startup (an orphaned server), the start
+# fails with a clear message.
+VLLM_SERVE_PORT = int(os.environ.get("VLLM_SERVE_PORT") or 8000)
 # How long to wait for the subprocess to become healthy (model load + warmup).
 VLLM_SERVE_STARTUP_TIMEOUT = int(os.environ.get("VLLM_SERVE_STARTUP_TIMEOUT", "900"))
 # Per-request HTTP timeout (long audio is chunked server-side, so keep generous).
 VLLM_SERVE_REQUEST_TIMEOUT = int(os.environ.get("VLLM_SERVE_REQUEST_TIMEOUT", "600"))
 # Extra raw args appended verbatim to the `vllm serve` command line.
 VLLM_SERVE_EXTRA_ARGS = os.environ.get("VLLM_SERVE_EXTRA_ARGS", "").split()
-
-
-def _find_free_port(host="127.0.0.1"):
-    """Ask the OS for a currently-free TCP port on `host`."""
-    import socket
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind((host, 0))
-        return sock.getsockname()[1]
 
 
 def _model_derived_max_len(model_name):
@@ -455,9 +446,7 @@ class VllmServeBackend:
         )
 
         self.host = VLLM_SERVE_HOST
-        # Pin the port only if the user set VLLM_SERVE_PORT; otherwise pick a free
-        # one, so an orphaned/leftover server can never block a new one.
-        self.port = int(VLLM_SERVE_PORT) if VLLM_SERVE_PORT else _find_free_port(self.host)
+        self.port = VLLM_SERVE_PORT
         self.base_url = f"http://{self.host}:{self.port}"
         self._proc = None
         self._log = None
