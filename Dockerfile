@@ -7,7 +7,8 @@ ARG STT_ENGINE=nemo
 ARG EXTRA_DEPS=""
 ARG GPU=""
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Pinned uv (build stage only): the version the images are built and tested with.
+COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /usr/local/bin/uv
 
 # Build-time system dependencies
 RUN apt-get update && \
