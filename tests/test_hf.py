@@ -142,51 +142,53 @@ class TestHfCapabilities:
 # ---------------------------------------------------------------------------
 
 
-# The three servers below live together until the end of TestHfVllm (class
-# scope), so each gets its own vLLM port.
+# One server per configuration, each shared by the tests of its class (a vLLM
+# server takes minutes to start, a request seconds). A class-scoped server stops
+# at the end of its class, so the classes below never run two servers at once
+# (one server takes about 4 GB of GPU memory: vLLM, two aligners, ECAPA).
 @pytest.fixture(scope="class")
 def vllm_fr_server(project_root, server_timeout):
     """LANGUAGE=fr, compiled (the production setting)."""
     yield from _class_server(project_root, server_timeout,
-                             {"MODEL": TEST_MODEL, "LANGUAGE": "fr", "DEVICE": "cuda",
-                              "VLLM_SERVE_PORT": "8001"})
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "fr", "DEVICE": "cuda"})
 
 
 @pytest.fixture(scope="class")
 def vllm_auto_server(project_root, server_timeout):
     """LANGUAGE=* (automatic detection), eager."""
     yield from _class_server(project_root, server_timeout,
-                             {"MODEL": TEST_MODEL, "LANGUAGE": "*", "DEVICE": "cuda", **EAGER,
-                              "VLLM_SERVE_PORT": "8002"})
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "*", "DEVICE": "cuda", **EAGER})
 
 
 @pytest.fixture(scope="class")
 def vllm_en_server(project_root, server_timeout):
     """LANGUAGE=en (overridden per request), eager."""
     yield from _class_server(project_root, server_timeout,
-                             {"MODEL": TEST_MODEL, "LANGUAGE": "en", "DEVICE": "cuda", **EAGER,
-                              "VLLM_SERVE_PORT": "8003"})
+                             {"MODEL": TEST_MODEL, "LANGUAGE": "en", "DEVICE": "cuda", **EAGER})
 
 
-@pytest.mark.hf
-@pytest.mark.vllm
-@pytest.mark.uv
-@pytest.mark.gpu
-@pytest.mark.slow
-@pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
-class TestHfVllm:
-    """All features on the default backend (`vllm`, a managed `vllm serve`
-    subprocess): automatic language detection, forced language (config + per
-    request), and hotwords (per request; the HOTWORDS env default is tested on
-    the transformers backend, the code path being the same). Qwen3-ASR affords
-    every feature. Three servers, each shared by the tests of its configuration.
+# All features on the default backend (`vllm`, a managed `vllm serve`
+# subprocess): automatic language detection, forced language (config + per
+# request), and hotwords (per request; the HOTWORDS env default is tested on the
+# transformers backend, the code path being the same). Qwen3-ASR affords every
+# feature. The configs deliberately omit `BACKEND`, so these also assert the
+# engine default is vLLM. Needs the `hf-vllm` extra (`uv sync --extra hf-vllm
+# --extra test`) and a CUDA GPU; vLLM startup is slow, so use a generous
+# `--server-timeout` on the first (uncached) run.
+VLLM_MARKS = [
+    pytest.mark.hf,
+    pytest.mark.vllm,
+    pytest.mark.uv,
+    pytest.mark.gpu,
+    pytest.mark.slow,
+    pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed"),
+]
 
-    The configs deliberately omit `BACKEND`, so these also assert the engine
-    default is vLLM. Needs the `hf-vllm` extra (`uv sync --extra hf-vllm --extra test`)
-    and a CUDA GPU; vLLM startup is slow, so use a generous `--server-timeout` on
-    the first (uncached) run."""
 
-    # --- language ---
+class TestHfVllmForcedLanguage:
+    """LANGUAGE=fr: forced language, unsupported language, hotwords."""
+
+    pytestmark = VLLM_MARKS
 
     def test_integration_forced_language(self, vllm_fr_server, test_audio_bonjour):
         result = transcribe_http(vllm_fr_server["url"], str(test_audio_bonjour))
@@ -194,31 +196,11 @@ class TestHfVllm:
             f"Unexpected transcription: {result}"
         )
 
-    def test_language_auto_detect(self, vllm_auto_server, test_audio_bonjour):
-        """LANGUAGE=* -> the language is identified (LANGUAGE_IDENTIFICATION, on
-        by default), passed to the model and returned."""
-        result = transcribe_http(vllm_auto_server["url"], str(test_audio_bonjour), full=True)
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
-            f"Unexpected transcription: {result}"
-        )
-        assert result["language"] == "fr"
-
     def test_unsupported_language_rejected(self, vllm_fr_server, test_audio_bonjour):
         """A language Qwen3-ASR does not support (Swahili) -> HTTP 400 (vLLM
         itself would transcribe it, with a warning in its own log)."""
         with pytest.raises(RuntimeError, match=r"\(400\).*not supported by this model"):
             transcribe_http(vllm_fr_server["url"], str(test_audio_bonjour), language="sw")
-
-    def test_language_per_request_override(self, vllm_en_server, test_audio_bonjour):
-        """Config says en; the per-request language=fr overrides it."""
-        result = transcribe_http(
-            vllm_en_server["url"], str(test_audio_bonjour), language="fr"
-        )
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
-            f"Unexpected transcription: {result}"
-        )
-
-    # --- hotwords ---
 
     def test_hotwords_baseline(self, vllm_fr_server, test_audio_hotel):
         """Control: without a hotword, the biased word is NOT produced."""
@@ -238,6 +220,36 @@ class TestHfVllm:
         )
         assert BIASED_WORD in result.lower(), (
             f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
+        )
+
+
+class TestHfVllmAutoLanguage:
+    """LANGUAGE=*: the language is identified."""
+
+    pytestmark = VLLM_MARKS
+
+    def test_language_auto_detect(self, vllm_auto_server, test_audio_bonjour):
+        """LANGUAGE=* -> the language is identified (LANGUAGE_IDENTIFICATION, on
+        by default), passed to the model and returned."""
+        result = transcribe_http(vllm_auto_server["url"], str(test_audio_bonjour), full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
+            f"Unexpected transcription: {result}"
+        )
+        assert result["language"] == "fr"
+
+
+class TestHfVllmLanguageOverride:
+    """LANGUAGE=en, overridden per request."""
+
+    pytestmark = VLLM_MARKS
+
+    def test_language_per_request_override(self, vllm_en_server, test_audio_bonjour):
+        """Config says en; the per-request language=fr overrides it."""
+        result = transcribe_http(
+            vllm_en_server["url"], str(test_audio_bonjour), language="fr"
+        )
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+            f"Unexpected transcription: {result}"
         )
 
 
