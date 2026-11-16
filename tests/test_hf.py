@@ -311,6 +311,33 @@ class TestHfCapabilityGuards:
             decode(np.zeros(16000, dtype=np.float32), model, False, language="fr")
 
 
+class TestHfConfidence:
+    """The models served by the hf engine expose no usable confidence: the
+    transcript and every word get a constant 1.0. Stub backend and aligner."""
+
+    def test_constant_confidence(self, monkeypatch):
+        from types import SimpleNamespace
+
+        import numpy as np
+
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+        from linto_stt.engines.hf.stt.processing.decoding import decode
+
+        asr = SimpleNamespace(supports_hotwords=False, supports_language_spec=True,
+                              supports_language_auto=True,
+                              transcribe=lambda audio, language=None, prompt=None: ("bonjour monsieur", "French"))
+        aligner = SimpleNamespace(name="stub", align=lambda audio, text, language: [
+            {"word": w, "start": float(i), "end": i + 0.5} for i, w in enumerate(text.split())])
+        model = SimpleNamespace(asr=asr, has_aligner=True,
+                                aligner_for=lambda language, duration=None: aligner)
+        result = decode(np.zeros(16000, dtype=np.float32), model, True, language="fr")
+        assert result["confidence-score"] == 1.0
+        assert [w["conf"] for w in result["words"]] == [1.0, 1.0]
+
+
 def _whisper_config(language, id, backend, marks=()):
     env = {"MODEL": WHISPER_MODEL, "LANGUAGE": language, "DEVICE": "cuda", "BACKEND": backend}
     return pytest.param(

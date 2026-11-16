@@ -43,7 +43,7 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
       `None` falls back to the `HOTWORDS` env default; a falsy value disables
       biasing.
     - `with_word_timestamps`: when True, run the companion forced-alignment model
-      to produce word-level timestamps (``words`` = list of {word, start, end}).
+      to produce word-level timestamps (``words`` = list of {word, start, end, conf}).
       When False, no alignment runs and ``words`` is the plain token list.
 
     Returns the standard STT dict: {text, language, confidence-score, words}.
@@ -94,7 +94,9 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
     return {
         "text": text,
         "language": result_language,
-        "confidence-score": None,  # Qwen3-ASR does not expose a confidence
+        # The models served here expose no usable confidence: a constant 1.0
+        # keeps the output format of the other engines (a number in [0, 1]).
+        "confidence-score": CONFIDENCE,
         "words": words,
     }
 
@@ -162,6 +164,9 @@ def _transcribe_long(model, audio, with_word_timestamps, language, prompt):
     return text, words, result_language
 
 
+CONFIDENCE = 1.0  # constant confidence (transcript and words), see decode()
+
+
 def _align_words(model, audio, text, language):
     """Word-level timestamps for `text` from the forced aligner that covers the
     request (language and audio duration; primary or fallback, see aligners.py).
@@ -170,6 +175,8 @@ def _align_words(model, audio, text, language):
     aligner = model.aligner_for(language, duration=len(audio) / SAMPLE_RATE)
     start_t = time.time()
     words = aligner.align(audio, text, language)
+    for w in words:
+        w["conf"] = CONFIDENCE
     logger.info(f"Forced alignment complete with {aligner.name} (t={time.time() - start_t}s)")
     # Give the alignment's working memory back to the GPU: PyTorch would otherwise
     # keep it reserved (several GB after a long file), next to the vLLM server and
