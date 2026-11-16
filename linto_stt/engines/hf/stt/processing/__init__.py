@@ -10,6 +10,7 @@ from linto_stt.engines.hf.stt import (
     ATTN_IMPLEMENTATION,
     BACKEND,
     DTYPE,
+    LANGUAGE_IDENTIFICATION,
     NUM_THREADS,
     logger,
     set_num_threads,
@@ -39,6 +40,7 @@ def _lock_path(model_name):
 
 def warmup():
     MODEL.check_loaded()
+    MODEL.check_language_identifier_loaded()  # used by the warmup request if LANGUAGE=*
     audio = load_audiofile("tests/bonjour.wav")
     transcription = decode(audio, MODEL, True)  # also loads the primary aligner
     logger.info(f"Warmup result: {transcription}")
@@ -62,7 +64,8 @@ class LazyLoadedModel:
     requests the primary one does not cover (see `aligner_for`)."""
 
     def __init__(self, model_name, device, dtype, attn_implementation, num_threads,
-                 aligner_model_name=None, fallback_aligner_model_name=None):
+                 aligner_model_name=None, fallback_aligner_model_name=None,
+                 language_identification=False):
         self.model_name = model_name
         self.device = device
         self.dtype = dtype
@@ -74,6 +77,8 @@ class LazyLoadedModel:
         self._aligner = None
         self._fallback_aligner = None
         self._fallback_skip_logged = False
+        self.language_identification = language_identification
+        self._language_identifier = None
         self.has_set_num_threads = False
 
     def check_loaded(self):
@@ -131,6 +136,21 @@ class LazyLoadedModel:
         with FileLock(_lock_path(self.fallback_aligner_model_name)):
             if self._fallback_aligner is None:
                 self._fallback_aligner = self._load_aligner(self.fallback_aligner_model_name)
+
+    def check_language_identifier_loaded(self):
+        if self.language_identification and self._language_identifier is None:
+            from .languages import LanguageIdentifier
+
+            with FileLock(_lock_path(LanguageIdentifier.SOURCE)):
+                if self._language_identifier is None:
+                    logger.info(f"Loading language identifier {LanguageIdentifier.SOURCE}...")
+                    self._language_identifier = LanguageIdentifier(self.device)
+
+    @property
+    def language_identifier(self):
+        """The language identifier, or None when LANGUAGE_IDENTIFICATION is off."""
+        self.check_language_identifier_loaded()
+        return self._language_identifier
 
     def _load_aligner(self, name):
         logger.info(
@@ -218,6 +238,7 @@ try:
         num_threads=NUM_THREADS,
         aligner_model_name=ALIGNER_MODEL,
         fallback_aligner_model_name=ALIGNER_FALLBACK_MODEL,
+        language_identification=LANGUAGE_IDENTIFICATION,
     )
 
     # Warm up (force the load + one decode) on GPU. On CPU the HTTP server would

@@ -195,11 +195,19 @@ class TestHfVllm:
         )
 
     def test_language_auto_detect(self, vllm_auto_server, test_audio_bonjour):
-        """LANGUAGE=* -> automatic detection; French audio still transcribes."""
-        result = transcribe_http(vllm_auto_server["url"], str(test_audio_bonjour))
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+        """LANGUAGE=* -> the language is identified (LANGUAGE_IDENTIFICATION, on
+        by default), passed to the model and returned."""
+        result = transcribe_http(vllm_auto_server["url"], str(test_audio_bonjour), full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
             f"Unexpected transcription: {result}"
         )
+        assert result["language"] == "fr"
+
+    def test_unsupported_language_rejected(self, vllm_fr_server, test_audio_bonjour):
+        """A language Qwen3-ASR does not support (Swahili) -> HTTP 400 (vLLM
+        itself would transcribe it, with a warning in its own log)."""
+        with pytest.raises(RuntimeError, match=r"\(400\).*not supported by this model"):
+            transcribe_http(vllm_fr_server["url"], str(test_audio_bonjour), language="sw")
 
     def test_language_per_request_override(self, vllm_en_server, test_audio_bonjour):
         """Config says en; the per-request language=fr overrides it."""
@@ -256,14 +264,18 @@ class TestHfCohere:
         [
             _cohere_config("fr", "cohere-vllm", backend="vllm"),
             _cohere_config("fr", "cohere-transformers", backend="transformers"),
+            # No language: identified (LANGUAGE_IDENTIFICATION, on by default)
+            # among Cohere's 14, so this model now works without a language.
+            _cohere_config("*", "cohere-vllm-identified", backend="vllm"),
         ],
         indirect=True,
     )
     def test_integration(self, uv_server, test_audio_bonjour):
-        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour), full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
             f"Unexpected transcription: {result}"
         )
+        assert result["language"] == "fr"
 
 
 @pytest.mark.hf
@@ -291,7 +303,7 @@ class TestHfCapabilityGuards:
         asr = SimpleNamespace(supports_hotwords=caps.get("hotwords", False),
                               supports_language_spec=caps.get("language_spec", True),
                               supports_language_auto=caps.get("language_auto", False))
-        return SimpleNamespace(asr=asr)
+        return SimpleNamespace(asr=asr, language_identifier=None)
 
     def test_hotwords_rejected(self, decode):
         """No hotword mechanism (Cohere) -> a request with hotwords is rejected."""
@@ -316,6 +328,132 @@ class TestHfCapabilityGuards:
             decode(np.zeros(16000, dtype=np.float32), model, False, language="fr")
 
 
+class TestHfLanguages:
+    """Language handling in `decode`: a given language must be one the model
+    accepts (else HTTP 400), with a warning outside its documented languages;
+    without a language, the language identifier (LANGUAGE_IDENTIFICATION) picks
+    one among the accepted languages, else the model detects it, else "*".
+    Stub backend and identifier, except the last test (the real ECAPA on CPU)."""
+
+    @pytest.fixture
+    def decode(self, monkeypatch):
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+        from linto_stt.engines.hf.stt.processing.decoding import decode
+
+        return decode
+
+    @staticmethod
+    def _model(detected=None, language_auto=True, accepted=("fr", "en", "de"),
+               recommended=None, identified=None):
+        from types import SimpleNamespace
+
+        calls = []
+
+        def transcribe(audio, language=None, prompt=None):
+            calls.append(language)
+            return "bonjour", language or detected
+
+        asr = SimpleNamespace(supports_hotwords=False, supports_language_spec=True,
+                              supports_language_auto=language_auto, transcribe=transcribe,
+                              accepted_languages=frozenset(accepted),
+                              recommended_languages=frozenset(recommended) if recommended else None)
+        identifier = None
+        if identified:
+            identifier = SimpleNamespace(
+                identify=lambda audio, languages=None: (identified, identified),
+                _code_in=lambda code, languages: code if code in languages else None)
+        return SimpleNamespace(asr=asr, has_aligner=False, language_identifier=identifier), calls
+
+    @staticmethod
+    def _audio():
+        import numpy as np
+
+        return np.zeros(16000, dtype=np.float32)
+
+    def test_unsupported_language_rejected(self, decode):
+        model, calls = self._model()
+        with pytest.raises(ValueError, match="not supported by this model"):
+            decode(self._audio(), model, True, language="ru")
+        assert calls == []  # rejected before any decoding
+
+    def test_undocumented_language_warns(self, decode, caplog):
+        import logging
+
+        model, calls = self._model(recommended=("fr", "en"))
+        with caplog.at_level(logging.WARNING):
+            result = decode(self._audio(), model, True, language="de")
+        assert "not among the model's documented languages" in caplog.text
+        assert calls == ["de"] and result["language"] == "de"
+
+    def test_given_language_is_not_identified(self, decode):
+        model, calls = self._model(identified="en")
+        result = decode(self._audio(), model, True, language="fr")
+        assert calls == ["fr"] and result["language"] == "fr"
+
+    def test_identified_language_is_forced_and_returned(self, decode):
+        model, calls = self._model(identified="de")
+        result = decode(self._audio(), model, True, language="*")
+        assert calls == ["de"] and result["language"] == "de"
+
+    def test_identification_lets_a_model_without_detection_run(self, decode):
+        """Cohere-like model (a language is required): works without one when
+        the language is identified."""
+        model, calls = self._model(language_auto=False, identified="fr")
+        assert decode(self._audio(), model, True, language="*")["language"] == "fr"
+        model, calls = self._model(language_auto=False)
+        with pytest.raises(ValueError, match="no automatic language detection"):
+            decode(self._audio(), model, True, language="*")
+
+    def test_without_identification(self, decode):
+        """The model detects the language: returned when the backend reports it
+        (transformers), "*" when it does not (vLLM)."""
+        model, calls = self._model(detected="French")
+        result = decode(self._audio(), model, True, language="*")
+        assert calls == [None] and result["language"] == "fr"
+        model, calls = self._model(detected=None)
+        assert decode(self._audio(), model, True, language="*")["language"] == "*"
+
+    def test_card_languages(self, monkeypatch):
+        """Model card `language:` metadata: Whisper's card lists Norwegian as a
+        bare `no`, which YAML reads as False."""
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+        from linto_stt.engines.hf.stt.processing.languages import parse_card_languages
+
+        assert parse_card_languages(["en", False, "FR"]) == {"en", "no", "fr"}
+        assert parse_card_languages("en") == {"en"}
+        assert parse_card_languages(None) is None
+        assert parse_card_languages([True, ""]) is None
+
+    def test_ecapa_restricted_to_the_model_languages(self, monkeypatch):
+        """The real ECAPA on CPU (86 MB download on first use): on a 1.2 s
+        "Bonjour" its free choice is Breton; restricted to Qwen3-ASR's or
+        Cohere's languages it is French. Mapped codes: Hebrew (iw -> he) and
+        Tagalog (tl -> fil, Qwen3-ASR's code)."""
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("speechbrain")
+        from transformers.models.qwen3_asr.processing_qwen3_asr import LANGUAGE_CODE_TO_NAME
+
+        from linto_stt.engines.hf.stt.processing.languages import LanguageIdentifier
+        from linto_stt.engines.hf.stt.processing.utils import load_audiofile
+
+        lid = LanguageIdentifier("cpu")
+        assert "he" in lid.codes and "iw" not in lid.codes
+        assert lid._code_in("tl", frozenset(LANGUAGE_CODE_TO_NAME)) == "fil"
+        audio = load_audiofile(str(Path(__file__).resolve().parent / "bonjour.wav"))
+        assert lid.identify(audio) == ("br", "br")
+        assert lid.identify(audio, frozenset(LANGUAGE_CODE_TO_NAME)) == ("fr", "br")
+        cohere = frozenset("ar de el en es fr it ja ko nl pl pt vi zh".split())
+        assert lid.identify(audio, cohere) == ("fr", "br")
+
+
 class TestHfConfidence:
     """The models served by the hf engine expose no usable confidence: the
     transcript and every word get a constant 1.0. Stub backend and aligner."""
@@ -336,7 +474,7 @@ class TestHfConfidence:
                               transcribe=lambda audio, language=None, prompt=None: ("bonjour monsieur", "French"))
         aligner = SimpleNamespace(name="stub", align=lambda audio, text, language: [
             {"word": w, "start": float(i), "end": i + 0.5} for i, w in enumerate(text.split())])
-        model = SimpleNamespace(asr=asr, has_aligner=True,
+        model = SimpleNamespace(asr=asr, has_aligner=True, language_identifier=None,
                                 aligner_for=lambda language, duration=None: aligner)
         result = decode(np.zeros(16000, dtype=np.float32), model, True, language="fr")
         assert result["confidence-score"] == 1.0
@@ -720,8 +858,9 @@ class TestHfAligners:
         assert words[1]["start"] == words[1]["end"] == words[0]["end"]
 
     def test_warmup_loads_the_fallback_aligner(self, monkeypatch):
-        """The startup warmup loads the fallback aligner too, so that no request
-        waits for it (and the GPU memory does not grow after startup)."""
+        """The startup warmup loads the language identifier and the fallback
+        aligner too, so that no request waits for them (and the GPU memory does
+        not grow after startup)."""
         monkeypatch.setenv("DEVICE", "cpu")
         monkeypatch.setenv("SERVICE_MODE", "http")
         monkeypatch.setenv("BACKEND", "transformers")
@@ -737,10 +876,13 @@ class TestHfAligners:
             def check_fallback_aligner_loaded(self):
                 calls.append("fallback")
 
+            def check_language_identifier_loaded(self):
+                calls.append("lid")
+
         monkeypatch.setattr(processing, "MODEL", FakeModel())
         monkeypatch.setattr(processing, "decode", lambda *a, **k: calls.append("decode") or {})
         processing.warmup()
-        assert calls == ["asr", "decode", "fallback"]
+        assert calls == ["asr", "lid", "decode", "fallback"]
 
         # Without a fallback, or with alignment disabled, nothing is loaded.
         for primary, fallback in ((processing.ALIGNER_MODEL, None), (None, "mms")):

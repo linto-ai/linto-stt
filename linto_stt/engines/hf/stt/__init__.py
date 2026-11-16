@@ -57,6 +57,19 @@ ATTN_IMPLEMENTATION = os.environ.get("ATTN_IMPLEMENTATION") or None
 # argument (mirrors LANGUAGE/language).
 HOTWORDS = os.environ.get("HOTWORDS") or None
 
+# Language identification (SpeechBrain ECAPA, VoxLingua107; see
+# processing/languages.py). When on (the default), it is loaded at startup and,
+# for a request without a language (LANGUAGE / language = "*"), identifies the
+# language among those the ASR model supports, before the transcription: the
+# language is passed to the model, used for the aligner choice and returned.
+# Off: the model detects the language itself when it can (Qwen3-ASR, Whisper,
+# Voxtral), and the request is rejected when it cannot (Cohere).
+LANGUAGE_IDENTIFICATION = os.environ.get("LANGUAGE_IDENTIFICATION", "true").strip().lower() in (
+    "1", "true", "yes", "on"
+)
+# Seconds of audio, from the start, the identification is run on.
+LANGUAGE_IDENTIFICATION_MAX_DURATION = 30
+
 # Companion forced aligner used to produce word-level timestamps: a
 # Qwen3-ForcedAligner checkpoint, or "mms" (Meta's language-agnostic MMS CTC
 # aligner, see processing/aligners.py). It is only loaded and run when a request

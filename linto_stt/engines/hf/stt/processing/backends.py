@@ -21,6 +21,7 @@ import torch
 
 from linto_stt.engines.hf.stt import MAX_NEW_TOKENS, logger
 
+from .languages import detect_languages
 from .utils import SAMPLE_RATE
 
 
@@ -192,6 +193,9 @@ class TransformersASRBackend:
         self.supports_hotwords = caps["hotwords"]
         self.supports_language_spec = caps["language_spec"]
         self.supports_language_auto = caps["language_auto"]
+        self.accepted_languages, self.recommended_languages = detect_languages(
+            model.name_or_path, processor
+        )
 
     def transcribe(self, audio, language=None, prompt=None):
         """Transcribe one 16 kHz mono float32 segment -> (text, detected_language)."""
@@ -337,6 +341,9 @@ class VllmASRBackend:
                 f"The vLLM backend currently supports only the Qwen3-ASR family; "
                 f"{model_name!r} is not supported. Use BACKEND=transformers for it."
             )
+        self.accepted_languages, self.recommended_languages = detect_languages(
+            model_name, self.processor
+        )
 
         llm_kwargs = {
             "model": self.vllm_model,
@@ -441,6 +448,9 @@ class VllmServeBackend:
         self.supports_hotwords = caps["hotwords"]
         self.supports_language_spec = caps["language_spec"]
         self.supports_language_auto = caps["language_auto"]
+        self.accepted_languages, self.recommended_languages = detect_languages(
+            model_name, processor
+        )
         self.handles_long_audio = (
             _model_type(model_name) not in self.MODEL_TYPES_NOT_WINDOWED_BY_VLLM
         )

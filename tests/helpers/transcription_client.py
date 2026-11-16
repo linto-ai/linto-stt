@@ -7,8 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 def transcribe_http(base_url: str, audio_path: str, language: str = None,
-                    hotwords: str = None, timeout: float = 300) -> str:
-    """POST an audio file to /transcribe and return the transcription text.
+                    hotwords: str = None, timeout: float = 300, full: bool = False):
+    """POST an audio file to /transcribe and return the transcription text (the
+    whole response dict with `full=True`).
 
     The first request can be slow: with lazy-loaded engines (e.g. NeMo on
     http+cpu, which skips startup warmup) it triggers the model load + first
@@ -47,7 +48,8 @@ def transcribe_http(base_url: str, audio_path: str, language: str = None,
     # Body might be a JSON-encoded string
     if isinstance(data, str):
         data = json.loads(data)
-    return sanity_check_and_get_text(data)
+    text = sanity_check_and_get_text(data)
+    return data if full else text
 
 
 def transcribe_websocket(ws_url: str, audio_path: str, language: str = None,

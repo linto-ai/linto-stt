@@ -116,8 +116,8 @@ MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=transformers uv run main.py -m 
 - **Word-level timestamps** (via the forced aligner) work for *every* model.
 - **Capabilities are detected from the model's processor signature, not its
   name**, so a request asking for an unsupported feature (hotwords on a model
-  without them, or auto-detection on a model that requires a language) is
-  rejected with a clear error. For the \*-marked (vLLM-only) models the flags are
+  without them, or auto-detection on a model that requires a language, when
+  language identification is off) is rejected with a clear error. For the \*-marked (vLLM-only) models the flags are
   detected and may be conservative (e.g. a model that can force a language but
   does not expose it in its processor signature is marked ❌).
 - For Qwen the `-hf` (transformers) variant is used, not the plain
@@ -240,25 +240,66 @@ backends.
 
 ### Language
 
-- `LANGUAGE=*` (or unset): automatic detection; the model transcribes
-  multilingually (only for models that support it, see the table above).
 - `LANGUAGE=fr` / `LANGUAGE=French`: force the language (ISO code or full
-  English name).
+  English name). It must be one the model supports (see below), otherwise the
+  request is rejected (HTTP 400, or a failed Celery task), on every backend.
+  It is returned as `language` in the result.
+- `LANGUAGE=*` (or unset): the language is unknown.
+    - With **language identification** (`LANGUAGE_IDENTIFICATION=true`, the
+      default), the language is first identified by SpeechBrain's ECAPA model
+      (trained on VoxLingua107, 107 languages, Apache 2.0) on the first 30 s of
+      the audio, choosing **only among the languages the model supports**. It
+      is then forced for the transcription, used to choose the aligner, and
+      returned as `language`. Models that require a language (Cohere) then work
+      without one. When the most likely language of the 107 is not one the
+      model supports (audio in another language), a warning is logged and the
+      most likely supported one is used. Cost: about 20 ms per request on GPU,
+      81 MB of weights (0.5 GB of GPU memory at peak), loaded at startup; the
+      weights (86 MB) are downloaded to the Hugging Face cache on first use.
+    - Without (`LANGUAGE_IDENTIFICATION=false`), the model detects the language
+      itself when it can (Qwen3-ASR, Whisper, Voxtral) and may transcribe
+      multilingually; a model that requires a language (Cohere) rejects the
+      request. The returned `language` is the one the model reports on the
+      `transformers` backend, and `*` on the `vllm` backend (whose
+      transcription endpoint does not return it).
 - Overridable per request with the `language` query parameter (HTTP) or task
   argument.
 
-The set of languages is model-specific:
+Each model has two language lists, read from its files (never from its name):
 
-| Model | # languages | Languages (model-card order, *not* a quality ranking) |
-|---|:---:|---|
-| **Qwen3-ASR** | 30 (+ 22 Chinese dialects) | `zh, en, yue, ar, de, fr, es, pt, id, it, ko, ru, th, vi, ja, tr, hi, ms, nl, sv, da, fi, pl, cs, fil, fa, el, hu, mk, ro` |
-| **Cohere Transcribe** | 14 | `en, fr, de, it, es, pt, el, nl, pl, zh, ja, ko, vi, ar` |
-| **Whisper** (large-v3) | 99 | multilingual; too many to list, see the [model card](https://huggingface.co/openai/whisper-large-v3) |
+- **Supported**: a request for another language is rejected (HTTP 400), and
+  language identification chooses only among these. Taken from what the model
+  itself enforces: Qwen3-ASR's processor, Cohere's config, Whisper's tokenizer.
+  The other models accept any of Whisper's 100 codes, which is what vLLM's
+  transcription endpoint accepts (it rejects any other code).
+- **Documented**: the languages of the model card metadata (`language:`). A
+  supported language outside them is still transcribed, with a warning in the
+  logs (for Voxtral, a forced language outside its 8 is respected: with `ru`,
+  French speech comes out in Cyrillic letters).
 
-The order follows each model card and is **not** a published best-to-worst
-ranking (Qwen lists Chinese/English first; Cohere groups by region: European,
-then APAC, then MENA). Neither card publishes a per-language quality order, so
-consult each model card's per-language WER figures for relative accuracy.
+| Model | Supported (rejected outside) | Documented (warning outside) | Without a language, identification off |
+|---|---|---|---|
+| **Qwen3-ASR** | 30: `zh, en, yue, ar, de, fr, es, pt, id, it, ko, ru, th, vi, ja, tr, hi, ms, nl, sv, da, fi, pl, cs, fil, fa, el, hu, mk, ro` (+ 22 Chinese dialects, per its card) | same 30 | detects it (multilingual audio possible) |
+| **Cohere Transcribe** | 14: `en, fr, de, it, es, pt, el, nl, pl, zh, ja, ko, vi, ar` | same 14 | request rejected (a language is required) |
+| **Whisper** (large-v3, large-v3-turbo) | 100 (Whisper's tokenizer) | 99 (no `yue`) | detects it |
+| **Voxtral** (Mini-3B, Small-24B) | 100 (vLLM) | 8: `en, es, fr, pt, hi, de, nl, it` | detects it |
+| **Granite-Speech** | 100 (vLLM); no forced language at all: any given language is rejected, an identified one is returned but not passed to the model | 4.1-2b: `en, fr, de, es, pt, ja`; 3.3-8b: `en, fr, de, es, pt` | detects it |
+
+With identification on (the default), a request without a language gets one
+of the **supported** languages (with a warning when it is outside the
+**documented** ones). Language identification (ECAPA) knows 107 languages: a
+supported language it does not know cannot be identified (`yue`: ECAPA only
+has `zh`); `fil` is identified through ECAPA's `tl` (Tagalog).
+
+The order of the lists follows each model card and is **not** a published
+best-to-worst ranking (Qwen lists Chinese/English first; Cohere groups by
+region: European, then APAC, then MENA). Neither card publishes a per-language
+quality order, so consult each model card's per-language WER figures for
+relative accuracy.
+
+The choice of ECAPA and its accuracy (98.7% correct on VoxLingua107's
+development set restricted to Qwen3-ASR's 30 languages, against 94.3% among
+all 107) come from a benchmark in this repository (`benchmark/lid/README.md`).
 
 Note: the forced aligner used for **word timestamps**
 ([`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf))

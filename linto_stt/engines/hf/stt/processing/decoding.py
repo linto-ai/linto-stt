@@ -9,6 +9,7 @@ from linto_stt.engines.hf.stt import (
     logger,
 )
 
+from .languages import describe, identify_language
 from .utils import SAMPLE_RATE, get_language, normalize_language_code
 
 
@@ -36,8 +37,11 @@ def _hotwords_prompt(hotwords):
 def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
     """Transcribe a mono 16 kHz float32 numpy array with a Qwen3-ASR model.
 
-    - `language`: None / "*" lets the model auto-detect (and transcribe
-      multilingually); a code ("fr") or name ("French") forces the language.
+    - `language`: a code ("fr") or name ("French") forces the language; it must
+      be one the model supports (else ValueError, an HTTP 400). None / "*": with
+      LANGUAGE_IDENTIFICATION, the language is identified first (among the
+      model's languages) and forced; without, the model detects it itself (and
+      may transcribe multilingually), or the request is rejected if it cannot.
     - `hotwords`: free-text words/phrases to bias the transcription toward
       (proper nouns, jargon). Passed to the model as its context `prompt`.
       `None` falls back to the `HOTWORDS` env default; a falsy value disables
@@ -60,16 +64,39 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
             "This model does not support hotwords; unset HOTWORDS and the "
             "request `hotwords` parameter."
         )
+    accepted = getattr(asr, "accepted_languages", None)
+    recommended = getattr(asr, "recommended_languages", None)
+    identified = False
+    if language:
+        # A given language is never second-guessed (no identification), but it
+        # must be one the model supports.
+        if accepted and language not in accepted:
+            raise ValueError(
+                f"Language {language!r} is not supported by this model "
+                f"(supported: {describe(accepted)})."
+            )
+        if recommended and language not in recommended:
+            logger.warning(
+                f"Language {language!r} is not among the model's documented languages "
+                f"({describe(recommended)}): the transcription may be poor"
+            )
+    elif model.language_identifier is not None:
+        language = identify_language(model.language_identifier, audio, accepted, recommended)
+        identified = True
     if not language and not asr.supports_language_auto:
         raise ValueError(
             "This model has no automatic language detection; set LANGUAGE or the "
-            "request `language` parameter (e.g. 'fr', 'en')."
+            "request `language` parameter (e.g. 'fr', 'en'), or enable "
+            "LANGUAGE_IDENTIFICATION."
         )
+    asr_language = language
     if language and not asr.supports_language_spec:
-        raise ValueError(
-            "This model does not take a forced language; unset LANGUAGE (or set "
-            "it to '*') and the request `language` parameter."
-        )
+        if not identified:
+            raise ValueError(
+                "This model does not take a forced language; unset LANGUAGE (or set "
+                "it to '*') and the request `language` parameter."
+            )
+        asr_language = None  # identified: returned, but not passed to the model
     prompt = _hotwords_prompt(hotwords)
 
     duration = len(audio) / SAMPLE_RATE
@@ -80,7 +107,7 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
     # models vLLM does not window (Voxtral).
     if duration <= LONG_FILE_THRESHOLD or getattr(asr, "handles_long_audio", False):
         text, words, result_language = _transcribe_segment(
-            model, audio, with_word_timestamps, language, prompt
+            model, audio, with_word_timestamps, asr_language, prompt
         )
     else:
         logger.info(
@@ -88,12 +115,17 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
             f"{LONG_FILE_CHUNK_LEN}s chunks"
         )
         text, words, result_language = _transcribe_long(
-            model, audio, with_word_timestamps, language, prompt
+            model, audio, with_word_timestamps, asr_language, prompt
         )
+    if identified:
+        result_language = language
 
     return {
         "text": text,
-        "language": result_language,
+        # The given or identified language, else the one the model reports
+        # (transformers backend), else "*" (unknown: the vLLM transcription
+        # endpoint does not return the language it detected).
+        "language": result_language or "*",
         # The models served here expose no usable confidence: a constant 1.0
         # keeps the output format of the other engines (a number in [0, 1]).
         "confidence-score": CONFIDENCE,
