@@ -293,6 +293,13 @@ def docker_server(request, project_root, server_timeout):
             os.makedirs(host_dir, exist_ok=True)
             volumes.setdefault(host_dir, f"/opt/{name}_cache")
             env_overrides.setdefault(var, f"/opt/{name}_cache")
+        # The MMS aligner's weights (1.2 GB) are fetched by torchaudio into the
+        # torch hub cache, not the Hugging Face one: reuse the host's, or every
+        # container downloads them again.
+        torch_home = os.path.expanduser(os.environ.get("TORCH_HOME", "~/.cache/torch"))
+        os.makedirs(torch_home, exist_ok=True)
+        volumes.setdefault(torch_home, "/opt/torch_cache")
+        env_overrides.setdefault("TORCH_HOME", "/opt/torch_cache")
 
     # For task mode, mount test dir as /opt/audio
     if mode == "task":

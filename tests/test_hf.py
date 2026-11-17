@@ -142,10 +142,11 @@ class TestHfCapabilities:
 # ---------------------------------------------------------------------------
 
 
-# One server per configuration, each shared by the tests of its class (a vLLM
-# server takes minutes to start, a request seconds). A class-scoped server stops
-# at the end of its class, so the classes below never run two servers at once
-# (one server takes about 4 GB of GPU memory: vLLM, two aligners, ECAPA).
+# One server per configuration, shared by the tests of its class (a vLLM server
+# takes minutes to start, a request seconds). A class-scoped server stops at the
+# end of its class; classes that start servers have one server configuration
+# each, so two servers never run at once (one takes about 4 GB of GPU memory:
+# vLLM, two aligners, ECAPA).
 @pytest.fixture(scope="class")
 def vllm_fr_server(project_root, server_timeout):
     """LANGUAGE=fr, compiled (the production setting)."""
@@ -153,28 +154,15 @@ def vllm_fr_server(project_root, server_timeout):
                              {"MODEL": TEST_MODEL, "LANGUAGE": "fr", "DEVICE": "cuda"})
 
 
-@pytest.fixture(scope="class")
-def vllm_auto_server(project_root, server_timeout):
-    """LANGUAGE=* (automatic detection), eager."""
-    yield from _class_server(project_root, server_timeout,
-                             {"MODEL": TEST_MODEL, "LANGUAGE": "*", "DEVICE": "cuda", **EAGER})
-
-
-@pytest.fixture(scope="class")
-def vllm_en_server(project_root, server_timeout):
-    """LANGUAGE=en (overridden per request), eager."""
-    yield from _class_server(project_root, server_timeout,
-                             {"MODEL": TEST_MODEL, "LANGUAGE": "en", "DEVICE": "cuda", **EAGER})
-
-
 # All features on the default backend (`vllm`, a managed `vllm serve`
-# subprocess): automatic language detection, forced language (config + per
-# request), and hotwords (per request; the HOTWORDS env default is tested on the
-# transformers backend, the code path being the same). Qwen3-ASR affords every
-# feature. The configs deliberately omit `BACKEND`, so these also assert the
-# engine default is vLLM. Needs the `hf-vllm` extra (`uv sync --extra hf-vllm
-# --extra test`) and a CUDA GPU; vLLM startup is slow, so use a generous
-# `--server-timeout` on the first (uncached) run.
+# subprocess): forced language (config), language identification (per-request
+# `*`, which also proves the per-request override), an unsupported language, and
+# hotwords (per request; the HOTWORDS env default is tested on the transformers
+# backend, the code path being the same). Qwen3-ASR affords every feature. The
+# config deliberately omits `BACKEND`, so these also assert the engine default
+# is vLLM. Needs the `hf-vllm` extra (`uv sync --extra hf-vllm --extra test`) and
+# a CUDA GPU; vLLM startup is slow, so use a generous `--server-timeout` on the
+# first (uncached) run.
 VLLM_MARKS = [
     pytest.mark.hf,
     pytest.mark.vllm,
@@ -185,16 +173,28 @@ VLLM_MARKS = [
 ]
 
 
-class TestHfVllmForcedLanguage:
-    """LANGUAGE=fr: forced language, unsupported language, hotwords."""
+class TestHfVllm:
+    """Qwen3-ASR on the vllm backend, one server (LANGUAGE=fr)."""
 
     pytestmark = VLLM_MARKS
 
     def test_integration_forced_language(self, vllm_fr_server, test_audio_bonjour):
-        result = transcribe_http(vllm_fr_server["url"], str(test_audio_bonjour))
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+        result = transcribe_http(vllm_fr_server["url"], str(test_audio_bonjour), full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
             f"Unexpected transcription: {result}"
         )
+        assert result["language"] == "fr"
+
+    def test_language_identified_per_request(self, vllm_fr_server, test_audio_bonjour):
+        """Per-request `*` overrides LANGUAGE=fr: the language is identified
+        (LANGUAGE_IDENTIFICATION, on by default), passed to the model and
+        returned."""
+        result = transcribe_http(vllm_fr_server["url"], str(test_audio_bonjour),
+                                 language="*", full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
+            f"Unexpected transcription: {result}"
+        )
+        assert result["language"] == "fr"
 
     def test_unsupported_language_rejected(self, vllm_fr_server, test_audio_bonjour):
         """A language Qwen3-ASR does not support (Swahili) -> HTTP 400 (vLLM
@@ -223,63 +223,54 @@ class TestHfVllmForcedLanguage:
         )
 
 
-class TestHfVllmAutoLanguage:
-    """LANGUAGE=*: the language is identified."""
+# ---------------------------------------------------------------------------
+# Second model family (Cohere, seq2seq): generalisation + capability guards
+# ---------------------------------------------------------------------------
+
+
+# Cohere (`cohere_asr`, a seq2seq ASR): proves the engine generalises beyond
+# Qwen3-ASR, on BOTH backends. Its capability guards (a required language, no
+# hotwords) are enforced in `decode`, whatever the backend: see
+# TestHfCapabilityGuards. CUDA GPU; the ~2B model downloads on first use (and
+# pulls `librosa`).
+@pytest.fixture(scope="class")
+def cohere_vllm_server(project_root, server_timeout):
+    """LANGUAGE=* (identified among Cohere's 14), eager."""
+    yield from _class_server(project_root, server_timeout,
+                             {"MODEL": COHERE_MODEL, "LANGUAGE": "*", "DEVICE": "cuda",
+                              "BACKEND": "vllm", **EAGER})
+
+
+class TestHfCohereVllm:
+    """Cohere on the vllm backend, one server (LANGUAGE=*)."""
 
     pytestmark = VLLM_MARKS
 
-    def test_language_auto_detect(self, vllm_auto_server, test_audio_bonjour):
-        """LANGUAGE=* -> the language is identified (LANGUAGE_IDENTIFICATION, on
-        by default), passed to the model and returned."""
-        result = transcribe_http(vllm_auto_server["url"], str(test_audio_bonjour), full=True)
+    def test_language_identified(self, cohere_vllm_server, test_audio_bonjour):
+        """No language: identified (LANGUAGE_IDENTIFICATION, on by default) among
+        Cohere's 14, so this model works without a language."""
+        result = transcribe_http(cohere_vllm_server["url"], str(test_audio_bonjour), full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
+            f"Unexpected transcription: {result}"
+        )
+        assert result["language"] == "fr"
+
+    def test_language_forced_per_request(self, cohere_vllm_server, test_audio_bonjour):
+        result = transcribe_http(cohere_vllm_server["url"], str(test_audio_bonjour),
+                                 language="fr", full=True)
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
             f"Unexpected transcription: {result}"
         )
         assert result["language"] == "fr"
 
 
-class TestHfVllmLanguageOverride:
-    """LANGUAGE=en, overridden per request."""
+class TestHfCohereTransformers:
+    """Cohere on the transformers backend."""
 
     pytestmark = VLLM_MARKS
 
-    def test_language_per_request_override(self, vllm_en_server, test_audio_bonjour):
-        """Config says en; the per-request language=fr overrides it."""
-        result = transcribe_http(
-            vllm_en_server["url"], str(test_audio_bonjour), language="fr"
-        )
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
-            f"Unexpected transcription: {result}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Second model family (Cohere, seq2seq): generalisation + capability guards
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.hf
-@pytest.mark.vllm
-@pytest.mark.uv
-@pytest.mark.gpu
-@pytest.mark.slow
-@pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
-class TestHfCohere:
-    """Cohere (`cohere_asr`, a seq2seq ASR): proves the engine generalises beyond
-    Qwen3-ASR. Integration is checked on BOTH backends (`vllm` and `transformers`).
-    Its capability guards (a required language, no hotwords) are enforced in
-    `decode`, whatever the backend: see TestHfCapabilityGuards. CUDA GPU; the
-    ~2B model downloads on first use (and pulls `librosa`)."""
-
     @pytest.mark.parametrize(
-        "uv_server",
-        [
-            _cohere_config("fr", "cohere-vllm", backend="vllm"),
-            _cohere_config("fr", "cohere-transformers", backend="transformers"),
-            # No language: identified (LANGUAGE_IDENTIFICATION, on by default)
-            # among Cohere's 14, so this model now works without a language.
-            _cohere_config("*", "cohere-vllm-identified", backend="vllm"),
-        ],
+        "uv_server", [_cohere_config("fr", "cohere-transformers", backend="transformers")],
         indirect=True,
     )
     def test_integration(self, uv_server, test_audio_bonjour):
@@ -501,26 +492,50 @@ def _whisper_config(language, id, backend, marks=()):
     )
 
 
-@pytest.mark.hf
-@pytest.mark.vllm
-@pytest.mark.uv
-@pytest.mark.gpu
-@pytest.mark.slow
-@pytest.mark.skipif(not _vllm_installed(), reason="vllm extra not installed")
-class TestHfWhisper:
-    """Whisper on the hf engine, on BOTH backends: the language is a decoder
-    prompt (not a processor argument), so it must be accepted when forced and
-    detected otherwise. CUDA GPU; the ~0.8B turbo model downloads on first use."""
+# Whisper on the hf engine, on BOTH backends: the language is a decoder prompt
+# (not a processor argument), so it must be accepted when forced and detected
+# otherwise. CUDA GPU; the ~0.8B turbo model downloads on first use.
+@pytest.fixture(scope="class")
+def whisper_tf_server(project_root, server_timeout):
+    """LANGUAGE=fr, transformers backend. Language identification off, so that
+    a request without a language exercises Whisper's own detection."""
+    yield from _class_server(project_root, server_timeout,
+                             {"MODEL": WHISPER_MODEL, "LANGUAGE": "fr", "DEVICE": "cuda",
+                              "BACKEND": "transformers", "LANGUAGE_IDENTIFICATION": "false"})
+
+
+class TestHfWhisperTransformers:
+    """Whisper on the transformers backend, one server."""
+
+    pytestmark = VLLM_MARKS
+
+    def test_language_forced(self, whisper_tf_server, test_audio_bonjour):
+        result = transcribe_http(whisper_tf_server["url"], str(test_audio_bonjour), full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
+            f"Unexpected transcription: {result}"
+        )
+        assert result["language"] == "fr"
+
+    def test_language_detected_by_whisper(self, whisper_tf_server, test_audio_bonjour):
+        """Per-request `*`, identification off: Whisper detects the language,
+        and the transformers backend reports it."""
+        result = transcribe_http(whisper_tf_server["url"], str(test_audio_bonjour),
+                                 language="*", full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
+            f"Unexpected transcription: {result}"
+        )
+        assert result["language"] == "fr"
+
+
+class TestHfWhisperVllm:
+    """Whisper on the vllm backend. Whisper is served by the whisper engine in
+    production: this case (a server start) only runs with --long."""
+
+    pytestmark = VLLM_MARKS
 
     @pytest.mark.parametrize(
         "uv_server",
-        [
-            # Whisper is served by the whisper engine in production: its vLLM
-            # case (a server start) only runs with --long.
-            _whisper_config("fr", "whisper-vllm-fr", backend="vllm", marks=pytest.mark.long),
-            _whisper_config("fr", "whisper-transformers-fr", backend="transformers"),
-            _whisper_config("*", "whisper-transformers-auto", backend="transformers"),
-        ],
+        [_whisper_config("fr", "whisper-vllm-fr", backend="vllm", marks=pytest.mark.long)],
         indirect=True,
     )
     def test_integration(self, uv_server, test_audio_bonjour):
@@ -594,49 +609,54 @@ class TestHfLongAudio:
 # ---------------------------------------------------------------------------
 
 
+# The in-process `transformers` backend (CPU-capable, the portable fallback), on
+# one model (Qwen3-ASR): with/without a forced language, with/without hotwords,
+# and the built Docker image. The UV servers follow --device (default cpu); the
+# Docker test runs on CUDA. All pin `BACKEND=transformers` (the engine default
+# is `vllm`).
+def _tf_server(request, project_root, server_timeout, env):
+    env = {"MODEL": TEST_MODEL, "BACKEND": "transformers",
+           "DEVICE": request.config.getoption("--device"), **env}
+    yield from _class_server(project_root, server_timeout, env)
+
+
+@pytest.fixture(scope="class")
+def tf_fr_server(request, project_root, server_timeout):
+    """LANGUAGE=fr, no hotwords."""
+    yield from _tf_server(request, project_root, server_timeout, {"LANGUAGE": "fr"})
+
+
+@pytest.fixture(scope="class")
+def tf_hotwords_env_server(request, project_root, server_timeout):
+    """LANGUAGE=fr, HOTWORDS set in the environment."""
+    yield from _tf_server(request, project_root, server_timeout,
+                          {"LANGUAGE": "fr", "HOTWORDS": HOTWORDS})
+
+
 @pytest.mark.hf
+@pytest.mark.uv
 class TestHfBackend:
-    """The in-process `transformers` backend (CPU-capable, the portable fallback),
-    on one model (Qwen3-ASR). Feature matrix: with/without a forced language, and
-    with/without hotwords. Plus one Docker container test validating the built
-    image on this backend. The UV tests follow --device (default cpu); the Docker
-    test runs on CUDA. All pin `BACKEND=transformers` (the engine default is
-    `vllm`)."""
+    """Qwen3-ASR on the transformers backend, one server (LANGUAGE=fr)."""
 
-    @pytest.mark.uv
-    @pytest.mark.parametrize(
-        "uv_server",
-        [_config(None, {"BACKEND": "transformers", "LANGUAGE": "fr"}, id="tf-fr")],
-        indirect=True,
-    )
-    def test_language_forced(self, uv_server, test_audio_bonjour):
-        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+    def test_language_forced(self, tf_fr_server, test_audio_bonjour):
+        result = transcribe_http(tf_fr_server["url"], str(test_audio_bonjour), full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
             f"Unexpected transcription: {result}"
         )
+        assert result["language"] == "fr"
 
-    @pytest.mark.uv
-    @pytest.mark.parametrize(
-        "uv_server",
-        [_config(None, {"BACKEND": "transformers", "LANGUAGE": "*"}, id="tf-auto")],
-        indirect=True,
-    )
-    def test_language_auto_detect(self, uv_server, test_audio_bonjour):
-        """LANGUAGE=* -> automatic detection on the transformers backend."""
-        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
-        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+    def test_language_identified_per_request(self, tf_fr_server, test_audio_bonjour):
+        """Per-request `*` overrides LANGUAGE=fr: the language is identified."""
+        result = transcribe_http(tf_fr_server["url"], str(test_audio_bonjour),
+                                 language="*", full=True)
+        assert get_expected_regex(str(test_audio_bonjour), "fr").search(result["text"]), (
             f"Unexpected transcription: {result}"
         )
+        assert result["language"] == "fr"
 
-    @pytest.mark.uv
-    @pytest.mark.parametrize(
-        "uv_server",
-        [_config(None, {"BACKEND": "transformers", "LANGUAGE": "fr"}, id="tf-no-hotwords")],
-        indirect=True,
-    )
-    def test_hotwords_baseline(self, uv_server, test_audio_hotel):
+    def test_hotwords_baseline(self, tf_fr_server, test_audio_hotel):
         """Control: without a hotword, the biased word is NOT produced."""
-        result = transcribe_http(uv_server["url"], str(test_audio_hotel))
+        result = transcribe_http(tf_fr_server["url"], str(test_audio_hotel))
         assert get_expected_regex(str(test_audio_hotel), "fr").search(result), (
             f"Unexpected transcription: {result!r}"
         )
@@ -644,34 +664,32 @@ class TestHfBackend:
             f"Baseline unexpectedly already contains {BIASED_WORD!r}: {result!r}"
         )
 
-    @pytest.mark.uv
-    @pytest.mark.parametrize(
-        "uv_server",
-        [_config(None, {"BACKEND": "transformers", "LANGUAGE": "fr"}, id="tf-hotwords")],
-        indirect=True,
-    )
-    def test_hotwords(self, uv_server, test_audio_hotel):
+    def test_hotwords(self, tf_fr_server, test_audio_hotel):
         """The per-request hotword biases the transcription toward 'double'."""
         result = transcribe_http(
-            uv_server["url"], str(test_audio_hotel), hotwords=HOTWORDS
+            tf_fr_server["url"], str(test_audio_hotel), hotwords=HOTWORDS
         )
         assert BIASED_WORD in result.lower(), (
             f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
         )
 
-    @pytest.mark.uv
-    @pytest.mark.parametrize(
-        "uv_server",
-        [_config(None, {"BACKEND": "transformers", "LANGUAGE": "fr", "HOTWORDS": HOTWORDS},
-                 id="tf-hotwords-env")],
-        indirect=True,
-    )
-    def test_hotwords_env(self, uv_server, test_audio_hotel):
+
+@pytest.mark.hf
+@pytest.mark.uv
+class TestHfBackendHotwordsEnv:
+    """Qwen3-ASR on the transformers backend, HOTWORDS set in the environment."""
+
+    def test_hotwords_env(self, tf_hotwords_env_server, test_audio_hotel):
         """The HOTWORDS env default biases the transcription toward 'double'."""
-        result = transcribe_http(uv_server["url"], str(test_audio_hotel))
+        result = transcribe_http(tf_hotwords_env_server["url"], str(test_audio_hotel))
         assert BIASED_WORD in result.lower(), (
             f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
         )
+
+
+@pytest.mark.hf
+class TestHfBackendDocker:
+    """The transformers backend inside the built Docker image (CUDA)."""
 
     @pytest.mark.docker
     @pytest.mark.gpu
