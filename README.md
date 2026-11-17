@@ -27,7 +27,7 @@ apt install python3-pyaudio portaudio19-dev
 ```
 
 ```sh
-uv sync --extra [kaldi|whisper|whisper-ctranslate|nemo|hf|hf-vllm|kyutai|recasepunc]
+uv sync --extra [kaldi|whisper|whisper-torch|nemo|hf|hf-vllm|kyutai|recasepunc]
 # hf engine: `vllm` (GPU, default backend) or `transformers` (CPU-capable backend)
 ```
 
@@ -252,32 +252,31 @@ curl -X POST "http://localhost:8080/transcribe" \
 
 ### Automated test suite (pytest)
 
-Install the engine you want to test along with the `test` extra:
-
-```sh
-uv sync --extra nemo --extra test
-```
+Each command passes, through `uv run --extra`, the engine extra to test and the
+`test` extra (pytest). `uv run` installs them on the fly if they are missing, so
+no prior `uv sync` is needed. Engine extras are mutually exclusive: test one
+engine per command.
 
 Example commands:
 
 ```sh
 # All NeMo tests (UV only, no Docker)
-uv run pytest -m nemo --uv-only
+uv run --extra nemo --extra test pytest -m nemo --uv-only
 
-# Docker tests only
-uv run pytest -m docker
+# Docker tests only (the engines are installed in the images, not locally)
+uv run --extra test pytest -m docker
 
 # NeMo CPU, no Docker
-uv run pytest tests/test_nemo.py -m "not docker and not gpu"
+uv run --extra nemo --extra test pytest tests/test_nemo.py -m "not docker and not gpu"
 
 # Whisper on GPU
-uv run pytest -m whisper --device cuda
+uv run --extra whisper --extra test pytest -m whisper --device cuda
 
 # Kaldi (requires model paths)
-uv run pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
+uv run --extra kaldi --extra test pytest -m kaldi --kaldi-am-path /path/to/AM --kaldi-lm-path /path/to/LM
 
-# Quick run: skip the tests that take minutes (vLLM servers, some Docker tests)
-uv run pytest -m "not slow" --device cuda
+# HF with vLLM on GPU, skipping the tests that take minutes
+uv run --extra hf-vllm --extra test pytest -m "hf and not slow" --device cuda
 ```
 
 **CLI options:**
