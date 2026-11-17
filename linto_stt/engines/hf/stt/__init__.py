@@ -67,6 +67,11 @@ HOTWORDS = os.environ.get("HOTWORDS") or None
 LANGUAGE_IDENTIFICATION = os.environ.get("LANGUAGE_IDENTIFICATION", "true").strip().lower() in (
     "1", "true", "yes", "on"
 )
+# The language identification model: a Hugging Face ID, or a local folder with
+# the same files (e.g. a copy of the repository, for a machine without internet).
+LANGUAGE_IDENTIFICATION_MODEL = (
+    os.environ.get("LANGUAGE_IDENTIFICATION_MODEL") or "speechbrain/lang-id-voxlingua107-ecapa"
+)
 # Seconds of audio, from the start, the identification is run on.
 LANGUAGE_IDENTIFICATION_MAX_DURATION = 30
 

@@ -115,6 +115,7 @@ STT can be used in three ways:
   ```sh
   -v /path/to/model.nemo:/opt/model.nemo
   ```
+- **No internet access**: models can be provided beforehand, as mounted caches or as local folders given by path. See the HF engine README ("Run without internet access") for a tested setup.
 - **User/Group**: Set `USER_ID` and `GROUP_ID` to avoid file permission issues with mounted volumes (default: `33`, www-data).
 
 Full example:

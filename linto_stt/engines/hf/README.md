@@ -77,6 +77,74 @@ workers use `/dev/shm`): `--shm-size=2g` (or `--ipc=host`), or it may fail with
 a bus error. Mount a cache folder to avoid re-downloading the models (see
 "Cache mount" in the [main README](https://github.com/linto-ai/linto-stt/blob/master/README.md)).
 
+### Run without internet access
+
+The engine downloads its models from Hugging Face (and one from Meta) on first
+use. On a machine without internet access, provide them beforehand, in one of
+two ways. Both were tested in a container started with `--network none`.
+
+With the default settings, the models needed are:
+
+| Model | Setting | Needed |
+|---|---|---|
+| The ASR model, e.g. `Qwen/Qwen3-ASR-1.7B-hf` | `MODEL` | always |
+| Its vLLM checkpoint, e.g. `Qwen/Qwen3-ASR-1.7B` | (`MODEL` without `-hf`) | `vllm` backend, Qwen3-ASR only (vLLM serves the non-`-hf` checkpoint) |
+| `Qwen/Qwen3-ForcedAligner-0.6B-hf` | `ALIGNER_MODEL` | word timestamps (unless `ALIGNER_MODEL=none` or `mms`) |
+| MMS aligner, `model.pt` (1.2 GB) from `https://dl.fbaipublicfiles.com/mms/torchaudio/ctc_alignment_mling_uroman/model.pt` | `ALIGNER_FALLBACK_MODEL` (or `ALIGNER_MODEL=mms`) | unless `ALIGNER_FALLBACK_MODEL=none`; not on Hugging Face: torchaudio keeps it in the torch hub cache, `$TORCH_HOME/hub/checkpoints/model.pt` |
+| `speechbrain/lang-id-voxlingua107-ecapa` | `LANGUAGE_IDENTIFICATION_MODEL` | unless `LANGUAGE_IDENTIFICATION=false` |
+
+On GPU these models are loaded at startup, so a missing one makes the server
+fail at startup rather than at the first request; the last "Loading ..." line of
+the log names the model that could not be found.
+
+**1. Mount pre-filled caches.** Fill a Hugging Face cache and a torch cache on a
+machine with internet access, for instance by starting the container once there
+with the same settings and the same mounts (on GPU, the startup loads every model
+listed above; on CPU, models load at the first request, so send one), or with
+`hf download <repository>` and a copy of `model.pt` into
+`<torch cache>/hub/checkpoints/`. Then mount both caches and set
+`HF_HUB_OFFLINE=1`, so that nothing tries to reach the Hub:
+
+```sh
+docker run -p 8080:80 --rm \
+  -e SERVICE_MODE=http \
+  -e MODEL=Qwen/Qwen3-ASR-1.7B-hf \
+  -e DEVICE=cuda --gpus all --shm-size=2g \
+  -v /path/to/huggingface_cache:/opt/hf_cache -e HF_HOME=/opt/hf_cache \
+  -v /path/to/torch_cache:/opt/torch_cache -e TORCH_HOME=/opt/torch_cache \
+  -e HF_HUB_OFFLINE=1 \
+  -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) \
+  lintoai/linto-stt-hf
+```
+
+**2. Mount local model folders** (copies of the Hugging Face repositories, e.g.
+made with `git clone https://huggingface.co/<repository>` or
+`hf download <repository> --local-dir <folder>`), and give their paths instead
+of the repository IDs. For Qwen3-ASR on the `vllm` backend, the folder of the
+vLLM checkpoint must sit next to the `MODEL` folder, with the same name without
+`-hf`:
+
+```sh
+docker run -p 8080:80 --rm \
+  -e SERVICE_MODE=http \
+  -e DEVICE=cuda --gpus all --shm-size=2g \
+  -v /path/to/models:/models:ro \
+  -e MODEL=/models/Qwen/Qwen3-ASR-1.7B-hf \
+  -e ALIGNER_MODEL=/models/Qwen/Qwen3-ForcedAligner-0.6B-hf \
+  -e LANGUAGE_IDENTIFICATION_MODEL=/models/speechbrain/lang-id-voxlingua107-ecapa \
+  -v /path/to/torch_cache:/opt/torch_cache -e TORCH_HOME=/opt/torch_cache \
+  -e HF_HUB_OFFLINE=1 \
+  -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) \
+  lintoai/linto-stt-hf
+```
+
+Here `/path/to/models` holds `Qwen/Qwen3-ASR-1.7B-hf`, `Qwen/Qwen3-ASR-1.7B` (for
+the `vllm` backend), `Qwen/Qwen3-ForcedAligner-0.6B-hf` and
+`speechbrain/lang-id-voxlingua107-ecapa`, and the torch cache holds
+`hub/checkpoints/model.pt` (MMS). Mounting the caches outside the container
+user's home (`/opt/...` here) avoids the entrypoint's ownership change on them;
+`USER_ID` / `GROUP_ID` let the container user read them.
+
 ### Run without Docker
 
 Default backend (`vllm`, GPU):

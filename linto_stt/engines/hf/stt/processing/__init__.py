@@ -143,7 +143,11 @@ class LazyLoadedModel:
 
             with FileLock(_lock_path(LanguageIdentifier.SOURCE)):
                 if self._language_identifier is None:
-                    logger.info(f"Loading language identifier {LanguageIdentifier.SOURCE}...")
+                    source = LanguageIdentifier.SOURCE
+                    logger.info(
+                        f"Loading language identifier {source} "
+                        f"({'local' if os.path.exists(source) else 'remote'})..."
+                    )
                     self._language_identifier = LanguageIdentifier(self.device)
 
     @property
