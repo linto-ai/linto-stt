@@ -17,14 +17,15 @@ language of the whole audio, with these attempts in order: starting at the
 time range, with then without the hotwords (they make such hallucinations more
 frequent); starting 1 s later, with then without the hotwords; starting 1 s
 earlier (2 s later at the start of the audio). Each excerpt runs CONTEXT_AFTER
-seconds past the time range (only the words inside the time range are kept). The first
-attempt that gives no known hallucinated phrase, not mostly the same words
-repeated, and enough words (at least one for a time range that only held a known
-phrase; MIN_WORDS_PER_SECOND for a time range where speech was lost) replaces the
-words of the time range. For a time range that held a known phrase, if no attempt gives
-such words but one gives no word at all in the time range while transcribing the
-speech after it, there is no speech there: the phrase is removed. When no attempt is
-accepted, the time range keeps what the normal decoding wrote.
+seconds past the time range (only the words inside the time range are kept). An
+attempt is clean when it gives no known hallucinated phrase and not mostly the
+same words repeated. The first clean attempt with a plausible amount of words
+(MIN_WORDS_PER_SECOND per second of speech in the time range, at least one)
+replaces the words of the time range. If none reaches it and the time range held
+a known phrase, any clean attempt is better than the phrase: the one with the
+most words replaces it, or else one that gives no word at all in the time range
+while transcribing the speech after it (there is no speech there: the phrase is
+removed). Otherwise the time range keeps what the normal decoding wrote.
 
 Without VAD, the whole audio counts as speech, so pauses and music would look like
 lost speech: only the time ranges holding a known phrase are then decoded again.
@@ -104,6 +105,11 @@ def _time_ranges(words, hallucinated, speech, min_gap):
     return merged
 
 
+def _speech_duration(start, end, speech):
+    """Seconds of speech (according to `speech`) between start and end."""
+    return sum(max(0.0, min(end, b) - max(start, a)) for a, b in speech)
+
+
 def _repetitive(words):
     """Mostly the same words repeated ("Non, non, non, non..."), a hallucination pattern."""
     tokens = [t for t in (re.sub(r"\W", "", w.word.lower()) for w in words) if t]
@@ -148,11 +154,14 @@ def redecode_suspicious(model, audio, segments, info, speech, transcribe_kwargs,
     duration = len(audio) / SAMPLE_RATE
     for a, b, phrase in time_ranges:
         before = " ".join(w.word.strip() for w in words if a <= w.start < b)
-        # A time range that only held a known phrase takes any clean decoding; a
-        # time range where speech was lost needs a plausible amount of words.
-        min_words = 1 if phrase else max(1, MIN_WORDS_PER_SECOND * (b - a))
+        # A plausible amount of words for the speech of the time range, whatever
+        # made it suspicious.
+        min_words = max(1, MIN_WORDS_PER_SECOND * _speech_duration(a, b, speech))
         accepted = None
-        empty = None  # first clean attempt with no word in the time range, for a known phrase
+        # For a known phrase, any clean decoding is better than the phrase: the
+        # best one (most words; else no word while the speech after it is
+        # transcribed) is kept in case no attempt reaches min_words.
+        fallback, fallback_words = None, -1
         for start, with_hotwords in _attempts(a, b, bool(transcribe_kwargs.get("hotwords"))):
             # Context after the time range: on a short excerpt, Whisper tends to
             # write the same hallucination again.
@@ -169,14 +178,15 @@ def redecode_suspicious(model, audio, segments, info, speech, transcribe_kwargs,
             if len(new_words) >= min_words:
                 accepted = (new_segments, start, with_hotwords)
                 break
-            if phrase and not new_words and words_after and empty is None:
-                # No word in the time range, while the speech after it is
-                # transcribed: no speech there, the known phrase is removed.
-                empty = ([], start, with_hotwords)
-        if (accepted or empty) is None:
+            # No word in the time range, while the speech after it is transcribed:
+            # no speech there (the known phrase is removed).
+            if phrase and len(new_words) > fallback_words and (new_words or words_after):
+                fallback, fallback_words = (new_segments, start, with_hotwords), len(new_words)
+        accepted = accepted or fallback
+        if accepted is None:
             logger.info(f"Suspicious time range {a:.2f}-{b:.2f} s ({before!r}): no better decoding, kept as is")
             continue
-        new_segments, start, with_hotwords = accepted or empty
+        new_segments, start, with_hotwords = accepted
         logger.info(f"Suspicious time range {a:.2f}-{b:.2f} s ({before!r}) re-decoded from {start:.2f} s"
                     f"{'' if with_hotwords else ' without hotwords'}: {len(_words(new_segments))} words")
         segments = [_shift(s, 0.0, lambda t: not a <= t < b) if any(a <= w.start < b for w in (s.words or [])) else s

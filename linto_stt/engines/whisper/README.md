@@ -167,11 +167,12 @@ text/plain`), which have no word timestamps), after the normal decoding:
   language of the whole audio: starting at the time range (with, then without the
   hotwords), 1 s later (with, then without the hotwords), then 1 s earlier.
 - The first attempt with no known hallucinated phrase, not mostly repeated
-  words, and enough words (at least one where a known phrase was; 0.5 per
-  second where speech was lost) **replaces** the time range.
-- Where a known phrase was and no attempt gives such words, but one gives no
-  word at all in the time range while transcribing the speech after it, there is
-  no speech there: the phrase is **removed**.
+  words, and a plausible amount of words (0.5 per second of speech in the time
+  range, at least one) **replaces** the time range.
+- Where a known phrase was and no attempt reaches that amount, any clean attempt
+  is better than the phrase: the one with the most words replaces it, or else
+  one that gives no word at all in the time range while transcribing the speech
+  after it (there is no speech there: the phrase is **removed**).
 - Otherwise the time range keeps what Whisper first wrote.
 
 Cost: nothing on audio without suspicious time range; on a one-hour meeting where

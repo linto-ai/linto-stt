@@ -719,3 +719,30 @@ class TestWhisperRedecode:
         out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)], {},
                                                   min_gap=None)
         assert "Sous-titrage" not in _rd_text(out) and "vrai texte" in _rd_text(out)
+
+    def test_long_time_range_needs_enough_words(self, redecode):
+        """The 00:50 case: a credit followed by 30 s of lost speech. An attempt
+        with one word for 30 s is not taken while a later one gives the speech;
+        when no attempt has enough words, the best clean one replaces the credit."""
+        audio = redecode.np.zeros(40 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _RD_CREDIT), _rd_segment(redecode, _rd_speech(30, 40, 20, "fin"), 1)]
+        model = _FakeModel([
+            [_rd_segment(redecode, [(5.0, 5.5, " Bonjour.")])],    # 1 word for 30 s: not enough
+            [_rd_segment(redecode, _rd_speech(0, 28, 30))],        # the speech
+        ], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)],
+                                                  {"hotwords": "LinTO"}, min_gap=6.0)
+        assert "mot0" in _rd_text(out) and "Bonjour." not in _rd_text(out)
+        assert len(model.calls) == 2
+        # no attempt with enough words: the one with the most words replaces the credit
+        model = _FakeModel([
+            [_rd_segment(redecode, [(5.0, 5.5, " Bonjour.")])],
+            [_rd_segment(redecode, [(4.0, 4.5, " Au"), (4.6, 5.0, " revoir.")])],
+            [_rd_segment(redecode, _RD_CREDIT)],
+            [],
+            [_rd_segment(redecode, [(6.0, 6.5, " Merci.")])],
+        ], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)],
+                                                  {"hotwords": "LinTO"}, min_gap=6.0)
+        text = _rd_text(out)
+        assert "Sous-titrage" not in text and "Au revoir." in text and "Bonjour." not in text
