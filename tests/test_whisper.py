@@ -746,3 +746,19 @@ class TestWhisperRedecode:
                                                   {"hotwords": "LinTO"}, min_gap=6.0)
         text = _rd_text(out)
         assert "Sous-titrage" not in text and "Au revoir." in text and "Bonjour." not in text
+
+    def test_punctuation_is_not_counted_as_words(self, redecode):
+        """faster-whisper returns "..." as words: "Merci ... ... ... ..." must not
+        win over "Merci Merci." (the end of a meeting, nothing after it)."""
+        audio = redecode.np.zeros(20 * _SR, dtype="float32")
+        outro = [(14.0, 15.0, " Merci"), (15.0, 15.5, " d'avoir"), (15.5, 16.0, " regardé"), (16.0, 16.5, " cette"),
+                 (16.5, 17.0, " vidéo"), (17.0, 17.0, " !")]
+        segments = [_rd_segment(redecode, _rd_speech(0, 13.8, 30, "avant") + outro)]
+        model = _FakeModel([
+            [_rd_segment(redecode, [(0.2, 0.6, " Merci"), (1.0, 1.4, " Merci.")])],
+            [_rd_segment(redecode, [(0.2, 0.6, " Merci")] + [(1.0 + i, 1.5 + i, " ...") for i in range(4)])],
+        ] + [[]] * 3, redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 20.0)], {},
+                                                  min_gap=6.0)
+        text = _rd_text(out)
+        assert "regardé" not in text and text.endswith("Merci Merci.")

@@ -105,6 +105,11 @@ def _time_ranges(words, hallucinated, speech, min_gap):
     return merged
 
 
+def _count(words):
+    """Number of real words: faster-whisper also returns punctuation as words ("...")."""
+    return sum(1 for w in words if re.search(r"\w", w.word))
+
+
 def _speech_duration(start, end, speech):
     """Seconds of speech (according to `speech`) between start and end."""
     return sum(max(0.0, min(end, b) - max(start, a)) for a, b in speech)
@@ -159,7 +164,7 @@ def redecode_suspicious(model, audio, segments, info, speech, transcribe_kwargs,
         min_words = max(1, MIN_WORDS_PER_SECOND * _speech_duration(a, b, speech))
         accepted = None
         # For a known phrase, any clean decoding is better than the phrase: the
-        # best one (most words; else no word while the speech after it is
+        # best one (most real words; else no word while the speech after it is
         # transcribed) is kept in case no attempt reaches min_words.
         fallback, fallback_words = None, -1
         for start, with_hotwords in _attempts(a, b, bool(transcribe_kwargs.get("hotwords"))):
@@ -175,13 +180,14 @@ def redecode_suspicious(model, audio, segments, info, speech, transcribe_kwargs,
             new_words = _words(new_segments)
             if _hallucinated(new_segments) or _repetitive(new_words):
                 continue
-            if len(new_words) >= min_words:
+            if _count(new_words) >= min_words:
                 accepted = (new_segments, start, with_hotwords)
                 break
             # No word in the time range, while the speech after it is transcribed:
             # no speech there (the known phrase is removed).
-            if phrase and len(new_words) > fallback_words and (new_words or words_after):
-                fallback, fallback_words = (new_segments, start, with_hotwords), len(new_words)
+            n = _count(new_words)
+            if phrase and n > fallback_words and (n or words_after):
+                fallback, fallback_words = (new_segments if n else [], start, with_hotwords), n
         accepted = accepted or fallback
         if accepted is None:
             logger.info(f"Suspicious time range {a:.2f}-{b:.2f} s ({before!r}): no better decoding, kept as is")
