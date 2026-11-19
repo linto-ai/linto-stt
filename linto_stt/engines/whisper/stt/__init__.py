@@ -78,6 +78,12 @@ if NUM_THREADS is not None:
 # For Torch, we will set it afterward, because setting that before loading the model can hang the process (see https://github.com/pytorch/pytorch/issues/58962)
 set_num_threads(1)
 
+# Re-decoding of the time ranges where Whisper may have hallucinated (see
+# processing/redecode.py).
+HALLUCINATION_REDECODE = os.environ.get("HALLUCINATION_REDECODE", "true").strip().lower() in (
+    "1", "true", "yes", "on")
+HALLUCINATION_REDECODE_MIN_GAP = float(os.environ.get("HALLUCINATION_REDECODE_MIN_GAP", 6.0))
+
 use_accurate=os.environ.get("USE_ACCURATE","true").lower()
 if use_accurate in ["true", "1"]:
     USE_ACCURATE = True
