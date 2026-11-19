@@ -703,3 +703,19 @@ class TestWhisperRedecode:
         out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 20.0)], {},
                                                   min_gap=6.0)
         assert "Sous-titrage" in _rd_text(out)
+
+    def test_no_gap_time_ranges_without_vad(self, redecode):
+        """Without VAD (min_gap=None), a long time range without words is not
+        decoded again (it may be a pause or music); a known phrase still is."""
+        audio = redecode.np.zeros(40 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _rd_speech(30, 40, 20, "fin"))]
+        model = _FakeModel([], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)], {},
+                                                  min_gap=None)
+        assert out == segments and model.calls == []
+        segments = [_rd_segment(redecode, _rd_speech(0, 10, 20, "avant") + _RD_CREDIT_GLUED
+                                + _rd_speech(12, 20, 16, "apres"))]
+        model = _FakeModel([[_rd_segment(redecode, [(0.2, 0.8, " vrai"), (0.9, 1.5, " texte")])]], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)], {},
+                                                  min_gap=None)
+        assert "Sous-titrage" not in _rd_text(out) and "vrai texte" in _rd_text(out)

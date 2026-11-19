@@ -9,7 +9,7 @@ from linto_stt.engines.whisper.stt import (
     logger,
     USE_CTRANSLATE2,
     VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION,
-    HALLUCINATION_REDECODE,
+    HALLUCINATION_REDECODE, HALLUCINATION_REDECODE_MIN_GAP,
     DEFAULT_BEAM_SIZE, DEFAULT_BEST_OF, DEFAULT_TEMPERATURE
 )
 
@@ -167,9 +167,11 @@ def decode_ct2(
     if HALLUCINATION_REDECODE and with_word_timestamps:
         if isinstance(clip_timestamps, list):
             speech = list(zip(clip_timestamps[::2], clip_timestamps[1::2]))
-        else:  # no VAD: the whole audio
+            min_gap = HALLUCINATION_REDECODE_MIN_GAP
+        else:  # no VAD: the whole audio, where pauses are not lost speech
             speech = [(0.0, len(audio) / SAMPLE_RATE)]
-        segments = redecode_suspicious(model, audio, segments, info, speech, kwargs)
+            min_gap = None
+        segments = redecode_suspicious(model, audio, segments, info, speech, kwargs, min_gap=min_gap)
 
     return format_faster_whisper_response(
         segments, info, remove_punctuation_from_words=remove_punctuation_from_words

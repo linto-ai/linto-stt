@@ -160,7 +160,8 @@ text/plain`), which have no word timestamps), after the normal decoding:
   list of subtitle credits and video outros, matched whatever the language;
   truncated forms such as "Sous-titrage" only when they make up a whole
   segment), and the time ranges of at least `HALLUCINATION_REDECODE_MIN_GAP`
-  seconds (6 by default) of speech, according to the VAD, without any word.
+  seconds (6 by default) of speech, according to the VAD, without any word
+  (only with a VAD: without one, pauses and music would count as lost speech).
 - Each one is **decoded again** as a separate excerpt running 5 s past the
   time range (for context; only the words inside the time range are kept), in the
   language of the whole audio: starting at the time range (with, then without the

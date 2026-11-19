@@ -26,6 +26,9 @@ such words but one gives no word at all in the time range while transcribing the
 speech after it, there is no speech there: the phrase is removed. When no attempt is
 accepted, the time range keeps what the normal decoding wrote.
 
+Without VAD, the whole audio counts as speech, so pauses and music would look like
+lost speech: only the time ranges holding a known phrase are then decoded again.
+
 Applies to offline decoding (not streaming) and needs word timestamps: nothing is
 done for plain-text HTTP requests (Accept: text/plain), which have none.
 """
@@ -70,7 +73,8 @@ def _hallucinated(segments):
 
 def _time_ranges(words, hallucinated, speech, min_gap):
     """Suspicious time ranges: inside the speech, (1) every time range of at least
-    min_gap seconds without a real word, and (2) every detected hallucinated
+    min_gap seconds without a real word (not looked for if min_gap is None), and
+    (2) every detected hallucinated
     phrase, from the end of the real word before it to the start of the real word
     after it (it may be glued to real speech). Overlapping time ranges are merged.
     Returns (start, end, holds_a_known_phrase) tuples."""
@@ -78,11 +82,12 @@ def _time_ranges(words, hallucinated, speech, min_gap):
     found = []
     for a, b in speech:
         inside = [(s, e) for s, e in real if e > a and s < b]
-        t = a
-        for start, end in inside + [(b, b)]:
-            if start - t >= min_gap:
-                found.append((t, start, False))
-            t = max(t, end)
+        if min_gap is not None:
+            t = a
+            for start, end in inside + [(b, b)]:
+                if start - t >= min_gap:
+                    found.append((t, start, False))
+                t = max(t, end)
         for i in sorted(hallucinated):
             w = words[i]
             if not (w.end > a and w.start < b):
@@ -129,7 +134,9 @@ def redecode_suspicious(model, audio, segments, info, speech, transcribe_kwargs,
                         min_gap=HALLUCINATION_REDECODE_MIN_GAP):
     """Return segments where the suspicious time ranges were re-decoded (see the
     module docstring). `speech` is the list of (start, end) speech time ranges in
-    seconds (the whole audio without VAD), `transcribe_kwargs` the keyword
+    seconds (the whole audio without VAD), `min_gap` the minimum duration of speech
+    without any word that is suspicious (None: only the known phrases are, e.g.
+    without VAD, where silences and music would count as speech), `transcribe_kwargs` the keyword
     arguments of the normal model.transcribe() call, except the audio, language,
     word_timestamps and clip_timestamps."""
     words = _words(segments)
