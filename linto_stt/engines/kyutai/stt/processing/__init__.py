@@ -30,7 +30,7 @@ def warmup():
     logger.info("Kyutai engine uses external server, no warmup needed")
 
 
-def decode(audio, model, with_word_timestamps, language=None):
+def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
     from .moshi_client import decode_audio
 
     return decode_audio(audio)

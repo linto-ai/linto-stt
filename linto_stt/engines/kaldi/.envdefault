@@ -1,0 +1,23 @@
+############################################
+# SERVING PARAMETERS
+############################################
+# "http" or "task" or "websocket"
+SERVICE_MODE=http
+
+# Below: used when SERVICE_MODE=task
+SERVICE_NAME=stt
+SERVICES_BROKER=redis://172.17.0.1:6379
+BROKER_PASS=
+
+# Below: used when SERVICE_MODE=websocket
+STREAMING_PORT=80
+
+############################################
+# STT MODELING PARAMETERS
+############################################
+# A Vosk model in MODEL_PATH, or a LinTO acoustic model (AM_PATH) and decoding
+# graph (LM_PATH); MODEL_TYPE (vosk or lin) is detected when unset.
+# MODEL_TYPE=
+# MODEL_PATH=/opt/model
+# AM_PATH=/opt/AM
+# LM_PATH=/opt/LM

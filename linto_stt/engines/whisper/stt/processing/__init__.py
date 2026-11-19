@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 
 from filelock import FileLock
 from linto_stt.engines.whisper.stt import USE_CTRANSLATE2, USE_ACCURATE, VAD, logger, set_num_threads, NUM_THREADS
@@ -39,8 +40,10 @@ class LazyLoadedModel:
             # filelock uses an OS-level flock that the kernel releases when the
             # holder dies, so a killed/crashed load can't leave a stale lock that
             # deadlocks every later load (the old `lockfile` package did exactly
-            # that). Lock-file name kept as "<model>.lock" for continuity.
-            lockfile = os.path.basename(self.model_type) + ".lock"
+            # that). The lock goes in the temp dir (not the current working
+            # directory), so loading a model never drops a ".lock" file in the
+            # repo, while staying a stable per-model path shared across workers.
+            lockfile = os.path.join(tempfile.gettempdir(), os.path.basename(self.model_type) + ".lock")
             with FileLock(lockfile):
                 self._model = load_whisper_model(
                     self.model_type, device=self.device)

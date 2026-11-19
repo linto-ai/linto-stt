@@ -70,9 +70,13 @@ def decode(
     no_speech_threshold: float = 0.6,
     compression_ratio_threshold: float = 2.4,
     prompt: str = default_prompt,
-    hotwords: str = default_hotwords,
+    hotwords: str = None,
 ) -> dict:
     language = get_language(language)
+    # hotwords is a per-request parameter; fall back to the HOTWORDS env default
+    # when the request does not provide it (None), like get_language() does.
+    if hotwords is None:
+        hotwords = default_hotwords
     kwargs = copy.copy(locals())
     kwargs.pop("model_and_alignementmodel")
     kwargs["model"], kwargs["alignment_model"] = model_and_alignementmodel

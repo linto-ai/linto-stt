@@ -26,12 +26,14 @@ def decode(
     model_and_punctuationmodel,  # Tuple[model, punctuation_model]
     with_word_timestamps: bool,
     language: str = None,
+    hotwords: str = None,  # accepted for the common decode() interface; unused by NeMo
 ) -> dict:
     language = get_language(language)
     kwargs = copy.copy(locals())
     kwargs.pop("model_and_punctuationmodel")
     kwargs["model"], kwargs["punctuation_model"] = model_and_punctuationmodel
     kwargs.pop("punctuation_model")
+    kwargs.pop("hotwords", None)  # NeMo decode_encoder does not take hotwords
     start_t = time.time()
 
     res = decode_encoder(**kwargs)

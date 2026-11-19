@@ -65,7 +65,7 @@ docker run -p 8080:80 -it --name linto-stt-nemo \
   lintoai/linto-stt-nemo
 ```
 
-French (no built-in punctuation, see [Punctuation Model](../../../README.md#punctuation-model-recasepunc)):
+French (no built-in punctuation, see [Punctuation Model](https://github.com/linto-ai/linto-stt/blob/master/README.md#punctuation-model-recasepunc)):
 
 ```sh
 docker run -p 8080:80 -it --name linto-stt-nemo \
@@ -219,7 +219,7 @@ STREAMING_MAX_WORDS_IN_BUFFER=5
 STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=4
 ```
 
-- Punctuation: no ([add recasepunc](../../../README.md#punctuation-model-recasepunc)) | Latency: ~1.4s GPU, ~2.4s CPU (16 threads) | VRAM: ~2.5GB
+- Punctuation: no ([add recasepunc](https://github.com/linto-ai/linto-stt/blob/master/README.md#punctuation-model-recasepunc)) | Latency: ~1.4s GPU, ~2.4s CPU (16 threads) | VRAM: ~2.5GB
 
 ### High Latency Example (English, better accuracy)
 

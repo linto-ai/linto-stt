@@ -18,8 +18,53 @@ def find_free_port() -> int:
         return s.getsockname()[1]
 
 
+def _pgid_alive(pgid: int) -> bool:
+    """True while any process remains in the group `pgid`."""
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def _signal_and_drain_group(pgid: int, timeout: float = 25.0,
+                            leader: subprocess.Popen = None) -> None:
+    """SIGTERM the whole group, then WAIT for every process to exit, escalating to
+    SIGKILL. The hf engine's vLLM backend spawns a `vllm serve`
+    grandchild (same group) that outlives `uv run`/main.py and keeps holding the
+    GPU while it shuts down; if the next GPU test starts before that VRAM is
+    released it can OOM. Draining the group here makes teardown fully release the
+    GPU before the fixture returns.
+
+    `leader` is the Popen handle of our direct child (the group leader). It must
+    be reaped while polling: an exited but unreaped child is a zombie, and a
+    zombie still counts as a member of the group, so without reaping it the
+    group would look alive until the deadline on every teardown."""
+    def alive():
+        if leader is not None:
+            leader.poll()  # reap the leader if it has exited
+        return _pgid_alive(pgid)
+
+    for sig, wait_s in ((signal.SIGTERM, timeout), (signal.SIGKILL, 5.0)):
+        try:
+            os.killpg(pgid, sig)
+        except ProcessLookupError:
+            return
+        deadline = time.monotonic() + wait_s
+        while alive() and time.monotonic() < deadline:
+            time.sleep(0.5)
+        if not alive():
+            return
+
+
 # Markers in server logs that mean startup has fatally failed — used to fail a
 # health-check fast instead of waiting out the whole timeout.
+# Upper bound for one `docker build` (seconds): a cold GPU image build has to
+# download several GB of CUDA wheels, which can take well over 15 minutes.
+DOCKER_BUILD_TIMEOUT = 3600
+
 _FATAL_LOG_MARKERS = (
     "Traceback (most recent call last)",
     "Failed to load transcription model",
@@ -266,16 +311,12 @@ class UVServerRunner:
         except ProcessLookupError:
             self.process = None
             return
+        # Drain the whole group (main.py AND the detached vLLM server holding the
+        # GPU), so the next GPU test starts with VRAM released.
+        _signal_and_drain_group(pgid, leader=self.process)
         try:
-            os.killpg(pgid, signal.SIGTERM)
-            self.process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(pgid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
             self.process.wait(timeout=5)
-        except ProcessLookupError:
+        except (subprocess.TimeoutExpired, ProcessLookupError):
             pass
         self.process = None
         if self._log_file:
@@ -355,7 +396,17 @@ class DockerServerRunner:
             f"(output is captured)..."
         )
         build_start = time.monotonic()
-        result = subprocess.run(cmd, cwd=self.project_root, capture_output=True)
+        try:
+            # The per-test timeout (pytest-timeout, func_only) does not cover
+            # fixture setup, so bound the build here. A cold GPU build downloads
+            # several GB of CUDA wheels; later builds hit the layer cache.
+            result = subprocess.run(
+                cmd, cwd=self.project_root, capture_output=True, timeout=DOCKER_BUILD_TIMEOUT
+            )
+        except subprocess.TimeoutExpired as err:
+            raise RuntimeError(
+                f"Docker build of '{tag}' did not finish within {DOCKER_BUILD_TIMEOUT}s"
+            ) from err
         if result.returncode != 0:
             raise RuntimeError(
                 f"Docker build failed:\n{result.stderr.decode()}"
@@ -392,6 +443,10 @@ class DockerServerRunner:
 
         if self.use_gpu:
             cmd.extend(["--gpus", "all"])
+            # The hf engine's default vLLM backend spawns EngineCore
+            # workers that talk over shared memory; the default 64MB /dev/shm is
+            # too small and triggers bus errors, so enlarge it for GPU containers.
+            cmd.extend(["--shm-size", "2g"])
 
         for host_path, container_path in self.volumes.items():
             cmd.extend(["-v", f"{host_path}:{container_path}"])

@@ -1,11 +1,27 @@
 #!/usr/bin/env python3
-import configparser
 import os
-import re
 
 LANGUAGE_MODEL_PATH = "/opt/LM"
 ACOUSTIC_MODEL_PATH = "/opt/AM"
 TARGET_PATH = "/opt/model"
+
+
+def write_word_boundary(phones_path: str, target: str):
+    """Kaldi's phones/word_boundary.int from phones.txt: a phone named with a
+    word-position suffix (_B, _E, _I, _S) is begin, end, internal or singleton;
+    any other phone (silence, noise) is nonword; <eps> and disambiguation
+    symbols (#...) are left out."""
+    positions = {"B": "begin", "E": "end", "I": "internal", "S": "singleton"}
+    with open(phones_path) as f, open(target, "w") as out:
+        for line in f:
+            fields = line.split()
+            if len(fields) != 2:
+                continue
+            name, index = fields
+            if index == "0" or name.startswith("#"):
+                continue
+            suffix = name.rsplit("_", 1)[-1] if "_" in name else ""
+            out.write(f"{index} {positions.get(suffix, 'nonword')}\n")
 
 
 def lin_to_vosk_format(am_path: str, lm_path: str, target_path: str):
@@ -65,11 +81,16 @@ def lin_to_vosk_format(am_path: str, lm_path: str, target_path: str):
 
     print("Populate graph/phones directory")
 
+    # Vosk needs it to place words in time (else every word is at 0.0). Some
+    # decoding graphs do not ship it: derive it from the position-dependent
+    # phones, as Kaldi's prepare_lang.sh does.
     print("word_boundary.int")
-    os.symlink(
-        os.path.join(lm_path, "word_boundary.int"),
-        os.path.join(target_path, "graph", "phones", "word_boundary.int"),
-    )
+    word_boundary = os.path.join(lm_path, "word_boundary.int")
+    target_word_boundary = os.path.join(target_path, "graph", "phones", "word_boundary.int")
+    if os.path.exists(word_boundary):
+        os.symlink(word_boundary, target_word_boundary)
+    else:
+        write_word_boundary(os.path.join(am_path, "phones.txt"), target_word_boundary)
 
     # Populate ivector directory
     print("Populate graph/phones directory")

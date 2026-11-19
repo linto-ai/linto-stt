@@ -137,9 +137,14 @@ def load_audiofile(path):
         raise RuntimeError("File not found: %s" % path)
     elif not os.access(path, os.R_OK):
         raise RuntimeError("Missing reading permission for: %s" % path)
-    audio, _ = torchaudio.load(path)
-    audio = audio.squeeze().numpy()
-    return audio
+    # soundfile (libsndfile, bundled in its wheel) rather than torchaudio.load:
+    # since torchaudio 2.9 the latter goes through torchcodec, which needs the
+    # system ffmpeg libraries even for WAV. Same output as before: float32 in
+    # [-1, 1], (channels, samples) squeezed to 1-D for mono.
+    import soundfile as sf
+
+    data, _ = sf.read(path, dtype="float32", always_2d=True)
+    return np.squeeze(data.T)
 
 
 def load_wave_buffer(file_buffer):
