@@ -10,11 +10,13 @@ import torch
 
 import numpy as np
 from linto_stt.engines.nemo.stt import (
+    HOTWORDS,
     logger,
     VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION,
     LONG_FILE_THRESHOLD, LONG_FILE_CHUNK_LEN, LONG_FILE_CHUNK_CONTEXT_LEN
 )
 
+from .hotwords import LOCK, set_hotwords
 from .vad import remove_non_speech
 from .utils import SAMPLE_RATE, get_language, is_language_marker
 
@@ -26,17 +28,26 @@ def decode(
     model_and_punctuationmodel,  # Tuple[model, punctuation_model]
     with_word_timestamps: bool,
     language: str = None,
-    hotwords: str = None,  # accepted for the common decode() interface; unused by NeMo
+    hotwords: str = None,
 ) -> dict:
     language = get_language(language)
+    # hotwords is a per-request parameter; fall back to the HOTWORDS env default
+    # when the request does not provide it (None), as for the language.
+    if hotwords is None:
+        hotwords = HOTWORDS
     kwargs = copy.copy(locals())
     kwargs.pop("model_and_punctuationmodel")
     kwargs["model"], kwargs["punctuation_model"] = model_and_punctuationmodel
     kwargs.pop("punctuation_model")
-    kwargs.pop("hotwords", None)  # NeMo decode_encoder does not take hotwords
+    kwargs.pop("hotwords")
     start_t = time.time()
 
-    res = decode_encoder(**kwargs)
+    # The hotwords are part of the model's decoding configuration, shared by all
+    # threads: without the lock, a request (with or without hotwords) could be
+    # decoded with the hotwords set by another one.
+    with LOCK:
+        set_hotwords(kwargs["model"], hotwords, language)
+        res = decode_encoder(**kwargs)
 
     logger.info(f"Transcription complete (t={time.time() - start_t}s)")
 

@@ -161,6 +161,39 @@ Example with 16GB VRAM GPU and `linagora/linto_stt_fr_fastconformer`:
 - `LONG_FILE_CHUNK_LEN=360` (6 minutes)
 - `LONG_FILE_CHUNK_CONTEXT_LEN=5` (5s overlap at each boundary)
 
+### Hotwords
+
+Hotwords (`HOTWORDS` by default, or the `hotwords` request parameter) use
+NeMo's GPU phrase boosting: the terms are compiled into a boosting tree (a
+prefix tree of the terms, split into the model's tokens), which adds a bonus,
+during decoding, to the tokens that continue one of the terms. It is not a
+prompt: the model has to hear something close to the term.
+
+- Terms: comma-separated, each possibly made of several words (`"Twake,
+  Jean-Luc Machin"`); without a comma, the whole string is one term (the format
+  common to all engines). Write them as the model writes them (case, accents):
+  the terms are matched on the model's tokens.
+- Models: CTC, RNN-T / TDT (parakeet, LinTO models, decoded with RNN-T or CTC),
+  and Canary. A CTC decoding with the `greedy` strategy is switched to
+  `greedy_batch` while hotwords are given (the one that supports boosting).
+- Settings: `HOTWORDS_BOOSTING_ALPHA` (weight of the bonus, `2.0` by default;
+  NeMo recommends tuning it on data; a strong boost can damage the output, e.g.
+  Canary writing "Bon" for "Bonjour" with `8` and the term "BonJour"), `HOTWORDS_BOOSTING_CONTEXT_SCORE` and
+  `HOTWORDS_BOOSTING_DEPTH_SCALING` (shape of the bonus along a term).
+- Offline transcription only (HTTP and Celery task); the WebSocket streaming
+  ignores the hotwords.
+- The boosting tree is part of the model's decoding configuration, shared by
+  all requests: requests are decoded one at a time, and the tree is rebuilt
+  only when the hotwords change. Cost, measured on an RTX 4090 Laptop GPU:
+  20 to 50 ms each time the hotwords change (or are removed); and, once per
+  worker process, the first decoding with hotwords takes 0.3 to 4 s longer
+  (kernels compiled for the boosting, then reused).
+
+Example, on a French product presentation with `linagora/linto_stt_fr_fastconformer_pc`
+and the hotwords "Twake, LINAGORA" ("Twake" is said about 8 times): "Twake" is
+written 1 time without hotwords, 2 times with `HOTWORDS_BOOSTING_ALPHA=1`, 7 times
+with `2`.
+
 ### Attention Context (ATT_CONTEXT_SIZE / ATT_CONTEXT_SIZE_RIGHT)
 
 The encoder's attention context, as `[left, right]` in encoder frames (~80 ms each).

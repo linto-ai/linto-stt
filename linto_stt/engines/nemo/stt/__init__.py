@@ -47,6 +47,18 @@ if STREAMING_TIMEOUT_FOR_SILENCE:
 STREAMING_MAX_WORDS_IN_BUFFER=int(os.environ.get("STREAMING_MAX_WORDS_IN_BUFFER", 5))
 STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND=float(os.environ.get("STREAMING_MAX_PARTIAL_ACTUALIZATION_PER_SECOND", 4))
 
+# Hotwords (default; overridable per request): NeMo's GPU phrase boosting, see
+# processing/hotwords.py. Bonus weight (boosting_tree_alpha), and the shape of the
+# bonus along a term (context_score; depth_scaling, by default 1.0 for Canary and
+# 2.0 for the other models, NeMo's recommendations).
+HOTWORDS = os.environ.get("HOTWORDS") or None
+HOTWORDS_BOOSTING_ALPHA = float(os.environ.get("HOTWORDS_BOOSTING_ALPHA", 2.0))
+HOTWORDS_BOOSTING_CONTEXT_SCORE = float(os.environ.get("HOTWORDS_BOOSTING_CONTEXT_SCORE", 1.0))
+HOTWORDS_BOOSTING_DEPTH_SCALING = os.environ.get("HOTWORDS_BOOSTING_DEPTH_SCALING")
+HOTWORDS_BOOSTING_DEPTH_SCALING = (
+    float(HOTWORDS_BOOSTING_DEPTH_SCALING) if HOTWORDS_BOOSTING_DEPTH_SCALING else None
+)
+
 LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", 9*60))  # 9*60=9mins
 LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", 6*60))  # 6*60=6mins. Size of chunk to divide the long file into
 LONG_FILE_CHUNK_CONTEXT_LEN = int(os.environ.get("LONG_FILE_CHUNK_CONTEXT_LEN", 5))    # Size of the context of the chunk (10 means 10s before and 10 after)

@@ -65,6 +65,10 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `ATT_CONTEXT_SIZE` | _(model-dependent)_ | Left attention context, in encoder frames (~80 ms each). Resolved at load time: offline models default to `128` (local attention via `rel_pos_local_attn`); cache-aware streaming models keep their trained context unless this is set |
 | `ATT_CONTEXT_SIZE_RIGHT` | _(model-dependent)_ | Right (look-ahead) attention context, in encoder frames. Larger = better accuracy but higher latency. Defaults: offline models use the same value as `ATT_CONTEXT_SIZE`; cache-aware streaming models use `0`. For cache-aware models only specific values are valid (model-specific, e.g. `nvidia/nemotron-3.5-asr-streaming-0.6b` supports `0, 3, 6, 13`) |
 | `PROMPT` | _(none)_ | Context prompt for the model |
+| `HOTWORDS` | _(none)_ | Default hotwords (comma-separated terms, each possibly made of several words; without a comma, the whole string is one term), overridable per request with the `hotwords` query parameter (HTTP) or task argument. Applied with NeMo's GPU phrase boosting, offline only (not streaming); see the engine README |
+| `HOTWORDS_BOOSTING_ALPHA` | `2.0` | Weight of the hotword bonus (NeMo's `boosting_tree_alpha`). Higher boosts the terms more, at the risk of writing them where they are not said |
+| `HOTWORDS_BOOSTING_CONTEXT_SCORE` | `1.0` | NeMo's `context_score` of the boosting tree (bonus per token of a term) |
+| `HOTWORDS_BOOSTING_DEPTH_SCALING` | _(model-dependent)_ | NeMo's `depth_scaling` of the boosting tree: `1.0` for Canary, `2.0` for the other models (NeMo's recommendations) |
 | `LONG_FILE_THRESHOLD` | `540` | A file longer than this (in seconds) will be split into smaller chunks to avoid Out of Memory issues. Depends on VRAM/RAM |
 | `LONG_FILE_CHUNK_LEN` | `360` | For long file transcription, size of the chunks (in seconds) into which the audio is split. Depends on VRAM/RAM |
 | `LONG_FILE_CHUNK_CONTEXT_LEN` | `5` | For long file transcription, context added at the beginning and end of each chunk (in seconds) to avoid losing words at boundaries |
