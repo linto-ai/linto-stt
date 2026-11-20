@@ -174,8 +174,12 @@ prompt: the model has to hear something close to the term.
   common to all engines). Write them as the model writes them (case, accents):
   the terms are matched on the model's tokens.
 - Models: CTC, RNN-T / TDT (parakeet, LinTO models, decoded with RNN-T or CTC),
-  and Canary. A CTC decoding with the `greedy` strategy is switched to
-  `greedy_batch` while hotwords are given (the one that supports boosting).
+  and Canary, with greedy or beam-search decoding. While hotwords are given, a
+  decoding strategy that does not support boosting is replaced by the one of the
+  same kind that does: `greedy` by `greedy_batch`; a CTC `beam` by `beam_batch`;
+  an RNN-T / TDT beam search (`beam`, `tsd`, `alsd`, `maes`, `maes_batch`) by
+  `malsd_batch`, with the same beam size. Only CTC decodings with an external
+  language model (`pyctcdecode`, `flashlight`, `wfst`) ignore the hotwords.
 - Settings: `HOTWORDS_BOOSTING_ALPHA` (weight of the bonus, `2.0` by default;
   NeMo recommends tuning it on data; a strong boost can damage the output, e.g.
   Canary writing "Bon" for "Bonjour" with `8` and the term "BonJour"), `HOTWORDS_BOOSTING_CONTEXT_SCORE` and

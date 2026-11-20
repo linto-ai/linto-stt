@@ -3,14 +3,12 @@
 The hotwords are compiled into a boosting tree (a prefix tree of the terms, split
 into the model's tokens). During decoding, it adds a bonus to the score of the
 tokens that continue one of the terms. It is not a prompt: it is part of the
-decoding configuration of the model. Supported (NeMo >= 2.5):
-
-- CTC decoding with the `greedy_batch` strategy (a `greedy` CTC decoding is
-  switched to `greedy_batch` while boosting): CTC models, and hybrid models
-  decoded with CTC (ARCHITECTURE=hybrid_bpe_ctc);
-- RNN-T / TDT decoding with the `greedy` or `greedy_batch` strategy (parakeet,
-  hybrid models decoded with RNN-T);
-- Canary (multi-task models), whose decoding is a beam search.
+decoding configuration of the model. Supported by all the model types, greedy
+or beam-search decoding: CTC (`greedy_batch`, `beam_batch`), RNN-T / TDT
+(`greedy_batch`, `malsd_batch`) and Canary (`beam`). A model configured with
+another strategy is decoded, while hotwords are given, with the one of the same
+kind that supports them (e.g. `greedy` -> `greedy_batch`). Only decodings with an
+external language model (CTC `pyctcdecode`, `flashlight`, `wfst`) ignore them.
 
 The decoding configuration belongs to the model, shared by all requests: setting
 the hotwords and decoding happen under LOCK. The boosting tree is rebuilt only
@@ -35,7 +33,22 @@ from linto_stt.engines.nemo.stt import (
 
 LOCK = threading.Lock()
 
-_GREEDY = ("greedy", "greedy_batch")
+# Decoding strategies that take a boosting tree (pinned NeMo), with the section of
+# the decoding config that holds it. The other strategies are replaced, while
+# hotwords are given, by the one of the same kind that takes it (greedy: its
+# batched form; beam search: the batched beam search, with the same beam size).
+# `maes_batch` takes it too, but only for RNN-T (not TDT): replaced as well.
+_BOOSTING_SECTION = {
+    "ctc": {"greedy_batch": "greedy", "beam_batch": "beam"},
+    "rnnt": {"greedy_batch": "greedy", "malsd_batch": "beam"},
+    "multitask": {"beam": "beam"},
+}
+_BOOSTING_STRATEGY = {
+    "ctc": {"greedy": "greedy_batch", "beam": "beam_batch"},
+    "rnnt": {"greedy": "greedy_batch", "beam": "malsd_batch", "tsd": "malsd_batch",
+             "alsd": "malsd_batch", "maes": "malsd_batch", "maes_batch": "malsd_batch"},
+    "multitask": {},
+}
 
 
 def _is_multitask(model):
@@ -73,23 +86,30 @@ class _State:
 _states = {}
 
 
+def _decoder_kind(model):
+    if _is_multitask(model):
+        return "multitask"
+    return "ctc" if _uses_ctc(model) else "rnnt"
+
+
 def _boosted(model, base, terms, language):
-    """The decoding configuration with a boosting tree of `terms`, or None if the
-    model's decoding does not support phrase boosting."""
+    """The decoding configuration with a boosting tree of `terms`, or None if no
+    strategy of this decoder takes one (e.g. CTC with an external language model)."""
+    kind = _decoder_kind(model)
+    strategy = _BOOSTING_STRATEGY[kind].get(base.strategy, base.strategy)
+    section_name = _BOOSTING_SECTION[kind].get(strategy)
+    if section_name is None:
+        return None
+    if strategy != base.strategy:
+        logger.info(f"Decoding strategy {base.strategy!r} replaced by {strategy!r} for the hotwords")
     cfg = copy.deepcopy(base)
     with open_dict(cfg):
-        if _is_multitask(model):
-            section = cfg.beam
-            depth_scaling = 1.0
-        elif cfg.strategy in _GREEDY:
-            if _uses_ctc(model):
-                cfg.strategy = "greedy_batch"  # CTC boosting needs the batched greedy decoding
-            section = cfg.greedy
-            depth_scaling = 2.0
-        else:
-            return None
+        cfg.strategy = strategy
+        section = cfg[section_name]
         if HOTWORDS_BOOSTING_DEPTH_SCALING is not None:
             depth_scaling = HOTWORDS_BOOSTING_DEPTH_SCALING
+        else:
+            depth_scaling = 1.0 if kind == "multitask" else 2.0  # NeMo's recommendations
         # NeMo's own config class: some decoding configs are typed (structured)
         # and refuse a plain dict there.
         section.boosting_tree = BoostingTreeModelConfig(
@@ -118,10 +138,18 @@ def set_hotwords(model, hotwords, language=None):
         state.key = None
         return
     cfg = _boosted(model, state.base, terms, language)
-    if cfg is None:
+    if cfg is not None:
+        try:
+            _apply(model, cfg)
+            logger.info(f"Phrase boosting of {len(terms)} hotword(s): {', '.join(terms)[:200]}")
+            state.key = key
+            return
+        except Exception as err:  # e.g. a model type whose decoder refuses the tree
+            logger.warning(f"Hotwords ignored: phrase boosting failed with this model ({err})")
+    else:
         logger.warning(f"Hotwords ignored: phrase boosting is not supported with the decoding strategy "
                        f"{state.base.get('strategy')!r} of this model")
-        return
-    logger.info(f"Phrase boosting of {len(terms)} hotword(s): {', '.join(terms)[:200]}")
-    _apply(model, cfg)
-    state.key = key
+    # Decode without hotwords (not with the tree of a previous request).
+    if state.key is not None:
+        _apply(model, state.base)
+        state.key = None
