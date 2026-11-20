@@ -20,7 +20,10 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("nemo_logger").setLevel(logging.ERROR)
 
 
-def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decoding_strategy_if_hybrid="ctc"):
+def load_nemo_model(model_type_or_file, device="cpu", download_root=None, decoding_strategy_if_hybrid=None):
+    """Load a NeMo ASR model. `decoding_strategy_if_hybrid`: "ctc" to decode a
+    hybrid RNN-T/CTC model with its CTC decoder; otherwise (None, "rnnt") the
+    model keeps its own decoder, RNN-T for hybrid models."""
     start = time.time()
     logger.info(f"Loading Nemo model {model_type_or_file}...")
     default_cache_root = os.path.join(os.path.expanduser("~"), ".cache")
