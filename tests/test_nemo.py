@@ -135,6 +135,63 @@ class TestNemoCTC:
 # ---------------------------------------------------------------------------
 
 
+HOTWORDS_BONJOUR = "BonJour, AuRevoir, PourquoiPas"
+
+
+def _nemo_hotwords_config(id, architecture, hotwords=None):
+    # A strong boost (alpha 8, the default is 2): the test checks that the
+    # hotwords reach the decoding by forcing a spelling the model never chooses
+    # by itself ("BonJour"), as the whisper engine's hotword tests do.
+    env = {"MODEL": "linagora/linto_stt_fr_fastconformer_pc", "ARCHITECTURE": architecture,
+           "DEVICE": "cuda", "VAD": "false", "HOTWORDS_BOOSTING_ALPHA": "8"}
+    if hotwords:
+        env["HOTWORDS"] = hotwords
+    return pytest.param({"engine": "nemo", "mode": "http", "port": 0, "env_overrides": env}, id=id)
+
+
+@pytest.mark.nemo
+@pytest.mark.uv
+@pytest.mark.gpu
+class TestNemoHotwords:
+    """Hotwords with NeMo's GPU phrase boosting, on a hybrid model decoded with
+    RNN-T and with CTC (whose `greedy` strategy is switched to `greedy_batch`, the
+    one that supports boosting)."""
+
+    @pytest.mark.parametrize("uv_server", [
+        _nemo_hotwords_config("hotwords-env-rnnt", "hybrid_bpe", hotwords=HOTWORDS_BONJOUR),
+        _nemo_hotwords_config("hotwords-env-ctc", "hybrid_bpe_ctc", hotwords=HOTWORDS_BONJOUR),
+    ], indirect=True)
+    def test_hotwords_spelling(self, uv_server, test_audio_bonjour):
+        """The HOTWORDS list should bias the spelling toward 'BonJour'."""
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert "BonJour" in result, f"Expected hotword spelling 'BonJour' in transcription: {result!r}"
+
+    @pytest.mark.parametrize("uv_server", [
+        # HOTWORDS deliberately NOT set: the biasing must come from the request.
+        _nemo_hotwords_config("hotwords-per-request-rnnt", "hybrid_bpe"),
+    ], indirect=True)
+    def test_hotwords_per_request(self, uv_server, test_audio_bonjour):
+        """The per-request `hotwords` query param should bias the spelling toward
+        'BonJour' with no HOTWORDS env set; a request without hotwords right after
+        is decoded without them (the boosting tree is removed)."""
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour), hotwords=HOTWORDS_BONJOUR)
+        assert "BonJour" in result, f"Expected request hotword spelling 'BonJour' in transcription: {result!r}"
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert "BonJour" not in result and get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+            f"Unexpected transcription without hotwords: {result!r}"
+        )
+
+
+@pytest.mark.uv
+def test_parse_hotwords():
+    """The hotwords format, common to all engines (linto_stt/hotwords.py)."""
+    from linto_stt.hotwords import parse_hotwords
+
+    assert parse_hotwords("Broke, Jean-Luc Machin , ") == ["Broke", "Jean-Luc Machin"]
+    assert parse_hotwords("chambre double") == ["chambre double"]
+    assert parse_hotwords("") == [] and parse_hotwords(None) == []
+
+
 @pytest.mark.nemo
 @pytest.mark.uv
 class TestNemoStreaming:
