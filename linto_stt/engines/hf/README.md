@@ -382,9 +382,9 @@ in the [Word timestamps](#word-timestamps) section.
 ### Hotwords
 
 `HOTWORDS` biases the transcription toward given words (proper nouns, jargon).
-Give comma-separated entries (each may be a multi-word phrase, e.g.
-`Quilter, Au revoir`) or, with no comma, whitespace-separated words. They are
-formatted into Qwen3-ASR's documented context prompt (`Vocabulary: a, b, c.`)
+Give comma-separated terms, each possibly made of several words (e.g.
+`Quilter, Au revoir`); without a comma, the whole string is one term (the
+format common to all engines). They are formatted into Qwen3-ASR's documented context prompt (`Vocabulary: a, b, c.`)
 and passed via the model's `prompt`. Overridable per request with the `hotwords`
 query parameter / task argument.
 

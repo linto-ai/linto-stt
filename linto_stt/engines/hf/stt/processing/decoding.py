@@ -2,6 +2,7 @@ import time
 
 import torch
 
+from linto_stt.hotwords import parse_hotwords
 from linto_stt.engines.hf.stt import (
     HOTWORDS,
     LONG_FILE_CHUNK_LEN,
@@ -14,24 +15,15 @@ from .utils import SAMPLE_RATE, get_language, normalize_language_code
 
 
 def _hotwords_prompt(hotwords):
-    """Turn a hotwords string into Qwen3-ASR's documented context prompt.
-
-    The model biases decoding toward a context prompt whose documented form is
-    ``"Vocabulary: a, b, c."`` (see the Qwen3-ASR model card). Hotwords may be
-    given as comma-separated entries (each entry may be a multi-word phrase, e.g.
-    ``"Au revoir"``) or, when there is no comma, as whitespace-separated words.
-    Returns None when there are no hotwords (so no prompt is sent).
+    """Turn a hotwords string into Qwen3-ASR's documented context prompt,
+    ``"Vocabulary: a, b, c."`` (see the Qwen3-ASR model card). The terms follow
+    the common hotwords format (linto_stt/hotwords.py). Returns None when there
+    are no hotwords (so no prompt is sent).
     """
-    if not hotwords:
+    terms = parse_hotwords(hotwords)
+    if not terms:
         return None
-    if "," in hotwords:
-        entries = [e.strip() for e in hotwords.split(",")]
-    else:
-        entries = hotwords.split()
-    entries = [e for e in entries if e]
-    if not entries:
-        return None
-    return "Vocabulary: " + ", ".join(entries) + "."
+    return "Vocabulary: " + ", ".join(terms) + "."
 
 
 def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
