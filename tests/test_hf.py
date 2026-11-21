@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import LONG_AUDIO_REPEATS
 from helpers.env_setup import build_env_dict, get_expected_regex
 from helpers.server_runner import UVServerRunner
 from helpers.transcription_client import transcribe_http
@@ -576,7 +577,6 @@ class TestHfWhisperVllm:
 # ---------------------------------------------------------------------------
 
 VOXTRAL_MODEL = "mistralai/Voxtral-Mini-3B-2507"
-LONG_AUDIO_REPEATS = 42  # x 20 s = 14 minutes, a 27 MB WAV
 
 
 @pytest.mark.hf
@@ -692,21 +692,6 @@ class TestHfGraniteVllm:
         assert BIASED_WORD in result.lower(), (
             f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
         )
-
-
-@pytest.fixture(scope="module")
-def long_audio(tmp_path_factory):
-    """A 14-minute WAV: the 20 s hotel dialogue repeated. Long enough to exceed
-    vLLM's default limits on one audio (25 MB, 600 s) and to span several engine
-    chunks (LONG_FILE_CHUNK_LEN) and many vLLM windows."""
-    import numpy as np
-    import wavio
-
-    clip = wavio.read(str(Path(__file__).resolve().parent / "Hotel20sec.wav"))
-    path = tmp_path_factory.mktemp("long_audio") / "hotel_14min.wav"
-    wavio.write(str(path), np.tile(clip.data, (LONG_AUDIO_REPEATS, 1)), clip.rate,
-                sampwidth=clip.sampwidth)
-    return path
 
 
 def _long_config(model, id):
