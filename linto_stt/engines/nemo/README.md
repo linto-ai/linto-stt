@@ -193,11 +193,6 @@ prompt: the model has to hear something close to the term.
   worker process, the first decoding with hotwords takes 0.3 to 4 s longer
   (kernels compiled for the boosting, then reused).
 
-Example, on a French product presentation with `linagora/linto_stt_fr_fastconformer_pc`
-and the hotwords "Twake, LINAGORA" ("Twake" is said about 8 times): "Twake" is
-written 1 time without hotwords, 2 times with `HOTWORDS_BOOSTING_ALPHA=1`, 7 times
-with `2`.
-
 ### Attention Context (ATT_CONTEXT_SIZE / ATT_CONTEXT_SIZE_RIGHT)
 
 The encoder's attention context, as `[left, right]` in encoder frames (~80 ms each).
