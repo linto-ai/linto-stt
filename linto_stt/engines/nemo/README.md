@@ -188,10 +188,28 @@ prompt: the model has to hear something close to the term.
   ignores the hotwords.
 - The boosting tree is part of the model's decoding configuration, shared by
   all requests: requests are decoded one at a time, and the tree is rebuilt
-  only when the hotwords change. Cost, measured on an RTX 4090 Laptop GPU:
-  20 to 50 ms each time the hotwords change (or are removed); and, once per
-  worker process, the first decoding with hotwords takes 0.3 to 4 s longer
-  (kernels compiled for the boosting, then reused).
+  only when the hotwords change (or are removed). Building it and setting it in
+  the decoding takes longer with more terms (measured on an RTX 4090 Laptop GPU
+  for a few terms, on a DGX Spark for more, with Canary,
+  `linto_stt_fr_fastconformer_pc` and parakeet):
+
+  | Hotwords | Build time |
+  |---|---|
+  | a few terms | 20 to 50 ms |
+  | 400 terms | about 60 ms |
+  | 1,000 terms | about 140 ms |
+  | 2,500 to 4,000 terms | 0.4 to 0.6 s |
+  | 9,000 terms | about 0.8 s |
+
+  With occasional spikes of 3 to 4 s, seen when rebuilding the tree for every
+  request. Also, once per worker process, the first decoding with hotwords
+  takes 0.3 to 4 s longer (kernels compiled for the boosting, then reused).
+- Hotwords also work on CPU (checked with `linto_stt_fr_fastconformer_pc`,
+  RNN-T and CTC, and parakeet).
+- A rare failure of NeMo's RNN-T / TDT decoding, after many changes of the
+  hotwords ("Capture must end on the same stream it began on", when the
+  decoding captures its CUDA graphs again), is handled by rebuilding the
+  decoding and decoding again, once.
 
 ### Attention Context (ATT_CONTEXT_SIZE / ATT_CONTEXT_SIZE_RIGHT)
 

@@ -133,23 +133,29 @@ def set_hotwords(model, hotwords, language=None):
         return
     if state.base is None:
         state.base = copy.deepcopy(_decoding_cfg(model))
-    if key is None:
-        _apply(model, state.base)
-        state.key = None
-        return
-    cfg = _boosted(model, state.base, terms, language)
-    if cfg is not None:
-        try:
-            _apply(model, cfg)
-            logger.info(f"Phrase boosting of {len(terms)} hotword(s): {', '.join(terms)[:200]}")
-            state.key = key
-            return
-        except Exception as err:  # e.g. a model type whose decoder refuses the tree
-            logger.warning(f"Hotwords ignored: phrase boosting failed with this model ({err})")
-    else:
-        logger.warning(f"Hotwords ignored: phrase boosting is not supported with the decoding strategy "
-                       f"{state.base.get('strategy')!r} of this model")
+    if key is not None:
+        cfg = _boosted(model, state.base, terms, language)
+        if cfg is None:
+            logger.warning(f"Hotwords ignored: phrase boosting is not supported with the decoding "
+                           f"strategy {state.base.get('strategy')!r} of this model")
+        else:
+            try:
+                _apply(model, cfg)
+                logger.info(f"Phrase boosting of {len(terms)} hotword(s): {', '.join(terms)[:200]}")
+                state.key = key
+                return
+            except Exception as err:  # e.g. a model type whose decoder refuses the tree
+                logger.warning(f"Hotwords ignored: phrase boosting failed with this model ({err})")
+                # The decoding may be half changed: restore it, whatever was there.
+                state.key = "failed"
+        if state.key is None:
+            return  # already the model's own decoding
     # Decode without hotwords (not with the tree of a previous request).
-    if state.key is not None:
-        _apply(model, state.base)
-        state.key = None
+    _apply(model, state.base)
+    state.key = None
+
+
+def rebuild_decoding(model):
+    """Apply the current decoding configuration again (with its boosting tree, if
+    any): a new decoder, with new CUDA graphs. To be called under LOCK."""
+    _apply(model, copy.deepcopy(_decoding_cfg(model)))

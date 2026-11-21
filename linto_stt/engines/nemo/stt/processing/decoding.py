@@ -16,7 +16,7 @@ from linto_stt.engines.nemo.stt import (
     LONG_FILE_THRESHOLD, LONG_FILE_CHUNK_LEN, LONG_FILE_CHUNK_CONTEXT_LEN
 )
 
-from .hotwords import LOCK, set_hotwords
+from .hotwords import LOCK, rebuild_decoding, set_hotwords
 from .vad import remove_non_speech
 from .utils import SAMPLE_RATE, get_language, is_language_marker
 
@@ -47,7 +47,17 @@ def decode(
     # decoded with the hotwords set by another one.
     with LOCK:
         set_hotwords(kwargs["model"], hotwords, language)
-        res = decode_encoder(**kwargs)
+        try:
+            res = decode_encoder(**kwargs)
+        except RuntimeError as err:
+            # Rare failure of NeMo's RNN-T / TDT decoding when it captures its
+            # CUDA graphs again (after many changes of the hotwords): rebuild the
+            # decoding (new decoder, new CUDA graphs) and try once more.
+            if "Capture must end on the same stream" not in str(err):
+                raise
+            logger.warning(f"Decoding failed ({err}): rebuilding the decoding and retrying")
+            rebuild_decoding(kwargs["model"])
+            res = decode_encoder(**kwargs)
 
     logger.info(f"Transcription complete (t={time.time() - start_t}s)")
 
@@ -199,26 +209,27 @@ class ChunkBufferDecoder:
         self.all_preds = hypothesis
 
     def merge_results(self):
+        """Merge the chunks' words: chunk i (decoded with context_len seconds of
+        context around it, except at the start and end of the audio) keeps the
+        words of its own part, [i * chunk_len, (i + 1) * chunk_len[, with times
+        made absolute."""
         result_text = []
         result_timestep = []
         # in case words are cut in the middle
         base_acceptance_per_character = 0.015
+        last = len(self.all_preds) - 1
         for i, chunk_hypothesis in enumerate(self.all_preds):
+            # Start of the decoded audio of chunk i (its left context included).
+            offset = max(0, i * self.chunk_len - self.context_len)
             for word in chunk_hypothesis.timestamp['word']:
                 acceptance = base_acceptance_per_character * len(word['word'])
-                merged_word = dict(word=word['word'], start=word['start']+i*self.chunk_len -
-                                   self.context_len, end=word['end']+i*self.chunk_len-self.context_len)
-                if i == 0 and word['end']-acceptance < self.chunk_len+self.context_len:
-                    result_text.append(word['word'])
-                    merged_word = dict(
-                        word=word['word'], start=word['start']+i*self.chunk_len, end=word['end']+i*self.chunk_len)
-                    result_timestep.append(merged_word)
-                elif i == len(self.all_preds)-1 and word['start']+acceptance > self.context_len:
-                    result_text.append(word['word'])
-                    result_timestep.append(merged_word)
-                elif word['start']+acceptance > self.context_len and word['end']-acceptance < self.chunk_len+self.context_len:
-                    result_text.append(word['word'])
-                    result_timestep.append(merged_word)
+                start, end = float(word['start']) + offset, float(word['end']) + offset
+                if i > 0 and start + acceptance <= i * self.chunk_len:
+                    continue  # in the left context: kept by the previous chunk
+                if i < last and end - acceptance >= (i + 1) * self.chunk_len:
+                    continue  # in the right context: kept by the next chunk
+                result_text.append(word['word'])
+                result_timestep.append(dict(word=word['word'], start=start, end=end))
 
         result = {"text": " ".join(result_text), "timestamp": {
             "word": result_timestep}}
@@ -226,6 +237,8 @@ class ChunkBufferDecoder:
 
 
 def stream_long_file(model, audio, **kwargs):
+    # The chunks are merged on their word timestamps: always ask for them.
+    kwargs = {**kwargs, "timestamps": True}
     buffer_list = get_chunks(audio, LONG_FILE_CHUNK_LEN,
                              SAMPLE_RATE, LONG_FILE_CHUNK_CONTEXT_LEN)
     asr_decoder = ChunkBufferDecoder(
