@@ -25,9 +25,9 @@ from omegaconf import open_dict
 
 from linto_stt.hotwords import parse_hotwords
 from linto_stt.engines.nemo.stt import (
-    HOTWORDS_BOOSTING_ALPHA,
     HOTWORDS_BOOSTING_CONTEXT_SCORE,
     HOTWORDS_BOOSTING_DEPTH_SCALING,
+    hotwords_boosting_alpha,
     logger,
 )
 
@@ -119,7 +119,7 @@ def _boosted(model, base, terms, language):
             # the language of the terms, used only by aggregate tokenizers
             source_lang=language if language and language != "*" else "en",
         )
-        section.boosting_tree_alpha = HOTWORDS_BOOSTING_ALPHA
+        section.boosting_tree_alpha = hotwords_boosting_alpha(len(terms))
     return cfg
 
 

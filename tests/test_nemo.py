@@ -260,6 +260,21 @@ class TestNemoHotwordsLongFile:
             f"'aimerais' found {count} times for {LONG_AUDIO_REPEATS} repetitions: {result[:300]}...")
 
 
+@pytest.mark.nemo
+@pytest.mark.uv
+def test_hotwords_boosting_alpha(monkeypatch):
+    """Unset HOTWORDS_BOOSTING_ALPHA: 2 for fewer than 100 terms, 1 for more; set:
+    the given value, whatever the number of terms."""
+    pytest.importorskip("torch")
+    from linto_stt.engines.nemo import stt
+
+    monkeypatch.setattr(stt, "HOTWORDS_BOOSTING_ALPHA", None)
+    assert stt.hotwords_boosting_alpha(1) == stt.hotwords_boosting_alpha(99) == 2.0
+    assert stt.hotwords_boosting_alpha(100) == stt.hotwords_boosting_alpha(5000) == 1.0
+    monkeypatch.setattr(stt, "HOTWORDS_BOOSTING_ALPHA", 4.0)
+    assert stt.hotwords_boosting_alpha(1) == stt.hotwords_boosting_alpha(5000) == 4.0
+
+
 @pytest.mark.uv
 def test_parse_hotwords():
     """The hotwords format, common to all engines (linto_stt/hotwords.py)."""
