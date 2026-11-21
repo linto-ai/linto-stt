@@ -160,6 +160,94 @@ def _model_type(model_name):
         return None
 
 
+def _card_text(model_name):
+    """The text of a model's card (README.md), or "" when it cannot be read."""
+    try:
+        from huggingface_hub import ModelCard
+
+        path = os.path.join(model_name, "README.md") if os.path.isdir(model_name) else model_name
+        return ModelCard.load(path).content
+    except Exception:  # noqa: BLE001 -- no card (offline and not cached, local folder...)
+        return ""
+
+
+class GranitePrompts:
+    """The prompts of a Granite Speech model (``model_type`` "granite_speech").
+
+    vLLM's transcription endpoint gives these models a fixed prompt (the model
+    card's "raw transcripts" one: a lowercase transcript) and ignores the
+    ``language`` and ``prompt`` fields, so the serve backend sends them to the
+    chat endpoint instead, with the prompts of the card's "Preferred prompt by
+    task" table. What a model supports is read from its card: punctuation and
+    capitalization (4.1, 5.0), keyword biasing (4.1, 5.0), a given language
+    (5.0).
+    """
+
+    RAW = "can you transcribe the speech into a written format?"
+    PUNCTUATION = "transcribe the speech with proper punctuation and capitalization."
+    LANGUAGE = "The speech is in {}. Transcribe it exactly; do not translate."
+
+    def __init__(self, model_name):
+        card = _card_text(model_name)
+        if not card:
+            logger.warning(
+                f"Could not read the model card of {model_name}: transcribing with "
+                "the raw prompt (lowercase), without hotwords nor a given language"
+            )
+        self.punctuation = self.PUNCTUATION in card
+        self.keywords = "Keywords: <kw1>" in card
+        self.language = "The speech is in <language>" in card
+
+    @staticmethod
+    def hotwords_prompt(terms):
+        return "Keywords: " + ", ".join(terms)
+
+    def text(self, language=None, hotwords_prompt=None):
+        """The user prompt for one transcription: the given language (when the
+        model takes one), the transcription request, the keywords."""
+        from .utils import language_code_to_name
+
+        parts = []
+        if language and self.language:
+            parts.append(self.LANGUAGE.format(language_code_to_name(language) or language))
+        parts.append(self.PUNCTUATION if self.punctuation else self.RAW)
+        if hotwords_prompt and self.keywords:
+            parts.append(hotwords_prompt)
+        return " ".join(parts)
+
+
+def _extra_weight_files(folder_files):
+    """Weight files that vLLM would load although they are not part of the model.
+
+    Without an index (``*.safetensors.index.json``), vLLM loads every
+    ``*.safetensors`` file at the top of the model folder. Some repositories add
+    other weights next to ``model.safetensors`` (granite-speech-5.0-2b:
+    ``out_llm.safetensors``, one extra layer), which vLLM then refuses to load
+    (no such parameter in the model)."""
+    top = [f for f in folder_files if "/" not in f]
+    if "model.safetensors" not in top or any(f.endswith(".safetensors.index.json") for f in top):
+        return []
+    return sorted(f for f in top if f.endswith(".safetensors") and f != "model.safetensors")
+
+
+def _model_files(model_name):
+    """The files of a model: a local folder, else the Hugging Face repository,
+    else (offline) the ones in the local cache. Empty when none can be listed."""
+    if os.path.isdir(model_name):
+        return os.listdir(model_name)
+    try:
+        from huggingface_hub import list_repo_files
+
+        return list_repo_files(model_name)
+    except Exception:  # noqa: BLE001 -- offline: what is cached is what vLLM loads
+        try:
+            from huggingface_hub import snapshot_download
+
+            return os.listdir(snapshot_download(model_name, local_files_only=True))
+        except Exception:  # noqa: BLE001
+            return []
+
+
 class TransformersASRBackend:
     """In-process Hugging Face transformers ASR, for any transformers-native ASR.
 
@@ -427,6 +515,10 @@ class VllmServeBackend:
     # those the engine cuts long files itself (LONG_FILE_THRESHOLD /
     # LONG_FILE_CHUNK_LEN), like on the transformers backend.
     MODEL_TYPES_NOT_WINDOWED_BY_VLLM = frozenset({"voxtral"})
+    # Granite Speech: transcribed through the chat endpoint (see GranitePrompts),
+    # which does not cut long audio; the engine cuts it into chunks of at most
+    # about 2 minutes, as its model card advises.
+    GRANITE_CHUNK_LEN = 120
 
     def __init__(self, model_name, device, dtype="bfloat16", **kwargs):
         if "cuda" not in str(device):
@@ -451,9 +543,25 @@ class VllmServeBackend:
         self.accepted_languages, self.recommended_languages = detect_languages(
             model_name, processor
         )
-        self.handles_long_audio = (
-            _model_type(model_name) not in self.MODEL_TYPES_NOT_WINDOWED_BY_VLLM
-        )
+        model_type = _model_type(model_name)
+        self.handles_long_audio = model_type not in self.MODEL_TYPES_NOT_WINDOWED_BY_VLLM
+        self.granite = GranitePrompts(model_name) if model_type == "granite_speech" else None
+        if self.granite is not None:
+            self.supports_hotwords = self.granite.keywords
+            self.supports_language_spec = self.granite.language
+            self.supports_language_auto = True
+            self.hotwords_prompt = self.granite.hotwords_prompt
+            # A wrong language makes the model translate: an identified language
+            # (LANGUAGE_IDENTIFICATION) is returned, but not given to the model.
+            self.forces_identified_language = False
+            self.handles_long_audio = False
+            self.long_file_chunk_len = self.GRANITE_CHUNK_LEN
+
+        # Model files vLLM would wrongly load: serve a folder without them.
+        self._model_folder = None
+        extra = _extra_weight_files(_model_files(model_name))
+        if extra:
+            self._model_folder = self._folder_without(model_name, extra)
 
         self.host = VLLM_SERVE_HOST
         self.port = VLLM_SERVE_PORT
@@ -469,8 +577,12 @@ class VllmServeBackend:
         vllm_bin = shutil.which("vllm") or os.path.join(
             os.path.dirname(sys.executable), "vllm"
         )
-        cmd = [
-            vllm_bin, "serve", self.served_model,
+        cmd = [vllm_bin, "serve"]
+        if self._model_folder:
+            cmd += [self._model_folder, "--served-model-name", self.served_model]
+        else:
+            cmd += [self.served_model]
+        cmd += [
             "--host", self.host,
             "--port", str(self.port),
             "--dtype", dtype,
@@ -504,6 +616,35 @@ class VllmServeBackend:
             cmd += ["--enforce-eager"]
         cmd += VLLM_SERVE_EXTRA_ARGS
         return cmd
+
+    @staticmethod
+    def _folder_without(model_name, excluded):
+        """A temporary folder of symlinks to all the files of the model but
+        `excluded` (downloaded first, without them, when not a local folder)."""
+        import tempfile
+
+        if os.path.isdir(model_name):
+            source = model_name
+        else:
+            from huggingface_hub import snapshot_download
+
+            source = snapshot_download(model_name, ignore_patterns=excluded)
+        logger.info(f"Serving {model_name} without {', '.join(excluded)} (not part of the model)")
+        folder = tempfile.mkdtemp(prefix="linto-stt-vllm-model-")
+        for name in os.listdir(source):
+            if name not in excluded:
+                os.symlink(os.path.realpath(os.path.join(source, name)), os.path.join(folder, name))
+        return folder
+
+    def _remove_model_folder(self):
+        """Remove the folder of symlinks made by _folder_without (the symlinks
+        only, never what they point to)."""
+        folder, self._model_folder = self._model_folder, None
+        if not folder:
+            return
+        for name in os.listdir(folder):
+            os.unlink(os.path.join(folder, name))
+        os.rmdir(folder)
 
     def _start_server(self, dtype):
         import atexit
@@ -604,15 +745,23 @@ class VllmServeBackend:
         except OSError:
             return "(no log)"
 
-    def transcribe(self, audio, language=None, prompt=None):
+    @staticmethod
+    def _wav(audio):
         import io
 
-        import requests
         import soundfile as sf
 
         buf = io.BytesIO()
         sf.write(buf, audio, SAMPLE_RATE, format="WAV", subtype="PCM_16")
         buf.seek(0)
+        return buf
+
+    def transcribe(self, audio, language=None, prompt=None):
+        import requests
+
+        if self.granite is not None:
+            return self._transcribe_granite(audio, language, prompt)
+        buf = self._wav(audio)
 
         data = {"model": self.served_model, "temperature": "0", "response_format": "json"}
         if language:
@@ -640,6 +789,33 @@ class VllmServeBackend:
         # response language fall back accordingly).
         return text, language
 
+    def _transcribe_granite(self, audio, language, prompt):
+        """Granite Speech, through the chat endpoint (see GranitePrompts)."""
+        import base64
+
+        import requests
+
+        wav = base64.b64encode(self._wav(audio).getvalue()).decode()
+        payload = {
+            "model": self.served_model,
+            "temperature": 0,
+            # No max_tokens: vLLM allows what the context leaves after the prompt.
+            "messages": [{"role": "user", "content": [
+                {"type": "audio_url", "audio_url": {"url": f"data:audio/wav;base64,{wav}"}},
+                {"type": "text", "text": self.granite.text(language, prompt)},
+            ]}],
+        }
+        resp = requests.post(
+            f"{self.base_url}/v1/chat/completions", json=payload,
+            timeout=VLLM_SERVE_REQUEST_TIMEOUT,
+        )
+        if not resp.ok:
+            raise RuntimeError(
+                f"vLLM transcription failed (HTTP {resp.status_code}): {resp.text[:500]}"
+            )
+        text = (resp.json()["choices"][0]["message"].get("content") or "").strip()
+        return text, language
+
     def shutdown(self):
         """Stop the vLLM server (idempotent; runs at exit). SIGTERM lets vLLM reap
         its own EngineCore workers; escalate to SIGKILL if it does not exit."""
@@ -660,6 +836,7 @@ class VllmServeBackend:
             except OSError:
                 pass
             self._log = None
+        self._remove_model_folder()
         import atexit
 
         atexit.unregister(self.shutdown)

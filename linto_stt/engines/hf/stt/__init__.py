@@ -46,6 +46,11 @@ MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "1280"))
 # MAX_NEW_TOKENS) together for fewer/larger passes on a GPU with spare VRAM.
 LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", "240"))
 LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", "240"))
+# Whether they were set: when not, a model may have its own default (Granite
+# Speech on the vLLM backend: chunks of 120 s, as its model card advises).
+LONG_FILE_SETTINGS_FROM_ENV = bool(
+    os.environ.get("LONG_FILE_THRESHOLD") or os.environ.get("LONG_FILE_CHUNK_LEN")
+)
 
 # Attention kernel, e.g. "flash_attention_2" (needs flash-attn + fp16/bf16).
 # None lets transformers pick its default ("sdpa").
