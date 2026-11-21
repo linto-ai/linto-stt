@@ -574,9 +574,11 @@ class VllmServeBackend:
         import shutil
         import sys
 
-        vllm_bin = shutil.which("vllm") or os.path.join(
-            os.path.dirname(sys.executable), "vllm"
-        )
+        # The vLLM of the running Python's environment first (another one on the
+        # PATH, e.g. in ~/.local, may not match its torch), else the PATH's.
+        vllm_bin = os.path.join(os.path.dirname(sys.executable), "vllm")
+        if not os.path.exists(vllm_bin):
+            vllm_bin = shutil.which("vllm") or vllm_bin
         cmd = [vllm_bin, "serve"]
         if self._model_folder:
             cmd += [self._model_folder, "--served-model-name", self.served_model]

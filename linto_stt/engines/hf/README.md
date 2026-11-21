@@ -316,12 +316,14 @@ backends.
     - With **language identification** (`LANGUAGE_IDENTIFICATION=true`, the
       default), the language is first identified by SpeechBrain's ECAPA model
       (trained on VoxLingua107, 107 languages, Apache 2.0) on the first 30 s of
-      the audio, choosing **only among the languages the model supports**. It
-      is then forced for the transcription, used to choose the aligner, and
-      returned as `language`. Models that require a language (Cohere) then work
-      without one. When the most likely language of the 107 is not one the
-      model supports (audio in another language), a warning is logged and the
-      most likely supported one is used. Cost: about 20 ms per request on GPU,
+      the audio, choosing **only among the languages of the model**: by default
+      the languages documented on its model card when it lists them, else all
+      those it supports (`LANGUAGE_IDENTIFICATION_LANGUAGES=supported`: always
+      all those it supports). It is then forced for the transcription, used to
+      choose the aligner, and returned as `language`. Models that require a language (Cohere) then work
+      without one. When the most likely language of the 107 is not
+      one of them (audio in another language), a warning is logged and the most
+      likely of them is used. Cost: about 20 ms per request on GPU,
       81 MB of weights (0.5 GB of GPU memory at peak), loaded at startup; the
       weights (86 MB) are downloaded to the Hugging Face cache on first use.
     - Without (`LANGUAGE_IDENTIFICATION=false`), the model detects the language
@@ -354,8 +356,11 @@ Each model has two language lists, read from its files (never from its name):
 | **Granite-Speech** | 100 (vLLM). A given language is passed to 5.0 only, and rejected by 4.1 and 3.3; an identified one is returned but never passed to the model (a wrong language makes it translate) | 5.0-2b, 4.1-2b: `en, fr, de, es, pt, ja`; 3.3-8b: `en, fr, de, es, pt` | detects it |
 
 With identification on (the default), a request without a language gets one
-of the **supported** languages (with a warning when it is outside the
-**documented** ones). Language identification (ECAPA) knows 107 languages: a
+of the **documented** languages, or of the **supported** ones when the card
+lists none (`LANGUAGE_IDENTIFICATION_LANGUAGES=supported`: always among the
+supported ones, with a warning when it is outside the documented ones). On
+models that accept vLLM's 100 languages, this avoids rare languages: on a 1 s
+French "Bonjour", the most likely of the 100 is Breton. Language identification (ECAPA) knows 107 languages: a
 supported language it does not know cannot be identified (`yue`: ECAPA only
 has `zh`); `fil` is identified through ECAPA's `tl` (Tagalog).
 

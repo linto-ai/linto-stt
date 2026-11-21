@@ -338,7 +338,8 @@ class TestHfLanguages:
     """Language handling in `decode`: a given language must be one the model
     accepts (else HTTP 400), with a warning outside its documented languages;
     without a language, the language identifier (LANGUAGE_IDENTIFICATION) picks
-    one among the accepted languages, else the model detects it, else "*".
+    one among the documented (else accepted) languages, else the model detects
+    it, else "*".
     Stub backend and identifier, except the last test (the real ECAPA on CPU)."""
 
     @pytest.fixture
@@ -403,6 +404,28 @@ class TestHfLanguages:
         model, calls = self._model(identified="de")
         result = decode(self._audio(), model, True, language="*")
         assert calls == ["de"] and result["language"] == "de"
+
+    def test_identification_among_documented_languages(self, decode, monkeypatch):
+        """LANGUAGE_IDENTIFICATION_LANGUAGES: by default ("documented") the
+        identifier chooses among the model card's languages when known, else
+        among the supported ones; "supported": always among the supported ones."""
+        from types import SimpleNamespace
+
+        from linto_stt.engines.hf.stt.processing import languages
+
+        def run(recommended):
+            seen = []
+            model, calls = self._model(accepted=("fr", "en", "de", "br"), recommended=recommended)
+            model.language_identifier = SimpleNamespace(
+                identify=lambda audio, languages=None: seen.append(languages) or ("fr", "fr"),
+                _code_in=lambda code, languages: code if code in languages else None)
+            assert decode(self._audio(), model, True, language="*")["language"] == "fr"
+            return seen[0]
+
+        assert run(("fr", "en")) == {"fr", "en"}
+        assert run(None) == {"fr", "en", "de", "br"}
+        monkeypatch.setattr(languages, "LANGUAGE_IDENTIFICATION_LANGUAGES", "supported")
+        assert run(("fr", "en")) == {"fr", "en", "de", "br"}
 
     def test_identification_lets_a_model_without_detection_run(self, decode):
         """Cohere-like model (a language is required): works without one when
@@ -643,9 +666,7 @@ class TestHfGraniteVllm:
 
     def test_integration(self, granite_vllm_server, test_audio_hotel):
         """The language is identified and returned (not given to the model), and
-        the punctuation prompt gives a capitalized and punctuated transcript.
-        (On the 1 s "Bonjour" file, the identification, among the 100 languages
-        Granite accepts, finds Breton.)"""
+        the punctuation prompt gives a capitalized and punctuated transcript."""
         result = transcribe_http(granite_vllm_server["url"], str(test_audio_hotel), full=True)
         assert "Bonjour, madame." in result["text"], f"Unexpected transcription: {result}"
         assert result["language"] == "fr"

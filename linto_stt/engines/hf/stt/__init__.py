@@ -79,6 +79,19 @@ LANGUAGE_IDENTIFICATION_MODEL = (
 )
 # Seconds of audio, from the start, the identification is run on.
 LANGUAGE_IDENTIFICATION_MAX_DURATION = 30
+# The languages the identification chooses among: "documented" (the default),
+# those of the model card when it lists them, else those the model supports;
+# "supported", all those the model supports (Voxtral, Granite Speech: the 100 of
+# vLLM, where the card documents 6 to 8; on a short French "Bonjour", the most
+# likely of the 100 is Breton).
+LANGUAGE_IDENTIFICATION_LANGUAGES = (
+    os.environ.get("LANGUAGE_IDENTIFICATION_LANGUAGES") or "documented"
+).strip().lower()
+if LANGUAGE_IDENTIFICATION_LANGUAGES not in ("documented", "supported"):
+    raise ValueError(
+        f"Invalid LANGUAGE_IDENTIFICATION_LANGUAGES={LANGUAGE_IDENTIFICATION_LANGUAGES!r}: "
+        "use 'documented' or 'supported'"
+    )
 
 # Companion forced aligner used to produce word-level timestamps: a
 # Qwen3-ForcedAligner checkpoint, or "mms" (Meta's language-agnostic MMS CTC
