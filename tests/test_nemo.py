@@ -444,6 +444,39 @@ class TestNemoDocker:
             f"Unexpected transcription: {result}"
         )
 
+    @pytest.mark.gpu
+    @pytest.mark.parametrize(
+        "docker_server",
+        [
+            pytest.param(
+                {
+                    "engine": "nemo",
+                    "mode": "http",
+                    "port": 0,
+                    "env_overrides": {
+                        "MODEL": "nvidia/stt_fr_conformer_ctc_large",
+                        "ARCHITECTURE": "rnnt_bpe",
+                        "DEVICE": "cuda",
+                        "VAD": "false",
+                    },
+                },
+                id="hotwords-gpu-http",
+            ),
+        ],
+        indirect=True,
+    )
+    def test_hotwords_gpu(self, docker_server, test_audio_bonjour):
+        """Hotwords in the GPU image: on CUDA, NeMo's boosting runs Triton
+        kernels, compiled at the first request with hotwords, which needs a C
+        compiler in the image (without it, the request fails). This model writes
+        in lower case, so the effect of the hotwords is not checked here (see
+        TestNemoHotwords)."""
+        for hotwords in ("BonJour, Madame", None):
+            result = transcribe_http(docker_server["url"], str(test_audio_bonjour), hotwords=hotwords)
+            assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+                f"Unexpected transcription with hotwords {hotwords!r}: {result!r}"
+            )
+
     @pytest.mark.parametrize(
         "docker_server",
         [

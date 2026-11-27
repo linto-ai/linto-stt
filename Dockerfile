@@ -97,10 +97,11 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     libportaudio2; \
   fi \
-  && if [ "$STT_ENGINE" = "hf" ] && [ -n "$GPU" ]; then \
+  && if { [ "$STT_ENGINE" = "hf" ] || [ "$STT_ENGINE" = "nemo" ]; } && [ -n "$GPU" ]; then \
     # Triton compiles small host-side launcher stubs at runtime and needs a C
-    # compiler with the C library headers (vLLM fails to start without them,
-    # even in eager mode); C++ is not needed, including for torch.compile and
+    # compiler with the C library headers: vLLM fails to start without them,
+    # even in eager mode, and NeMo's hotword boosting fails at the first
+    # request with hotwords. C++ is not needed, including for torch.compile and
     # CUDA graphs.
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     gcc libc6-dev; \
