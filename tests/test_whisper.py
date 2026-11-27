@@ -484,3 +484,281 @@ class TestWhisperDockerCelery:
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Hallucinations: detector and re-decoding (unit tests, no model)
+# ---------------------------------------------------------------------------
+# Imports are done in fixtures, so that a missing faster-whisper (e.g. Docker
+# tests run with only the `test` extra) skips these tests, not the whole file.
+
+
+@pytest.fixture(scope="module")
+def hallucinations():
+    """The detector module, loaded from its file (it only needs `regex`)."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parent.parent / "linto_stt/engines/whisper/stt/processing/hallucinations.py"
+    spec = importlib.util.spec_from_file_location("hallucinations", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _detected(hallucinations, text, whole_segment=False):
+    words = text.split()
+    segments = [(0, len(words) - 1)] if whole_segment else None
+    return " ".join(words[i] for i in sorted(hallucinations.find_hallucinated_words(words, segments)))
+
+
+@pytest.mark.whisper
+@pytest.mark.uv
+class TestWhisperHallucinationDetector:
+    """The detector of known hallucinated phrases (hallucinations.py)."""
+
+    @pytest.mark.parametrize("text, expected", [
+        # French credits, as written by Whisper (punctuation, glued apostrophes)
+        ("Sous-titrage Société Radio-Canada", "Sous-titrage Société Radio-Canada"),
+        ("Sous-titrage ST' 501", "Sous-titrage ST' 501"),
+        ("Sous-titrage ST'501", "Sous-titrage ST'501"),
+        ("Sous-titrage FR ?", "Sous-titrage FR ?"),
+        ("Sous-titrage Société", "Sous-titrage Société"),
+        ("Sous-titres par Jérémy Diaz", "Sous-titres par Jérémy Diaz"),
+        ("Sous-titres réalisés par la communauté d'Amara.org", "Sous-titres réalisés par la communauté d'Amara.org"),
+        # glued to real speech
+        ("60 euros per month. Sous-titrage Société Radio-Canada", "Sous-titrage Société Radio-Canada"),
+        ("commerciales, tu vois. Sous-titrage ST'501 Au-delà des licences", "Sous-titrage ST'501"),
+        # outros, including two in a row
+        ("Merci d'avoir regardé cette vidéo !", "Merci d'avoir regardé cette vidéo !"),
+        ("Merci d'avoir regardé cette vidéo! Merci d'avoir regardé cette vidéo!",
+         "Merci d'avoir regardé cette vidéo! Merci d'avoir regardé cette vidéo!"),
+        ("Merci à mes Tipeurs et souscripteurs.", "Merci à mes Tipeurs et souscripteurs."),
+        # other languages, whatever the language of the speech
+        ("Untertitel im Auftrag des ZDF, 2017", "Untertitel im Auftrag des ZDF, 2017"),
+        ("Thanks for watching!", "Thanks for watching!"),
+        ("Subtitles by the Amara.org community", "Subtitles by the Amara.org community"),
+        ("ご視聴ありがとうございました", "ご視聴ありがとうございました"),
+    ])
+    def test_phrases_detected(self, hallucinations, text, expected):
+        assert _detected(hallucinations, text) == expected
+
+    @pytest.mark.parametrize("text", [
+        "le sous-titrage en temps réel est disponible",
+        "Radio-Canada a diffusé le reportage",
+        "merci d'avoir regardé le document",
+        "Merci. Thank you. Bye.",
+        "on peut sous-titrer la vidéo",
+        "gracias por ver",
+        "La Société générale",
+    ])
+    def test_real_speech_not_detected(self, hallucinations, text):
+        assert _detected(hallucinations, text) == ""
+        assert _detected(hallucinations, text, whole_segment=True) == ""
+
+    @pytest.mark.parametrize("text", ["Sous-titrage", "Sous-titrage.", "Merci d'avoir regardé", "Untertitel"])
+    def test_fragments_detected_only_as_a_whole_segment(self, hallucinations, text):
+        assert _detected(hallucinations, text, whole_segment=True) == text
+        # inside a longer segment, the same words are ordinary speech
+        assert _detected(hallucinations, f"on parlait de {text} hier") == ""
+
+
+_SR = 16000
+
+
+@pytest.fixture(scope="module")
+def redecode():
+    """The re-decoding module and faster-whisper's Segment / Word classes."""
+    pytest.importorskip("faster_whisper")
+    from types import SimpleNamespace
+
+    import numpy as np
+    from faster_whisper.transcribe import Segment, Word
+
+    from linto_stt.engines.whisper.stt.processing import redecode as module
+
+    return SimpleNamespace(module=module, Segment=Segment, Word=Word, np=np, info=SimpleNamespace(language="fr"))
+
+
+def _rd_segment(rd, words, start_id=0):
+    """A faster-whisper Segment from [(start, end, word)], words written with a leading space."""
+    ws = [rd.Word(start=s, end=e, word=w, probability=0.9) for s, e, w in words]
+    return rd.Segment(id=start_id, seek=0, start=ws[0].start, end=ws[-1].end, text="".join(w.word for w in ws),
+                      tokens=[], avg_logprob=-0.3, compression_ratio=1.2, no_speech_prob=0.0, words=ws,
+                      temperature=0.0)
+
+
+def _rd_speech(start, end, n, prefix="mot"):
+    """n distinct words evenly spread over [start, end)."""
+    step = (end - start) / n
+    return [(start + i * step, start + i * step + step * 0.8, f" {prefix}{i}") for i in range(n)]
+
+
+def _rd_text(segments):
+    return " ".join(w.word.strip() for s in segments for w in s.words)
+
+
+_RD_CREDIT = [(7.22, 10.02, " Sous-titrage"), (10.02, 11.10, " Société"), (11.10, 11.10, " Radio"),
+              (11.10, 11.10, "-Canada")]
+# a credit between two time ranges of real speech, from 10 to 12 s
+_RD_CREDIT_GLUED = [(10.0, 11.0, " Sous-titrage"), (11.0, 11.5, " ST'"), (11.5, 12.0, " 501")]
+
+
+class _FakeModel:
+    """Returns the scripted outputs in order; records the calls."""
+
+    def __init__(self, outputs, info):
+        self.outputs = list(outputs)
+        self.info = info
+        self.calls = []
+
+    def transcribe(self, audio, language=None, word_timestamps=None, **kwargs):
+        self.calls.append({"duration": len(audio) / _SR, "language": language, "hotwords": kwargs.get("hotwords")})
+        return iter(self.outputs.pop(0)), self.info
+
+
+@pytest.mark.whisper
+@pytest.mark.uv
+class TestWhisperRedecode:
+    """The re-decoding of suspicious time ranges (redecode.py), with a fake model."""
+
+    def test_credit_over_speech_is_redecoded(self, redecode):
+        """The 00:50 case of a LinTO Studio meeting: a credit, then nothing until
+        the next window. The first attempts hallucinate again; the window shifted
+        by 1 s gives the speech."""
+        audio = redecode.np.zeros(40 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _RD_CREDIT), _rd_segment(redecode, _rd_speech(30, 40, 20, "fin"), 1)]
+        model = _FakeModel([
+            [_rd_segment(redecode, _RD_CREDIT)],                       # start at the time range, with hotwords
+            [_rd_segment(redecode, [(7.0, 9.0, " Sous-titrage")])],    # without hotwords: the fragment alone
+            [_rd_segment(redecode, _rd_speech(0, 28, 30))],            # start +1 s: speech
+        ], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)],
+                                                  {"hotwords": "LinTO", "beam_size": 5}, min_gap=6.0)
+        text = _rd_text(out)
+        assert "Sous-titrage" not in text and "mot0" in text and "fin19" in text
+        assert [c["hotwords"] for c in model.calls] == ["LinTO", None, "LinTO"]
+        assert all(c["language"] == "fr" for c in model.calls)
+        words = [w for s in out for w in s.words]
+        assert words == sorted(words, key=lambda w: w.start)
+        assert all(0.0 <= w.start < 30.0 for w in words if w.word.strip().startswith("mot"))
+
+    def test_kept_when_no_attempt_is_accepted(self, redecode):
+        audio = redecode.np.zeros(40 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _RD_CREDIT), _rd_segment(redecode, _rd_speech(30, 40, 20, "fin"), 1)]
+        model = _FakeModel([[_rd_segment(redecode, _RD_CREDIT)]] * 10, redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)],
+                                                  {"hotwords": None}, min_gap=6.0)
+        assert _rd_text(out) == _rd_text(segments)
+        assert len(model.calls) == 3  # same start, +1 s, +2 s (no hotwords to remove)
+
+    def test_repetitive_attempt_rejected(self, redecode):
+        audio = redecode.np.zeros(40 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _rd_speech(30, 40, 20, "fin"))]
+        model = _FakeModel([[_rd_segment(redecode, [(i, i + 0.5, " non,") for i in range(20)])],
+                            [_rd_segment(redecode, _rd_speech(0, 28, 30))]], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)], {},
+                                                  min_gap=6.0)
+        assert "non," not in _rd_text(out) and "mot0" in _rd_text(out)
+
+    def test_credit_glued_to_speech_is_redecoded(self, redecode):
+        """A credit between two time ranges of real speech (no long gap): its own
+        time range is decoded again."""
+        audio = redecode.np.zeros(20 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _rd_speech(0, 10, 20, "avant") + _RD_CREDIT_GLUED + _rd_speech(12, 20, 16, "apres"))]
+        model = _FakeModel([[_rd_segment(redecode, [(0.2, 0.8, " vrai"), (0.9, 1.5, " texte")])]], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 20.0)], {},
+                                                  min_gap=6.0)
+        text = _rd_text(out)
+        assert "Sous-titrage" not in text and "vrai texte" in text
+        assert "avant19" in text and "apres0" in text
+        assert len(model.calls) == 1
+
+    def test_nothing_to_do(self, redecode):
+        audio = redecode.np.zeros(20 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _rd_speech(0, 20, 40))]
+        model = _FakeModel([], redecode.info)
+        assert redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 20.0)], {}) == segments
+        assert model.calls == []
+        # without word timestamps, nothing is done
+        no_words = [redecode.Segment(**{**segments[0].__dict__, "words": None})]
+        assert redecode.module.redecode_suspicious(model, audio, no_words, redecode.info, [(0.0, 20.0)], {}) == no_words
+
+    def test_known_phrase_removed_when_retry_finds_no_speech(self, redecode):
+        """A credit in a time range where the retries, with context, write no word
+        while transcribing the speech after it: no speech there, the credit is
+        removed. Without any word after it (nothing heard at all), it is kept."""
+        audio = redecode.np.zeros(20 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _rd_speech(0, 10, 20, "avant") + _RD_CREDIT_GLUED + _rd_speech(12, 20, 16, "apres"))]
+        # the speech after the time range, at 12.5 to 14 s, for the attempts starting
+        # at 10 s, 11 s (+1 s) and 9 s (-1 s)
+        model = _FakeModel([[_rd_segment(redecode, [(12.5 - t, 13.0 - t, " suite"), (13.1 - t, 14.0 - t, " normale")])]
+                            for t in (10.0, 11.0, 9.0)], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 20.0)], {},
+                                                  min_gap=6.0)
+        text = _rd_text(out)
+        assert "Sous-titrage" not in text and "suite" not in text
+        assert "avant19" in text and "apres0" in text
+        model = _FakeModel([[]] * 3, redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 20.0)], {},
+                                                  min_gap=6.0)
+        assert "Sous-titrage" in _rd_text(out)
+
+    def test_no_gap_time_ranges_without_vad(self, redecode):
+        """Without VAD (min_gap=None), a long time range without words is not
+        decoded again (it may be a pause or music); a known phrase still is."""
+        audio = redecode.np.zeros(40 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _rd_speech(30, 40, 20, "fin"))]
+        model = _FakeModel([], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)], {},
+                                                  min_gap=None)
+        assert out == segments and model.calls == []
+        segments = [_rd_segment(redecode, _rd_speech(0, 10, 20, "avant") + _RD_CREDIT_GLUED
+                                + _rd_speech(12, 20, 16, "apres"))]
+        model = _FakeModel([[_rd_segment(redecode, [(0.2, 0.8, " vrai"), (0.9, 1.5, " texte")])]], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)], {},
+                                                  min_gap=None)
+        assert "Sous-titrage" not in _rd_text(out) and "vrai texte" in _rd_text(out)
+
+    def test_long_time_range_needs_enough_words(self, redecode):
+        """The 00:50 case: a credit followed by 30 s of lost speech. An attempt
+        with one word for 30 s is not taken while a later one gives the speech;
+        when no attempt has enough words, the best clean one replaces the credit."""
+        audio = redecode.np.zeros(40 * _SR, dtype="float32")
+        segments = [_rd_segment(redecode, _RD_CREDIT), _rd_segment(redecode, _rd_speech(30, 40, 20, "fin"), 1)]
+        model = _FakeModel([
+            [_rd_segment(redecode, [(5.0, 5.5, " Bonjour.")])],    # 1 word for 30 s: not enough
+            [_rd_segment(redecode, _rd_speech(0, 28, 30))],        # the speech
+        ], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)],
+                                                  {"hotwords": "LinTO"}, min_gap=6.0)
+        assert "mot0" in _rd_text(out) and "Bonjour." not in _rd_text(out)
+        assert len(model.calls) == 2
+        # no attempt with enough words: the one with the most words replaces the credit
+        model = _FakeModel([
+            [_rd_segment(redecode, [(5.0, 5.5, " Bonjour.")])],
+            [_rd_segment(redecode, [(4.0, 4.5, " Au"), (4.6, 5.0, " revoir.")])],
+            [_rd_segment(redecode, _RD_CREDIT)],
+            [],
+            [_rd_segment(redecode, [(6.0, 6.5, " Merci.")])],
+        ], redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 40.0)],
+                                                  {"hotwords": "LinTO"}, min_gap=6.0)
+        text = _rd_text(out)
+        assert "Sous-titrage" not in text and "Au revoir." in text and "Bonjour." not in text
+
+    def test_punctuation_is_not_counted_as_words(self, redecode):
+        """faster-whisper returns "..." as words: "Merci ... ... ... ..." must not
+        win over "Merci Merci." (the end of a meeting, nothing after it)."""
+        audio = redecode.np.zeros(20 * _SR, dtype="float32")
+        outro = [(14.0, 15.0, " Merci"), (15.0, 15.5, " d'avoir"), (15.5, 16.0, " regardé"), (16.0, 16.5, " cette"),
+                 (16.5, 17.0, " vidéo"), (17.0, 17.0, " !")]
+        segments = [_rd_segment(redecode, _rd_speech(0, 13.8, 30, "avant") + outro)]
+        model = _FakeModel([
+            [_rd_segment(redecode, [(0.2, 0.6, " Merci"), (1.0, 1.4, " Merci.")])],
+            [_rd_segment(redecode, [(0.2, 0.6, " Merci")] + [(1.0 + i, 1.5 + i, " ...") for i in range(4)])],
+        ] + [[]] * 3, redecode.info)
+        out = redecode.module.redecode_suspicious(model, audio, segments, redecode.info, [(0.0, 20.0)], {},
+                                                  min_gap=6.0)
+        text = _rd_text(out)
+        assert "regardé" not in text and text.endswith("Merci Merci.")
