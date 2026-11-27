@@ -142,6 +142,43 @@ Supported languages:
 
 Model `large-v3` and derivatives also support `yue`(cantonese).
 
+### Hallucinations
+
+On some 30 s windows, even over speech, Whisper writes a subtitle credit or a
+video outro learned from its training data ("Sous-titrage Société
+Radio-Canada", "Sous-titrage ST' 501", "Merci d'avoir regardé cette vidéo")
+instead of what is said. It does so with a high confidence, so the temperature
+fallback does not retry, and the rest of the window can be lost (up to 30 s of
+speech). Whether it happens depends on where the window starts, and hotwords
+make it more frequent.
+
+With `HALLUCINATION_REDECODE=true` (the default; faster-whisper backend;
+offline decoding, not streaming, except plain-text HTTP requests (`Accept:
+text/plain`), which have no word timestamps), after the normal decoding:
+
+- **Suspicious time ranges** are the known hallucinated phrases (a multilingual
+  list of subtitle credits and video outros, matched whatever the language;
+  truncated forms such as "Sous-titrage" only when they make up a whole
+  segment), and the time ranges of at least `HALLUCINATION_REDECODE_MIN_GAP`
+  seconds (6 by default) of speech, according to the VAD, without any word
+  (only with a VAD: without one, pauses and music would count as lost speech).
+- Each one is **decoded again** as a separate excerpt running 5 s past the
+  time range (for context; only the words inside the time range are kept), in the
+  language of the whole audio: starting at the time range (with, then without the
+  hotwords), 1 s later (with, then without the hotwords), then 1 s earlier.
+- The first attempt with no known hallucinated phrase, not mostly repeated
+  words, and a plausible amount of words (0.5 per second of speech in the time
+  range, at least one) **replaces** the time range.
+- Where a known phrase was and no attempt reaches that amount, any clean attempt
+  is better than the phrase: the one with the most words replaces it, or else
+  one that gives no word at all in the time range while transcribing the speech
+  after it (there is no speech there: the phrase is **removed**).
+- Otherwise the time range keeps what Whisper first wrote.
+
+Cost: nothing on audio without suspicious time range; on a one-hour meeting where
+Whisper hallucinated about ten times, decoding took up to about 1.8 times
+longer on the affected chunks.
+
 ### Streaming Tuning
 
 We recommend running streaming on GPU with `large-v3-turbo` or smaller models (avoid `large-v3` as it is very expensive). Using a VAD on the server side (e.g. `silero`) is recommended.

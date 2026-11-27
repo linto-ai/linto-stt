@@ -83,6 +83,8 @@ Reference for all environment variables used by LinTO-STT, grouped by category.
 | `HOTWORDS` | _(none)_ | Default free-text hint phrases/words to bias the transcription toward a given spelling (e.g. proper nouns, jargon). Can be overridden per request with the `hotwords` query parameter (HTTP) or task argument. Only supported with the CTranslate2/faster-whisper backend; ignored by the `whisper_timestamped` backend |
 | `ALIGNMENT_MODEL` | _(none)_ | (Deprecated) Path to a wav2vec model for word alignment, or HuggingFace repository name or torchaudio pipeline |
 | `USE_ACCURATE` | `true` | Use more expensive parameters for better transcriptions (but slower). Uses beam_size=5 |
+| `HALLUCINATION_REDECODE` | `true` | (faster-whisper backend; offline decoding, not streaming, except plain-text HTTP requests (`Accept: text/plain`), which have no word timestamps) Decode again the time ranges where Whisper wrote a known hallucinated phrase (subtitle credit such as "Sous-titrage Société Radio-Canada", video outro) or lost the speech (no word for `HALLUCINATION_REDECODE_MIN_GAP` seconds inside the speech found by the VAD), with shifted windows, with and without the hotwords; the new words replace the old ones only when they look like speech (a known phrase is removed when the new decoding finds no speech there). `false` to disable |
+| `HALLUCINATION_REDECODE_MIN_GAP` | `6.0` | Minimum duration (seconds) of speech without any word that is decoded again (see `HALLUCINATION_REDECODE`). Only with a VAD: without one (`VAD=false`), only the known hallucinated phrases are decoded again |
 | `ENABLE_STREAMING` | `false` | (Legacy) For the HTTP mode, redirects to websocket mode if enabled |
 
 ## Kaldi-specific

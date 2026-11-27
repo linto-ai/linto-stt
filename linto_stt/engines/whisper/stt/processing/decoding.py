@@ -9,10 +9,12 @@ from linto_stt.engines.whisper.stt import (
     logger,
     USE_CTRANSLATE2,
     VAD, VAD_DILATATION, VAD_MIN_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION,
+    HALLUCINATION_REDECODE, HALLUCINATION_REDECODE_MIN_GAP,
     DEFAULT_BEAM_SIZE, DEFAULT_BEST_OF, DEFAULT_TEMPERATURE
 )
 
 from .vad import remove_non_speech
+from .redecode import redecode_suspicious
 from .alignment_model import get_alignment_model, load_alignment_model
 from .text_normalize import normalize_text, remove_emoji, remove_punctuation
 from .utils import SAMPLE_RATE, get_language
@@ -118,6 +120,7 @@ def decode_ct2(
     if hotwords is not None:
         kwargs["hotwords"] = hotwords
     kwargs["no_speech_threshold"] = 1  # To avoid empty output
+    kwargs["max_initial_timestamp"] = 10000.0  # Careful with this option
     if kwargs.get("beam_size") is None:
         kwargs["beam_size"] = 1
     if kwargs.get("best_of") is None:
@@ -150,8 +153,6 @@ def decode_ct2(
         audio,
         word_timestamps=with_word_timestamps,
         language=language,
-        # Careful with the following options
-        max_initial_timestamp=10000.0,
         # VAD is applied via clip_timestamps only; we rely on WhisperModel.transcribe's
         # vad_filter default (False). NB: BatchedInferencePipeline.transcribe defaults
         # vad_filter=True, so if ever switching to it, pass vad_filter=False explicitly
@@ -160,6 +161,17 @@ def decode_ct2(
         **kwargs,
     )
     segments = list(segments)
+
+    # Decode again the suspicious time ranges: a known hallucinated phrase, or speech
+    # (according to the VAD) without any word; see redecode.py.
+    if HALLUCINATION_REDECODE and with_word_timestamps:
+        if isinstance(clip_timestamps, list):
+            speech = list(zip(clip_timestamps[::2], clip_timestamps[1::2]))
+            min_gap = HALLUCINATION_REDECODE_MIN_GAP
+        else:  # no VAD: the whole audio, where pauses are not lost speech
+            speech = [(0.0, len(audio) / SAMPLE_RATE)]
+            min_gap = None
+        segments = redecode_suspicious(model, audio, segments, info, speech, kwargs, min_gap=min_gap)
 
     return format_faster_whisper_response(
         segments, info, remove_punctuation_from_words=remove_punctuation_from_words
