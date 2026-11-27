@@ -26,6 +26,7 @@ import time
 import torch
 
 from linto_stt.engines.hf.stt import (
+    LANGUAGE_IDENTIFICATION_LANGUAGES,
     LANGUAGE_IDENTIFICATION_MAX_DURATION,
     LANGUAGE_IDENTIFICATION_MODEL,
     logger,
@@ -168,17 +169,29 @@ class LanguageIdentifier:
         return max(candidates)[1], best
 
 
+def identification_candidates(accepted, recommended):
+    """The languages the identification chooses among
+    (LANGUAGE_IDENTIFICATION_LANGUAGES): the `recommended` (documented) ones
+    when known, by default, else the `accepted` (supported) ones."""
+    if LANGUAGE_IDENTIFICATION_LANGUAGES == "documented" and recommended:
+        return recommended
+    return accepted
+
+
 def identify_language(identifier, audio, accepted, recommended):
     """Run the language identifier for a request without a language; returns the
-    language to use, among the `accepted` ones, with warnings when it is
-    uncertain (best guess not accepted) or outside the `recommended` ones."""
+    language to use, among the candidates (see identification_candidates), with
+    warnings when it is uncertain (best guess not a candidate) or outside the
+    `recommended` ones."""
+    candidates = identification_candidates(accepted, recommended)
     start_t = time.time()
-    code, best = identifier.identify(audio, accepted)
+    code, best = identifier.identify(audio, candidates)
     logger.info(f"Identified language: {code} (t={time.time() - start_t:.3f}s)")
-    if accepted and identifier._code_in(best, accepted) is None:
+    if candidates and identifier._code_in(best, candidates) is None:
+        kind = "documented" if candidates is recommended else "supported"
         logger.warning(
-            f"The most likely language ({best}) is not supported by the model "
-            f"({describe(accepted)}): using {code}, the most likely among them"
+            f"The most likely language ({best}) is not among the model's {kind} "
+            f"languages ({describe(candidates)}): using {code}, the most likely among them"
         )
     if recommended and code not in recommended:
         logger.warning(

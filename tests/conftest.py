@@ -156,6 +156,24 @@ def test_audio_hotel():
     return path
 
 
+LONG_AUDIO_REPEATS = 42  # x 20 s = 14 minutes, a 27 MB WAV
+
+
+@pytest.fixture(scope="session")
+def long_audio(tmp_path_factory):
+    """A 14-minute WAV: the 20 s hotel dialogue repeated. Long enough to exceed
+    vLLM's default limits on one audio (25 MB, 600 s) and to span several engine
+    chunks (LONG_FILE_CHUNK_LEN) and many vLLM windows."""
+    import numpy as np
+    import wavio
+
+    clip = wavio.read(str(Path(__file__).resolve().parent / "Hotel20sec.wav"))
+    path = tmp_path_factory.mktemp("long_audio") / "hotel_14min.wav"
+    wavio.write(str(path), np.tile(clip.data, (LONG_AUDIO_REPEATS, 1)), clip.rate,
+                sampwidth=clip.sampwidth)
+    return path
+
+
 @pytest.fixture(scope="session")
 def test_audio_no_speech(tmp_path_factory):
     """Return paths to two generated 16 kHz mono WAVs with no speech at all:

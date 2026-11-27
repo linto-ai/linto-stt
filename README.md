@@ -148,7 +148,7 @@ Transcription endpoint.
 - **Content-Type**: `multipart/form-data`
 - **File**: Audio file (WAV 16bit 16kHz recommended)
 - **Language** (optional query param): Override the `LANGUAGE` environment variable
-- **Hotwords** (optional query param): Override the `HOTWORDS` environment variable (Whisper and HF engines)
+- **Hotwords** (optional query param): Override the `HOTWORDS` environment variable (Whisper, HF and NeMo engines)
 
 Response (`Accept: application/json`):
 

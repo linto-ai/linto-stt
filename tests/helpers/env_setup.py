@@ -36,5 +36,5 @@ def get_expected_regex(test_file: str, language: str = None) -> re.Pattern:
             return re.compile("Б")
         return re.compile("[bB]onjou")
     elif basename == "Hotel20sec.wav":
-        return re.compile("[bB]onjour [mM]onsieur")
+        return re.compile("[bB]onjour,? [mM]onsieur")
     raise ValueError(f"Unknown test file {test_file}")

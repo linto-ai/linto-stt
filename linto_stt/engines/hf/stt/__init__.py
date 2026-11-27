@@ -46,6 +46,11 @@ MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "1280"))
 # MAX_NEW_TOKENS) together for fewer/larger passes on a GPU with spare VRAM.
 LONG_FILE_THRESHOLD = int(os.environ.get("LONG_FILE_THRESHOLD", "240"))
 LONG_FILE_CHUNK_LEN = int(os.environ.get("LONG_FILE_CHUNK_LEN", "240"))
+# Whether they were set: when not, a model may have its own default (Granite
+# Speech on the vLLM backend: chunks of 120 s, as its model card advises).
+LONG_FILE_SETTINGS_FROM_ENV = bool(
+    os.environ.get("LONG_FILE_THRESHOLD") or os.environ.get("LONG_FILE_CHUNK_LEN")
+)
 
 # Attention kernel, e.g. "flash_attention_2" (needs flash-attn + fp16/bf16).
 # None lets transformers pick its default ("sdpa").
@@ -74,6 +79,19 @@ LANGUAGE_IDENTIFICATION_MODEL = (
 )
 # Seconds of audio, from the start, the identification is run on.
 LANGUAGE_IDENTIFICATION_MAX_DURATION = 30
+# The languages the identification chooses among: "documented" (the default),
+# those of the model card when it lists them, else those the model supports;
+# "supported", all those the model supports (Voxtral, Granite Speech: the 100 of
+# vLLM, where the card documents 6 to 8; on a short French "Bonjour", the most
+# likely of the 100 is Breton).
+LANGUAGE_IDENTIFICATION_LANGUAGES = (
+    os.environ.get("LANGUAGE_IDENTIFICATION_LANGUAGES") or "documented"
+).strip().lower()
+if LANGUAGE_IDENTIFICATION_LANGUAGES not in ("documented", "supported"):
+    raise ValueError(
+        f"Invalid LANGUAGE_IDENTIFICATION_LANGUAGES={LANGUAGE_IDENTIFICATION_LANGUAGES!r}: "
+        "use 'documented' or 'supported'"
+    )
 
 # Companion forced aligner used to produce word-level timestamps: a
 # Qwen3-ForcedAligner checkpoint, or "mms" (Meta's language-agnostic MMS CTC

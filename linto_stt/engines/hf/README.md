@@ -171,16 +171,16 @@ MODEL=Qwen/Qwen3-ASR-1.7B-hf DEVICE=cuda BACKEND=transformers uv run main.py -m 
 | **Qwen3-ASR** (`qwen3_asr`) | `Qwen/Qwen3-ASR-1.7B-hf` (default), `Qwen/Qwen3-ASR-0.6B-hf` | ✅ | ✅ | ✅ |
 | **Cohere Transcribe** (`cohere_asr`) | `CohereLabs/cohere-transcribe-03-2026` | ❌ | ✅ | ❌ |
 | **Voxtral** (`voxtral`) \* | `mistralai/Voxtral-Mini-3B-2507`, `mistralai/Voxtral-Small-24B-2507` | ✅ | ✅ | ❌ |
-| **Granite-Speech** (`granite_speech`) \* | `ibm-granite/granite-speech-4.1-2b`, `ibm-granite/granite-speech-3.3-8b` | ✅ | ❌ | ❌ |
+| **Granite-Speech** (`granite_speech`) \* | `ibm-granite/granite-speech-5.0-2b`, `ibm-granite/granite-speech-4.1-2b`, `ibm-granite/granite-speech-3.3-8b` | ✅ | ✅ 5.0 only | ✅ 5.0, 4.1 |
 | **Whisper** (`whisper`) | `openai/whisper-large-v3`, `openai/whisper-large-v3-turbo` | ✅ | ✅ | ❌ |
 
 - **Backends.** Qwen3-ASR, Cohere and Whisper run on **both** the `transformers`
   and `vllm` backends (on `transformers`, Whisper decodes audio over 30 s with
   transformers' sequential long-form decoding). The **\*-marked** models
   (Voxtral, Granite-Speech) run on the **`vllm` backend only** for now (their
-  in-process `transformers` path is not wired). vLLM serves them via the same
-  transcription endpoint, so no code change is needed to use them, only to
-  list/validate them.
+  in-process `transformers` path is not wired). vLLM serves Voxtral via the
+  same transcription endpoint as the others. Granite-Speech goes through vLLM's
+  chat endpoint instead (see [Granite-Speech](#granite-speech)).
 - **Word-level timestamps** (via the forced aligner) work for *every* model.
 - **Capabilities are detected from the model's processor signature, not its
   name**, so a request asking for an unsupported feature (hotwords on a model
@@ -316,12 +316,14 @@ backends.
     - With **language identification** (`LANGUAGE_IDENTIFICATION=true`, the
       default), the language is first identified by SpeechBrain's ECAPA model
       (trained on VoxLingua107, 107 languages, Apache 2.0) on the first 30 s of
-      the audio, choosing **only among the languages the model supports**. It
-      is then forced for the transcription, used to choose the aligner, and
-      returned as `language`. Models that require a language (Cohere) then work
-      without one. When the most likely language of the 107 is not one the
-      model supports (audio in another language), a warning is logged and the
-      most likely supported one is used. Cost: about 20 ms per request on GPU,
+      the audio, choosing **only among the languages of the model**: by default
+      the languages documented on its model card when it lists them, else all
+      those it supports (`LANGUAGE_IDENTIFICATION_LANGUAGES=supported`: always
+      all those it supports). It is then forced for the transcription, used to
+      choose the aligner, and returned as `language`. Models that require a language (Cohere) then work
+      without one. When the most likely language of the 107 is not
+      one of them (audio in another language), a warning is logged and the most
+      likely of them is used. Cost: about 20 ms per request on GPU,
       81 MB of weights (0.5 GB of GPU memory at peak), loaded at startup; the
       weights (86 MB) are downloaded to the Hugging Face cache on first use.
     - Without (`LANGUAGE_IDENTIFICATION=false`), the model detects the language
@@ -351,11 +353,14 @@ Each model has two language lists, read from its files (never from its name):
 | **Cohere Transcribe** | 14: `en, fr, de, it, es, pt, el, nl, pl, zh, ja, ko, vi, ar` | same 14 | request rejected (a language is required) |
 | **Whisper** (large-v3, large-v3-turbo) | 100 (Whisper's tokenizer) | 99 (no `yue`) | detects it |
 | **Voxtral** (Mini-3B, Small-24B) | 100 (vLLM) | 8: `en, es, fr, pt, hi, de, nl, it` | detects it |
-| **Granite-Speech** | 100 (vLLM); no forced language at all: any given language is rejected, an identified one is returned but not passed to the model | 4.1-2b: `en, fr, de, es, pt, ja`; 3.3-8b: `en, fr, de, es, pt` | detects it |
+| **Granite-Speech** | 100 (vLLM). A given language is passed to 5.0 only, and rejected by 4.1 and 3.3; an identified one is returned but never passed to the model (a wrong language makes it translate) | 5.0-2b, 4.1-2b: `en, fr, de, es, pt, ja`; 3.3-8b: `en, fr, de, es, pt` | detects it |
 
 With identification on (the default), a request without a language gets one
-of the **supported** languages (with a warning when it is outside the
-**documented** ones). Language identification (ECAPA) knows 107 languages: a
+of the **documented** languages, or of the **supported** ones when the card
+lists none (`LANGUAGE_IDENTIFICATION_LANGUAGES=supported`: always among the
+supported ones, with a warning when it is outside the documented ones). On
+models that accept vLLM's 100 languages, this avoids rare languages: on a 1 s
+French "Bonjour", the most likely of the 100 is Breton. Language identification (ECAPA) knows 107 languages: a
 supported language it does not know cannot be identified (`yue`: ECAPA only
 has `zh`); `fil` is identified through ECAPA's `tl` (Tagalog).
 
@@ -382,15 +387,41 @@ in the [Word timestamps](#word-timestamps) section.
 ### Hotwords
 
 `HOTWORDS` biases the transcription toward given words (proper nouns, jargon).
-Give comma-separated entries (each may be a multi-word phrase, e.g.
-`Quilter, Au revoir`) or, with no comma, whitespace-separated words. They are
-formatted into Qwen3-ASR's documented context prompt (`Vocabulary: a, b, c.`)
-and passed via the model's `prompt`. Overridable per request with the `hotwords`
-query parameter / task argument.
+Give comma-separated terms, each possibly made of several words (e.g.
+`Quilter, Au revoir`); without a comma, the whole string is one term (the
+format common to all engines). They are formatted into the prompt the model's
+card documents: `Vocabulary: a, b, c.` for Qwen3-ASR (its context prompt),
+`Keywords: a, b, c` for Granite-Speech (see below). Overridable per request
+with the `hotwords` query parameter / task argument.
 
 Note: Qwen3-ASR's context prompt is soft LM conditioning (not literal token
 biasing like faster-whisper's hotwords), and the model normalises casing, so
 hotwords nudge *which* words are produced rather than forcing an exact spelling.
+
+### Granite-Speech
+
+vLLM's transcription endpoint gives Granite-Speech a fixed prompt (a lowercase
+transcript without punctuation) and ignores the language and the hotwords. The
+engine therefore sends these models to vLLM's chat endpoint, with the prompts
+of the "Preferred prompt by task" table of their model card, read from the card
+(no setting):
+
+| Prompt | 5.0-2b | 4.1-2b | 3.3-8b |
+|---|:---:|:---:|:---:|
+| `transcribe the speech with proper punctuation and capitalization.` (else `can you transcribe the speech into a written format?`) | ✅ | ✅ | ❌ |
+| hotwords: `Keywords: a, b, c` (up to 2000 keywords for 5.0, per its card) | ✅ | ✅ | ❌ |
+| a given language: `The speech is in French. Transcribe it exactly; do not translate.` | ✅ | ❌ | ❌ |
+
+- A given language (`LANGUAGE` or the request) is passed to 5.0. A wrong one
+  makes the model translate (French speech, given English, comes out in
+  English), so a language found by language identification is returned but not
+  passed to the model, which then recognizes the language itself.
+- The chat endpoint does not cut long audio: the engine cuts files longer than
+  2 minutes into 2-minute chunks (the card advises segments of up to about 2
+  minutes), unless `LONG_FILE_THRESHOLD` / `LONG_FILE_CHUNK_LEN` are set.
+- The 5.0-2b repository also holds `out_llm.safetensors`, an extra layer that
+  is not part of the model, which vLLM would load and reject. The engine serves
+  the model from a temporary folder of links to its files, without that one.
 
 ### Word timestamps
 
@@ -448,11 +479,13 @@ forced-alignment model, [`Qwen3-ForcedAligner-0.6B-hf`](https://huggingface.co/Q
 - **Long audio**: handling depends on the backend.
   - On the **`vllm`** backend, vLLM chunks long audio **server-side** (~30 s
     windows, split at quiet points with a short overlap), so `LONG_FILE_THRESHOLD`
-    / `LONG_FILE_CHUNK_LEN` have **no effect**. Exception: Voxtral, which vLLM
-    feeds whole (its context grows with the audio duration). For it the engine
-    cuts files longer than `LONG_FILE_THRESHOLD` into `LONG_FILE_CHUNK_LEN`
-    pieces itself, as on the `transformers` backend, so it works on any length
-    with the default memory settings.
+    / `LONG_FILE_CHUNK_LEN` have **no effect**. Exceptions: Voxtral, which vLLM
+    feeds whole (its context grows with the audio duration), and Granite-Speech
+    (sent to the chat endpoint, see [Granite-Speech](#granite-speech)). For them
+    the engine cuts files longer than `LONG_FILE_THRESHOLD` into
+    `LONG_FILE_CHUNK_LEN` pieces itself, as on the `transformers` backend (for
+    Granite-Speech, 120 s by default instead of 240 s), so they work on any
+    length with the default memory settings.
   - On the **`transformers`** backend, only models that do not self-chunk
     (Qwen3-ASR) are chunked by the engine: files longer than `LONG_FILE_THRESHOLD`
     seconds are transcribed in consecutive non-overlapping chunks of

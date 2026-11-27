@@ -3,6 +3,7 @@ import string
 
 import pytest
 
+from conftest import LONG_AUDIO_REPEATS
 from helpers.env_setup import get_expected_regex
 from helpers.transcription_client import transcribe_http, transcribe_websocket
 
@@ -133,6 +134,155 @@ class TestNemoCTC:
 # ---------------------------------------------------------------------------
 # UV tests - Streaming (WebSocket)
 # ---------------------------------------------------------------------------
+
+
+HOTWORDS_BONJOUR = "BonJour, AuRevoir, PourquoiPas"
+
+
+def _nemo_hotwords_config(id, architecture, hotwords=None, device="cuda", **env_overrides):
+    # A strong boost (alpha 8, the default is 2): the test checks that the
+    # hotwords reach the decoding by forcing a spelling the model never chooses
+    # by itself ("BonJour"), as the whisper engine's hotword tests do.
+    env = {"MODEL": "linagora/linto_stt_fr_fastconformer_pc", "ARCHITECTURE": architecture,
+           "DEVICE": device, "VAD": "false", "HOTWORDS_BOOSTING_ALPHA": "8", **env_overrides}
+    if hotwords:
+        env["HOTWORDS"] = hotwords
+    return pytest.param({"engine": "nemo", "mode": "http", "port": 0, "env_overrides": env}, id=id)
+
+
+@pytest.mark.nemo
+@pytest.mark.uv
+@pytest.mark.gpu
+class TestNemoHotwords:
+    """Hotwords with NeMo's GPU phrase boosting, on a hybrid model decoded with
+    RNN-T and with CTC (whose `greedy` strategy is switched to `greedy_batch`, the
+    one that supports boosting)."""
+
+    @pytest.mark.parametrize("uv_server", [
+        _nemo_hotwords_config("hotwords-env-rnnt", "hybrid_bpe", hotwords=HOTWORDS_BONJOUR),
+        _nemo_hotwords_config("hotwords-env-ctc", "hybrid_bpe_ctc", hotwords=HOTWORDS_BONJOUR),
+    ], indirect=True)
+    def test_hotwords_spelling(self, uv_server, test_audio_bonjour):
+        """The HOTWORDS list should bias the spelling toward 'BonJour'."""
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert "BonJour" in result, f"Expected hotword spelling 'BonJour' in transcription: {result!r}"
+
+    @pytest.mark.parametrize("uv_server", [
+        # HOTWORDS deliberately NOT set: the biasing must come from the request.
+        _nemo_hotwords_config("hotwords-per-request-rnnt", "hybrid_bpe"),
+    ], indirect=True)
+    def test_hotwords_per_request(self, uv_server, test_audio_bonjour):
+        """The per-request `hotwords` query param should bias the spelling toward
+        'BonJour' with no HOTWORDS env set; a request without hotwords right after
+        is decoded without them (the boosting tree is removed)."""
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour), hotwords=HOTWORDS_BONJOUR)
+        assert "BonJour" in result, f"Expected request hotword spelling 'BonJour' in transcription: {result!r}"
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert "BonJour" not in result and get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+            f"Unexpected transcription without hotwords: {result!r}"
+        )
+
+
+@pytest.mark.nemo
+@pytest.mark.uv
+class TestNemoHotwordsCpu:
+    """Hotwords on CPU (no CUDA graphs in the decoding), and on audio cut into
+    chunks (LONG_FILE_*, lowered here so that the 20 s file is cut into 8 s
+    chunks)."""
+
+    @pytest.mark.parametrize("uv_server", [
+        _nemo_hotwords_config("hotwords-cpu-rnnt", "hybrid_bpe", hotwords=HOTWORDS_BONJOUR, device="cpu"),
+    ], indirect=True)
+    def test_hotwords_spelling(self, uv_server, test_audio_bonjour):
+        result = transcribe_http(uv_server["url"], str(test_audio_bonjour))
+        assert "BonJour" in result, f"Expected hotword spelling 'BonJour' in transcription: {result!r}"
+
+    @pytest.mark.parametrize("uv_server", [
+        # alpha 4: on 20 s of speech, alpha 8 also writes "BonJour" elsewhere.
+        _nemo_hotwords_config("chunked-cpu-rnnt", "hybrid_bpe", device="cpu", HOTWORDS_BOOSTING_ALPHA="4",
+                              LONG_FILE_THRESHOLD="10", LONG_FILE_CHUNK_LEN="8"),
+    ], indirect=True)
+    def test_chunked_file(self, uv_server, test_audio_hotel):
+        """Each passage is transcribed once (the chunks overlap by their context),
+        with and without word timestamps, and the hotwords apply to every chunk."""
+        for full in (False, True):
+            result = transcribe_http(uv_server["url"], str(test_audio_hotel), full=full)
+            text = result["text"] if full else result
+            assert get_expected_regex(str(test_audio_hotel), "fr").search(text), f"Unexpected: {text!r}"
+            assert len(re.findall("aimerais", text)) == 1, f"Passage repeated: {text!r}"
+            if full:
+                starts = [w["start"] for w in result["words"]]
+                assert starts == sorted(starts) and starts[-1] < 21, f"Wrong word times: {starts}"
+        result = transcribe_http(uv_server["url"], str(test_audio_hotel), hotwords="BonJour")
+        assert result.count("BonJour") == 2, f"Expected 'BonJour' twice: {result!r}"
+
+
+@pytest.mark.nemo
+@pytest.mark.uv
+@pytest.mark.gpu
+class TestNemoHotwordsCanary:
+    """Canary (beam search): hotwords pass through, without damaging the
+    transcription (no effect is checked: on the test files, Canary is not
+    steered before alpha 8, where "BonJour" damages "Bonjour")."""
+
+    @pytest.mark.parametrize("uv_server", [pytest.param(
+        {"engine": "nemo", "mode": "http", "port": 0,
+         "env_overrides": {"MODEL": "nvidia/canary-1b-v2", "DEVICE": "cuda", "VAD": "false",
+                           "LANGUAGE": "fr"}}, id="hotwords-canary")], indirect=True)
+    def test_hotwords(self, uv_server, test_audio_hotel):
+        for hotwords in ("chambre double, Broke", None):
+            result = transcribe_http(uv_server["url"], str(test_audio_hotel), hotwords=hotwords)
+            assert get_expected_regex(str(test_audio_hotel), "fr").search(result), (
+                f"Unexpected transcription with hotwords {hotwords!r}: {result!r}")
+            assert "chambre double" in result, f"Unexpected transcription: {result!r}"
+
+
+@pytest.mark.nemo
+@pytest.mark.uv
+@pytest.mark.gpu
+@pytest.mark.slow
+@pytest.mark.long
+class TestNemoHotwordsLongFile:
+    """A file of 14 minutes (cut into chunks with the default settings), with
+    hotwords."""
+
+    @pytest.mark.parametrize("uv_server", [
+        _nemo_hotwords_config("hotwords-long-rnnt", "hybrid_bpe", hotwords="BonJour",
+                              HOTWORDS_BOOSTING_ALPHA="4"),
+    ], indirect=True)
+    def test_long_file(self, uv_server, long_audio):
+        result = transcribe_http(uv_server["url"], str(long_audio), timeout=900)
+        # "Bonjour" is said twice and "J'aimerais" once per repetition.
+        count = result.count("BonJour")
+        assert count >= int(0.8 * 2 * LONG_AUDIO_REPEATS), f"'BonJour' found {count} times: {result[:300]}..."
+        count = len(re.findall("aimerais", result))
+        assert int(0.8 * LONG_AUDIO_REPEATS) <= count <= LONG_AUDIO_REPEATS, (
+            f"'aimerais' found {count} times for {LONG_AUDIO_REPEATS} repetitions: {result[:300]}...")
+
+
+@pytest.mark.nemo
+@pytest.mark.uv
+def test_hotwords_boosting_alpha(monkeypatch):
+    """Unset HOTWORDS_BOOSTING_ALPHA: 2 for fewer than 100 terms, 1 for more; set:
+    the given value, whatever the number of terms."""
+    pytest.importorskip("torch")
+    from linto_stt.engines.nemo import stt
+
+    monkeypatch.setattr(stt, "HOTWORDS_BOOSTING_ALPHA", None)
+    assert stt.hotwords_boosting_alpha(1) == stt.hotwords_boosting_alpha(99) == 2.0
+    assert stt.hotwords_boosting_alpha(100) == stt.hotwords_boosting_alpha(5000) == 1.0
+    monkeypatch.setattr(stt, "HOTWORDS_BOOSTING_ALPHA", 4.0)
+    assert stt.hotwords_boosting_alpha(1) == stt.hotwords_boosting_alpha(5000) == 4.0
+
+
+@pytest.mark.uv
+def test_parse_hotwords():
+    """The hotwords format, common to all engines (linto_stt/hotwords.py)."""
+    from linto_stt.hotwords import parse_hotwords
+
+    assert parse_hotwords("Broke, Jean-Luc Machin , ") == ["Broke", "Jean-Luc Machin"]
+    assert parse_hotwords("chambre double") == ["chambre double"]
+    assert parse_hotwords("") == [] and parse_hotwords(None) == []
 
 
 @pytest.mark.nemo
@@ -293,6 +443,39 @@ class TestNemoDocker:
         assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
             f"Unexpected transcription: {result}"
         )
+
+    @pytest.mark.gpu
+    @pytest.mark.parametrize(
+        "docker_server",
+        [
+            pytest.param(
+                {
+                    "engine": "nemo",
+                    "mode": "http",
+                    "port": 0,
+                    "env_overrides": {
+                        "MODEL": "nvidia/stt_fr_conformer_ctc_large",
+                        "ARCHITECTURE": "rnnt_bpe",
+                        "DEVICE": "cuda",
+                        "VAD": "false",
+                    },
+                },
+                id="hotwords-gpu-http",
+            ),
+        ],
+        indirect=True,
+    )
+    def test_hotwords_gpu(self, docker_server, test_audio_bonjour):
+        """Hotwords in the GPU image: on CUDA, NeMo's boosting runs Triton
+        kernels, compiled at the first request with hotwords, which needs a C
+        compiler in the image (without it, the request fails). This model writes
+        in lower case, so the effect of the hotwords is not checked here (see
+        TestNemoHotwords)."""
+        for hotwords in ("BonJour, Madame", None):
+            result = transcribe_http(docker_server["url"], str(test_audio_bonjour), hotwords=hotwords)
+            assert get_expected_regex(str(test_audio_bonjour), "fr").search(result), (
+                f"Unexpected transcription with hotwords {hotwords!r}: {result!r}"
+            )
 
     @pytest.mark.parametrize(
         "docker_server",

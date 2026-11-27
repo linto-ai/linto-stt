@@ -28,7 +28,7 @@ def warmup():
 
 
 class LazyLoadedModel:
-    def __init__(self, model_type, device, num_threads, decoding_strategy_if_hybrid="ctc"):
+    def __init__(self, model_type, device, num_threads, decoding_strategy_if_hybrid=None):
         self.model_type = model_type
         self.decoding_strategy_if_hybrid = decoding_strategy_if_hybrid
         self.device = device

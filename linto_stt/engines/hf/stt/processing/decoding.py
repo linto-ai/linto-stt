@@ -2,9 +2,11 @@ import time
 
 import torch
 
+from linto_stt.hotwords import parse_hotwords
 from linto_stt.engines.hf.stt import (
     HOTWORDS,
     LONG_FILE_CHUNK_LEN,
+    LONG_FILE_SETTINGS_FROM_ENV,
     LONG_FILE_THRESHOLD,
     logger,
 )
@@ -13,25 +15,31 @@ from .languages import describe, identify_language
 from .utils import SAMPLE_RATE, get_language, normalize_language_code
 
 
-def _hotwords_prompt(hotwords):
-    """Turn a hotwords string into Qwen3-ASR's documented context prompt.
-
-    The model biases decoding toward a context prompt whose documented form is
-    ``"Vocabulary: a, b, c."`` (see the Qwen3-ASR model card). Hotwords may be
-    given as comma-separated entries (each entry may be a multi-word phrase, e.g.
-    ``"Au revoir"``) or, when there is no comma, as whitespace-separated words.
-    Returns None when there are no hotwords (so no prompt is sent).
+def _hotwords_prompt(hotwords, asr=None):
+    """Turn a hotwords string into the model's prompt: the backend's own format
+    when it has one (Granite Speech: ``"Keywords: a, b, c"``), else Qwen3-ASR's
+    documented context prompt, ``"Vocabulary: a, b, c."`` (see the Qwen3-ASR
+    model card). The terms follow the common hotwords format
+    (linto_stt/hotwords.py). Returns None when there are no hotwords (so no
+    prompt is sent).
     """
-    if not hotwords:
+    terms = parse_hotwords(hotwords)
+    if not terms:
         return None
-    if "," in hotwords:
-        entries = [e.strip() for e in hotwords.split(",")]
-    else:
-        entries = hotwords.split()
-    entries = [e for e in entries if e]
-    if not entries:
-        return None
-    return "Vocabulary: " + ", ".join(entries) + "."
+    to_prompt = getattr(asr, "hotwords_prompt", None)
+    if to_prompt is not None:
+        return to_prompt(terms)
+    return "Vocabulary: " + ", ".join(terms) + "."
+
+
+def _long_file_settings(asr):
+    """(threshold, chunk length) in seconds for the audio the engine cuts: the
+    LONG_FILE_* settings when set, else the backend's own chunk length when it
+    has one (Granite Speech on the vLLM backend: 120 s), else the defaults."""
+    own = getattr(asr, "long_file_chunk_len", None)
+    if LONG_FILE_SETTINGS_FROM_ENV or not own:
+        return LONG_FILE_THRESHOLD, LONG_FILE_CHUNK_LEN
+    return own, own
 
 
 def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
@@ -97,25 +105,28 @@ def decode(audio, model, with_word_timestamps, language=None, hotwords=None):
                 "it to '*') and the request `language` parameter."
             )
         asr_language = None  # identified: returned, but not passed to the model
-    prompt = _hotwords_prompt(hotwords)
+    elif identified and not getattr(asr, "forces_identified_language", True):
+        asr_language = None  # Granite Speech translates when the language is wrong
+    prompt = _hotwords_prompt(hotwords, asr)
 
     duration = len(audio) / SAMPLE_RATE
+    threshold, chunk_len = _long_file_settings(asr)
     # Some backends split long audio themselves (the vLLM serve backend chunks
     # server-side ~30s; seq2seq models such as Cohere self-chunk), so the engine
     # must not also chunk them -- LONG_FILE_THRESHOLD then has no effect. It only
     # applies to models that do not self-chunk: Qwen3-ASR in-process, and the
     # models vLLM does not window (Voxtral).
-    if duration <= LONG_FILE_THRESHOLD or getattr(asr, "handles_long_audio", False):
+    if duration <= threshold or getattr(asr, "handles_long_audio", False):
         text, words, result_language = _transcribe_segment(
             model, audio, with_word_timestamps, asr_language, prompt
         )
     else:
         logger.info(
-            f"Audio is {duration:.0f}s (> {LONG_FILE_THRESHOLD}s): transcribing in "
-            f"{LONG_FILE_CHUNK_LEN}s chunks"
+            f"Audio is {duration:.0f}s (> {threshold}s): transcribing in "
+            f"{chunk_len}s chunks"
         )
         text, words, result_language = _transcribe_long(
-            model, audio, with_word_timestamps, asr_language, prompt
+            model, audio, with_word_timestamps, asr_language, prompt, chunk_len
         )
     if identified:
         result_language = language
@@ -159,7 +170,8 @@ def _transcribe_segment(model, audio, with_word_timestamps, language, prompt):
     return text, words, result_language
 
 
-def _transcribe_long(model, audio, with_word_timestamps, language, prompt):
+def _transcribe_long(model, audio, with_word_timestamps, language, prompt,
+                     chunk_len=LONG_FILE_CHUNK_LEN):
     """Transcribe long audio in consecutive non-overlapping chunks and merge.
 
     Chunks are cut at fixed boundaries (no overlap), so the concatenated words
@@ -167,7 +179,7 @@ def _transcribe_long(model, audio, with_word_timestamps, language, prompt):
     offset by that chunk's start time. A word spoken exactly across a cut may be
     split at the boundary; keep chunks a few minutes long to make this rare.
     """
-    chunk_samples = LONG_FILE_CHUNK_LEN * SAMPLE_RATE
+    chunk_samples = chunk_len * SAMPLE_RATE
     texts = []
     words = []
     languages = []

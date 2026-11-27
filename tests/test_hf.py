@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import LONG_AUDIO_REPEATS
 from helpers.env_setup import build_env_dict, get_expected_regex
 from helpers.server_runner import UVServerRunner
 from helpers.transcription_client import transcribe_http
@@ -22,6 +23,9 @@ TEST_MODEL = "Qwen/Qwen3-ASR-0.6B-hf"
 COHERE_MODEL = "CohereLabs/cohere-transcribe-03-2026"
 # Whisper (served by the hf engine on both backends); only its processor is used here.
 WHISPER_MODEL = "openai/whisper-large-v3-turbo"
+# Granite Speech 5.0: served through vLLM's chat endpoint, with the prompts of
+# its model card (punctuation, keywords, a given language).
+GRANITE_MODEL = "ibm-granite/granite-speech-5.0-2b"
 
 # Hotwords biasing demo on Hotel20sec.wav: unprompted, the 0.6B model mis-hears
 # the spoken "chambre double" ("double room") as "chambre d'eau". Supplying
@@ -335,7 +339,8 @@ class TestHfLanguages:
     """Language handling in `decode`: a given language must be one the model
     accepts (else HTTP 400), with a warning outside its documented languages;
     without a language, the language identifier (LANGUAGE_IDENTIFICATION) picks
-    one among the accepted languages, else the model detects it, else "*".
+    one among the documented (else accepted) languages, else the model detects
+    it, else "*".
     Stub backend and identifier, except the last test (the real ECAPA on CPU)."""
 
     @pytest.fixture
@@ -400,6 +405,28 @@ class TestHfLanguages:
         model, calls = self._model(identified="de")
         result = decode(self._audio(), model, True, language="*")
         assert calls == ["de"] and result["language"] == "de"
+
+    def test_identification_among_documented_languages(self, decode, monkeypatch):
+        """LANGUAGE_IDENTIFICATION_LANGUAGES: by default ("documented") the
+        identifier chooses among the model card's languages when known, else
+        among the supported ones; "supported": always among the supported ones."""
+        from types import SimpleNamespace
+
+        from linto_stt.engines.hf.stt.processing import languages
+
+        def run(recommended):
+            seen = []
+            model, calls = self._model(accepted=("fr", "en", "de", "br"), recommended=recommended)
+            model.language_identifier = SimpleNamespace(
+                identify=lambda audio, languages=None: seen.append(languages) or ("fr", "fr"),
+                _code_in=lambda code, languages: code if code in languages else None)
+            assert decode(self._audio(), model, True, language="*")["language"] == "fr"
+            return seen[0]
+
+        assert run(("fr", "en")) == {"fr", "en"}
+        assert run(None) == {"fr", "en", "de", "br"}
+        monkeypatch.setattr(languages, "LANGUAGE_IDENTIFICATION_LANGUAGES", "supported")
+        assert run(("fr", "en")) == {"fr", "en", "de", "br"}
 
     def test_identification_lets_a_model_without_detection_run(self, decode):
         """Cohere-like model (a language is required): works without one when
@@ -550,22 +577,121 @@ class TestHfWhisperVllm:
 # ---------------------------------------------------------------------------
 
 VOXTRAL_MODEL = "mistralai/Voxtral-Mini-3B-2507"
-LONG_AUDIO_REPEATS = 42  # x 20 s = 14 minutes, a 27 MB WAV
 
 
-@pytest.fixture(scope="module")
-def long_audio(tmp_path_factory):
-    """A 14-minute WAV: the 20 s hotel dialogue repeated. Long enough to exceed
-    vLLM's default limits on one audio (25 MB, 600 s) and to span several engine
-    chunks (LONG_FILE_CHUNK_LEN) and many vLLM windows."""
-    import numpy as np
-    import wavio
+@pytest.mark.hf
+@pytest.mark.uv
+class TestHfGranitePrompts:
+    """Granite Speech prompts and the helpers around them (CPU, no model: the
+    card text is given)."""
 
-    clip = wavio.read(str(Path(__file__).resolve().parent / "Hotel20sec.wav"))
-    path = tmp_path_factory.mktemp("long_audio") / "hotel_14min.wav"
-    wavio.write(str(path), np.tile(clip.data, (LONG_AUDIO_REPEATS, 1)), clip.rate,
-                sampwidth=clip.sampwidth)
-    return path
+    @pytest.fixture
+    def backends(self, monkeypatch):
+        monkeypatch.setenv("DEVICE", "cpu")
+        monkeypatch.setenv("SERVICE_MODE", "http")
+        monkeypatch.setenv("BACKEND", "transformers")
+        pytest.importorskip("transformers")
+        from linto_stt.engines.hf.stt.processing import backends
+
+        return backends
+
+    def _prompts(self, backends, monkeypatch, card):
+        monkeypatch.setattr(backends, "_card_text", lambda model_name: card)
+        return backends.GranitePrompts("unused")
+
+    def test_prompts_from_card(self, backends, monkeypatch):
+        """What the card documents is what is used (4.1: no language prompt)."""
+        card_41 = ("| ASR (with punctuation) | transcribe the speech with proper punctuation "
+                   "and capitalization. |\n| ASR (with keyword biasing) | transcribe the speech "
+                   "to text. Keywords: <kw1>, <kw2>, ... |")
+        card_50 = card_41 + "\n| ASR (with language ID) | The speech is in <language>. ... |"
+        g = self._prompts(backends, monkeypatch, card_50)
+        assert (g.punctuation, g.keywords, g.language) == (True, True, True)
+        assert g.text("fr", g.hotwords_prompt(["Broke", "Jean-Luc Machin"])) == (
+            "The speech is in French. Transcribe it exactly; do not translate. "
+            "transcribe the speech with proper punctuation and capitalization. "
+            "Keywords: Broke, Jean-Luc Machin")
+        g = self._prompts(backends, monkeypatch, card_41)
+        assert (g.punctuation, g.keywords, g.language) == (True, True, False)
+        assert g.text("fr", "Keywords: Broke") == (
+            "transcribe the speech with proper punctuation and capitalization. Keywords: Broke")
+        g = self._prompts(backends, monkeypatch, "")  # unreadable card: the raw prompt only
+        assert g.text("fr", "Keywords: Broke") == "can you transcribe the speech into a written format?"
+
+    def test_extra_weight_files(self, backends):
+        """Weights next to model.safetensors that vLLM would load (no index)."""
+        assert backends._extra_weight_files(
+            ["model.safetensors", "out_llm.safetensors", "config.json", "sub/x.safetensors"]
+        ) == ["out_llm.safetensors"]
+        assert backends._extra_weight_files(["model.safetensors", "config.json"]) == []
+        assert backends._extra_weight_files(  # sharded with an index: vLLM filters itself
+            ["model.safetensors", "model-00001-of-00002.safetensors", "model.safetensors.index.json"]
+        ) == []
+
+    def test_hotwords_prompt_and_chunk_length(self, backends, monkeypatch):
+        """The backend's keyword format and chunk length are used when it has
+        them; else Qwen3-ASR's format and the LONG_FILE_* defaults."""
+        from types import SimpleNamespace
+
+        from linto_stt.engines.hf.stt.processing import decoding
+
+        granite = SimpleNamespace(hotwords_prompt=backends.GranitePrompts.hotwords_prompt,
+                                  long_file_chunk_len=120)
+        qwen = SimpleNamespace()
+        assert decoding._hotwords_prompt("Broke, Jean-Luc Machin", granite) == (
+            "Keywords: Broke, Jean-Luc Machin")
+        assert decoding._hotwords_prompt("chambre double", qwen) == "Vocabulary: chambre double."
+        assert decoding._hotwords_prompt("", granite) is None
+        monkeypatch.setattr(decoding, "LONG_FILE_SETTINGS_FROM_ENV", False)
+        assert decoding._long_file_settings(granite) == (120, 120)
+        assert decoding._long_file_settings(qwen) == (
+            decoding.LONG_FILE_THRESHOLD, decoding.LONG_FILE_CHUNK_LEN)
+        monkeypatch.setattr(decoding, "LONG_FILE_SETTINGS_FROM_ENV", True)
+        assert decoding._long_file_settings(granite) == (
+            decoding.LONG_FILE_THRESHOLD, decoding.LONG_FILE_CHUNK_LEN)
+
+
+@pytest.fixture(scope="class")
+def granite_vllm_server(project_root, server_timeout):
+    """Granite Speech 5.0, no LANGUAGE (identified, not given to the model), eager."""
+    yield from _class_server(project_root, server_timeout,
+                             {"MODEL": GRANITE_MODEL, "DEVICE": "cuda", "BACKEND": "vllm", **EAGER})
+
+
+class TestHfGraniteVllm:
+    """Granite Speech 5.0 on the vllm backend, one server: punctuation and
+    capitalization, a given language, hotwords (keyword biasing)."""
+
+    pytestmark = VLLM_MARKS
+
+    def test_integration(self, granite_vllm_server, test_audio_hotel):
+        """The language is identified and returned (not given to the model), and
+        the punctuation prompt gives a capitalized and punctuated transcript."""
+        result = transcribe_http(granite_vllm_server["url"], str(test_audio_hotel), full=True)
+        assert "Bonjour, madame." in result["text"], f"Unexpected transcription: {result}"
+        assert result["language"] == "fr"
+
+    def test_language_given(self, granite_vllm_server, test_audio_bonjour):
+        result = transcribe_http(granite_vllm_server["url"], str(test_audio_bonjour),
+                                 language="fr", full=True)
+        assert "Bonjour" in result["text"], f"Unexpected transcription: {result}"
+        assert result["language"] == "fr"
+
+    def test_hotwords(self, granite_vllm_server, test_audio_hotel):
+        """Without hotwords, the spoken "chambre double" is heard as "chambre
+        douze"; with them, "double" is written."""
+        result = transcribe_http(granite_vllm_server["url"], str(test_audio_hotel))
+        assert get_expected_regex(str(test_audio_hotel), "fr").search(result), (
+            f"Unexpected transcription: {result!r}"
+        )
+        assert BIASED_WORD not in result.lower(), (
+            f"Baseline unexpectedly already contains {BIASED_WORD!r}: {result!r}"
+        )
+        result = transcribe_http(granite_vllm_server["url"], str(test_audio_hotel),
+                                 hotwords=HOTWORDS)
+        assert BIASED_WORD in result.lower(), (
+            f"Expected hotword-biased {BIASED_WORD!r} in transcription: {result!r}"
+        )
 
 
 def _long_config(model, id):
@@ -585,12 +711,14 @@ def _long_config(model, id):
 class TestHfLongAudio:
     """A file of 14 minutes on the vllm backend, with the default memory
     settings. Two cases: a model that vLLM cuts into 30 s windows (Qwen3-ASR:
-    the engine sends the whole file) and one that it does not (Voxtral: the
-    engine cuts the file itself, else the request exceeds the context)."""
+    the engine sends the whole file) and models that it does not (Voxtral, and
+    Granite through the chat endpoint: the engine cuts the file itself, else the
+    request exceeds the context)."""
 
     @pytest.mark.parametrize(
         "uv_server",
-        [_long_config(TEST_MODEL, "long-qwen"), _long_config(VOXTRAL_MODEL, "long-voxtral")],
+        [_long_config(TEST_MODEL, "long-qwen"), _long_config(VOXTRAL_MODEL, "long-voxtral"),
+         _long_config(GRANITE_MODEL, "long-granite")],
         indirect=True,
     )
     def test_long_file(self, uv_server, long_audio):
